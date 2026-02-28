@@ -1,1 +1,1 @@
-# Canteen360
+# QuickEats

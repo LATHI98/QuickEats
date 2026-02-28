@@ -1,7 +1,7 @@
 // Frontend configuration
 const config = {
   // API URL - Update this to match your backend server URL
-  API_URL: process.env.REACT_APP_API_URL || 'http://localhost:5000',
+  API_URL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
   
   // Other configuration options can be added here
   // For example:

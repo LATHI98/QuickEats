@@ -4,9 +4,13 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import foodRoutes from './routes/foodRoutes.js'
+import orderRoutes from './routes/OrderRoutes.js'
+import reviewRoutes from './routes/reviewRoutes.js'
+import staffRoutes from './routes/StaffRoutes.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, '..', '.env') });
+dotenv.config({ path: join(__dirname, '.env') });
 
 import authRoutes from './routes/auth.routes.js';
 import User from './models/User.model.js';
@@ -69,6 +73,11 @@ async function seedDatabase() {
     console.log('Student created: student@quickeats.com / student123');
   }
 }
+
+app.use('/api/food', foodRoutes);
+app.use('/api/order', orderRoutes);
+app.use('/api/review', reviewRoutes);
+app.use('/api/staff', staffRoutes);
 
 mongoose.connect(process.env.MONGODBURL)
   .then(async () => {

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, '.env') });
+dotenv.config({ path: join(__dirname, '..', '.env') });
 
 import authRoutes from './routes/auth.routes.js';
 import User from './models/User.model.js';
@@ -17,6 +17,7 @@ const allowedOrigins = [
   process.env.CORS_ORIGIN,
   'http://localhost:3000',
   'http://localhost:3001',
+  'http://localhost:5173',
 ].filter(Boolean);
 
 app.use(cors({

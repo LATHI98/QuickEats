@@ -28,8 +28,8 @@ export const AuthProvider = ({ children }) => {
     restoreSession();
   }, []);
 
-  const login = async (email, password) => {
-    const res = await api.post('/api/auth/login', { email, password });
+  const login = async (email, password, role) => {
+    const res = await api.post('/api/auth/login', { email, password, role });
     const { token, user: loggedInUser } = res.data;
 
     localStorage.setItem('token', token);
@@ -37,10 +37,10 @@ export const AuthProvider = ({ children }) => {
     setUser(loggedInUser);
 
     // Route based on role
-    if (loggedInUser.role === 'student') {
+    if (loggedInUser.role === 'student' || loggedInUser.role === 'universityStaff') {
       navigate('/dashboard');
     } else {
-      navigate('/admin/dashboard');
+      navigate('/admin');
     }
 
     return loggedInUser;

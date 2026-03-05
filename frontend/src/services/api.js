@@ -26,4 +26,49 @@ api.interceptors.response.use(
   }
 );
 
+// ── Canteens & Menu ───────────────────────────────────────────────────────────
+export const canteenAPI = {
+  getAll: () => api.get('/api/canteens'),
+  getById: (id) => api.get(`/api/canteens/${id}`),
+  getMenu: (id, params) => api.get(`/api/canteens/${id}/menu`, { params }),
+};
+
+// ── Cart ─────────────────────────────────────────────────────────────────────
+export const cartAPI = {
+  getCart: () => api.get('/api/cart'),
+  addItem: (menuItemId, quantity) => api.post('/api/cart/items', { menuItemId, quantity }),
+  updateItem: (menuItemId, quantity) => api.put(`/api/cart/items/${menuItemId}`, { quantity }),
+  removeItem: (menuItemId) => api.delete(`/api/cart/items/${menuItemId}`),
+  clearCart: () => api.delete('/api/cart'),
+};
+
+// ── Orders ────────────────────────────────────────────────────────────────────
+export const orderAPI = {
+  placeOrder: () => api.post('/api/orders'),
+  getMyOrders: (params) => api.get('/api/orders/my', { params }),
+  getMyOrderById: (orderId) => api.get(`/api/orders/my/${orderId}`),
+  cancelOrder: (orderId) => api.patch(`/api/orders/${orderId}/cancel`),
+  // Staff
+  getCanteenOrders: (params) => api.get('/api/orders/canteen', { params }),
+  updateOrderStatus: (orderId, status) => api.patch(`/api/orders/${orderId}/status`, { status }),
+  verifyPickup: (orderId, qrToken) => api.post(`/api/orders/${orderId}/pickup-verify`, { qrToken }),
+};
+
+// ── Payment ───────────────────────────────────────────────────────────────────
+export const paymentAPI = {
+  submitCash: (orderId) => api.post(`/api/orders/${orderId}/payment/cash`),
+  createStripeIntent: (orderId) => api.post(`/api/orders/${orderId}/payment/stripe/create-intent`),
+  getPaymentStatus: (orderId) => api.get(`/api/orders/${orderId}/payment`),
+  verifyPayment: (orderId) => api.patch(`/api/orders/${orderId}/payment/verify`),
+  rejectPayment: (orderId, reason) => api.patch(`/api/orders/${orderId}/payment/reject`, { reason }),
+};
+
+// ── Queue ─────────────────────────────────────────────────────────────────────
+export const queueAPI = {
+  getSlots: (canteenId) => api.get(`/api/queue/${canteenId}/slots`),
+  getStatus: (canteenId) => api.get(`/api/queue/${canteenId}/status`),
+  getMyPosition: (canteenId, orderId) => api.get(`/api/queue/${canteenId}/my-position/${orderId}`),
+  setNowServing: (canteenId, currentlyServing) => api.patch(`/api/queue/${canteenId}/serving`, { currentlyServing }),
+};
+
 export default api;

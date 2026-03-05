@@ -1,0 +1,254 @@
+{
+  "info": {
+    "name": "QuickEats — Orders, Payment & Queue",
+    "_postman_id": "quickeats-orders-v1",
+    "description": "All endpoints for Cart, Order Placement, Order Status Tracking, Payment (Stripe + Cash), and Queue Management.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:5000" },
+    { "key": "token", "value": "" },
+    { "key": "staffToken", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "canteenId", "value": "69a92b15bc690899d98f0538" },
+    { "key": "menuItemId", "value": "69a92b15bc690899d98f053f" },
+    { "key": "clientSecret", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Auth (get tokens)",
+      "item": [
+        {
+          "name": "Login as Student",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if(r.token) pm.collectionVariables.set('token', r.token);"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"student@quickeats.com\",\n  \"password\": \"student123\",\n  \"role\": \"student\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          }
+        },
+        {
+          "name": "Login as Canteen Staff",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if(r.token) pm.collectionVariables.set('staffToken', r.token);"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"staff@quickeats.com\",\n  \"password\": \"staff123\",\n  \"role\": \"canteenStaff\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Cart",
+      "item": [
+        {
+          "name": "GET /api/cart — Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/cart", "host": ["{{baseUrl}}"], "path": ["api", "cart"] }
+          }
+        },
+        {
+          "name": "POST /api/cart/items — Add Item",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"menuItemId\": \"{{menuItemId}}\",\n  \"quantity\": 2\n}" },
+            "url": { "raw": "{{baseUrl}}/api/cart/items", "host": ["{{baseUrl}}"], "path": ["api", "cart", "items"] }
+          }
+        },
+        {
+          "name": "PUT /api/cart/items/:menuItemId — Update Quantity",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"quantity\": 3\n}" },
+            "url": { "raw": "{{baseUrl}}/api/cart/items/{{menuItemId}}", "host": ["{{baseUrl}}"], "path": ["api", "cart", "items", "{{menuItemId}}"] }
+          }
+        },
+        {
+          "name": "DELETE /api/cart/items/:menuItemId — Remove Item",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/cart/items/{{menuItemId}}", "host": ["{{baseUrl}}"], "path": ["api", "cart", "items", "{{menuItemId}}"] }
+          }
+        },
+        {
+          "name": "DELETE /api/cart — Clear Cart",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/cart", "host": ["{{baseUrl}}"], "path": ["api", "cart"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Order Placement",
+      "item": [
+        {
+          "name": "POST /api/orders — Place Order",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if(r.data && r.data._id) pm.collectionVariables.set('orderId', r.data._id);"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders", "host": ["{{baseUrl}}"], "path": ["api", "orders"] }
+          }
+        },
+        {
+          "name": "PATCH /api/orders/:orderId/cancel — Cancel Order",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/cancel", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "cancel"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Order Status Tracking",
+      "item": [
+        {
+          "name": "GET /api/orders/my — My Orders",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/my?status=pending&date=2026-03-05",
+              "host": ["{{baseUrl}}"], "path": ["api", "orders", "my"],
+              "query": [{ "key": "status", "value": "pending" }, { "key": "date", "value": "2026-03-05" }]
+            }
+          }
+        },
+        {
+          "name": "GET /api/orders/my/:orderId — Order Detail",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders/my/{{orderId}}", "host": ["{{baseUrl}}"], "path": ["api", "orders", "my", "{{orderId}}"] }
+          }
+        },
+        {
+          "name": "GET /api/orders/canteen — Canteen Orders (Staff)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/orders/canteen?status=pending",
+              "host": ["{{baseUrl}}"], "path": ["api", "orders", "canteen"],
+              "query": [{ "key": "status", "value": "pending" }]
+            }
+          }
+        },
+        {
+          "name": "PATCH /api/orders/:orderId/status — Advance Status (Staff)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"ready\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "status"] }
+          }
+        },
+        {
+          "name": "POST /api/orders/:orderId/pickup-verify — QR Verify (Staff)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"qrToken\": \"paste-qr-token-from-order-detail-here\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/pickup-verify", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "pickup-verify"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Payment",
+      "item": [
+        {
+          "name": "POST — Stripe: Create Payment Intent",
+          "event": [{ "listen": "test", "script": { "exec": ["const r = pm.response.json();", "if(r.data) pm.collectionVariables.set('clientSecret', r.data.clientSecret);"], "type": "text/javascript" } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/payment/stripe/create-intent", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "payment", "stripe", "create-intent"] }
+          }
+        },
+        {
+          "name": "POST — Cash: Submit Payment",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"method\": \"cash\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/payment/cash", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "payment", "cash"] }
+          }
+        },
+        {
+          "name": "GET — Get Payment Status",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/payment", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "payment"] }
+          }
+        },
+        {
+          "name": "PATCH — Verify Payment (Staff)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }],
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/payment/verify", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "payment", "verify"] }
+          }
+        },
+        {
+          "name": "PATCH — Reject Payment (Staff)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"reason\": \"Payment proof not valid\"\n}" },
+            "url": { "raw": "{{baseUrl}}/api/orders/{{orderId}}/payment/reject", "host": ["{{baseUrl}}"], "path": ["api", "orders", "{{orderId}}", "payment", "reject"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Queue",
+      "item": [
+        {
+          "name": "GET /api/queue/:canteenId/slots — Available Slots",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/queue/{{canteenId}}/slots", "host": ["{{baseUrl}}"], "path": ["api", "queue", "{{canteenId}}", "slots"] }
+          }
+        },
+        {
+          "name": "GET /api/queue/:canteenId/status — Live Queue Board",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/queue/{{canteenId}}/status", "host": ["{{baseUrl}}"], "path": ["api", "queue", "{{canteenId}}", "status"] }
+          }
+        },
+        {
+          "name": "GET /api/queue/:canteenId/my-position/:orderId — My Position",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{baseUrl}}/api/queue/{{canteenId}}/my-position/{{orderId}}", "host": ["{{baseUrl}}"], "path": ["api", "queue", "{{canteenId}}", "my-position", "{{orderId}}"] }
+          }
+        },
+        {
+          "name": "PATCH /api/queue/:canteenId/serving — Set Now Serving (Staff)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{staffToken}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"currentlyServing\": 5\n}" },
+            "url": { "raw": "{{baseUrl}}/api/queue/{{canteenId}}/serving", "host": ["{{baseUrl}}"], "path": ["api", "queue", "{{canteenId}}", "serving"] }
+          }
+        }
+      ]
+    }
+  ]
+}

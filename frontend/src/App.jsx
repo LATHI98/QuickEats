@@ -24,10 +24,14 @@ import AdminSettings from './Pages/Admin/SettingsPage';
 import StudentDashboard from './Pages/Student/DashboardPage';
 import StudentCanteens from './Pages/Student/CanteensPage';
 import StudentOrders from './Pages/Student/OrdersPage';
+import PaymentPage from './Pages/Student/PaymentPage';
+import CartPage from './Pages/Student/CartPage';
+import CanteenMenuPage from './Pages/Student/CanteenMenuPage';
 import ProfilePage from './Pages/Student/ProfilePage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
+import OrderTrackingPage from './Pages/Student/OrderTrackingPage';
 
 function App() {
   return (
@@ -45,9 +49,13 @@ function App() {
           <Route path="/dashboard" element={<StudentLayout />}>
             <Route index element={<StudentDashboard />} />
             <Route path="canteens" element={<StudentCanteens />} />
+            <Route path="canteens/:canteenId/menu" element={<CanteenMenuPage />} />
+            <Route path="cart" element={<CartPage />} />
             <Route path="orders" element={<StudentOrders />} />
+            <Route path="payment/:orderId" element={<PaymentPage />} />
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="meal-pass" element={<MealPassPage />} />
+            <Route path="order-tracking" element={<OrderTrackingPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>

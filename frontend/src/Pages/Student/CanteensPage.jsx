@@ -1,152 +1,113 @@
-import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Store,
   Search,
   MapPin,
-  Clock,
-  Users,
-  Star,
-  ChevronRight,
-  Filter,
   ArrowUpRight,
   UtensilsCrossed
 } from 'lucide-react';
+import { canteenAPI } from '../../services/api';
+import { toast } from 'react-toastify';
 
-const CANTEENS = [
-  {
-    id: 1,
-    name: 'Main Canteen (A-Block)',
-    image: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&q=80&w=800',
-    location: 'A-Block, Ground Floor',
-    rating: 4.8,
-    reviews: 124,
-    crowdLevel: 'High',
-    crowdColor: 'bg-orange-500',
-    waitTime: '15-20 min',
-    special: 'Chicken Biryani',
-    categories: ['North Indian', 'Chinese']
-  },
-  {
-    id: 2,
-    name: 'University Cafe',
-    image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?auto=format&fit=crop&q=80&w=800',
-    location: 'Central Library Building',
-    rating: 4.5,
-    reviews: 89,
-    crowdLevel: 'Low',
-    crowdColor: 'bg-emerald-500',
-    waitTime: '5 min',
-    special: 'Cold Coffee & Sandwich',
-    categories: ['Cafe', 'Snacks']
-  },
-  {
-    id: 3,
-    name: 'B-Block Refreshments',
-    image: 'https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&q=80&w=800',
-    location: 'B-Block, Plaza Level',
-    rating: 4.2,
-    reviews: 56,
-    crowdLevel: 'Moderate',
-    crowdColor: 'bg-amber-500',
-    waitTime: '10-12 min',
-    special: 'Masala Dosa',
-    categories: ['South Indian', 'Juices']
-  },
-  {
-    id: 4,
-    name: 'Admin Sports Cafe',
-    image: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&q=80&w=800',
-    location: 'Near Sports Complex',
-    rating: 4.6,
-    reviews: 210,
-    crowdLevel: 'Moderate',
-    crowdColor: 'bg-amber-500',
-    waitTime: '8-10 min',
-    special: 'Protein Bowls',
-    categories: ['Healthy', 'Grill']
-  }
-];
-
-const CanteenCard = ({ canteen }) => (
+const CanteenCard = ({ canteen, onClick }) => (
   <motion.div
     whileHover={{ y: -8 }}
-    className="bg-white rounded-[40px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-orange-100/50 transition-all group"
+    onClick={onClick}
+    className="bg-white rounded-[40px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-orange-100/50 transition-all group cursor-pointer"
   >
-    <div className="relative h-64 overflow-hidden">
-      <img
-        src={canteen.image}
-        alt={canteen.name}
-        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-      />
-      <div className="absolute top-6 right-6">
-        <div className="bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl flex items-center gap-2 shadow-lg">
-          <Star size={14} className="text-orange-500 fill-orange-500" />
-          <span className="text-sm font-['Gilroy_Bold'] text-gray-900">{canteen.rating}</span>
-        </div>
-      </div>
-      <div className="absolute bottom-6 left-6 flex gap-2">
-        <div className={`flex items-center gap-2 ${canteen.crowdColor} text-white px-4 py-2 rounded-2xl text-[10px] font-['Gilroy_Bold'] uppercase tracking-widest shadow-lg animate-in fade-in zoom-in duration-500`}>
-          <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-          {canteen.crowdLevel} Crowd
-        </div>
+    {/* Placeholder image / icon banner */}
+    <div className="relative h-40 bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
+      <UtensilsCrossed size={56} className="text-orange-200" />
+      <div className={`absolute top-4 right-4 px-3 py-1.5 rounded-2xl text-[10px] font-['Gilroy_Bold'] uppercase tracking-widest shadow ${
+        canteen.isOpen ? 'bg-emerald-500 text-white' : 'bg-gray-300 text-white'
+      }`}>
+        {canteen.isOpen ? 'Open' : 'Closed'}
       </div>
     </div>
 
-    <div className="p-8">
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-2xl font-['Gilroy_Heavy'] text-gray-900 mb-1 line-clamp-1">{canteen.name}</h3>
-          <div className="flex items-center text-gray-400 text-sm font-['Gilroy_Medium']">
-            <MapPin size={14} className="mr-1" /> {canteen.location}
-          </div>
+    <div className="p-6">
+      <h3 className="text-xl font-['Gilroy_Heavy'] text-gray-900 mb-1 line-clamp-1">{canteen.name}</h3>
+      {canteen.location && (
+        <div className="flex items-center text-gray-400 text-sm font-['Gilroy_Medium'] mb-5">
+          <MapPin size={13} className="mr-1 shrink-0" /> {canteen.location}
         </div>
-      </div>
-
-      <div className="flex flex-wrap gap-2 mb-8">
-        {canteen.categories.map(cat => (
-          <span key={cat} className="px-3 py-1 bg-gray-50 text-gray-500 rounded-full text-[11px] font-['Gilroy_Bold'] uppercase tracking-wider border border-gray-100">
-            {cat}
-          </span>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-8">
-        <div className="bg-orange-50/50 p-4 rounded-3xl border border-orange-100/50">
-          <p className="text-[10px] font-['Gilroy_Bold'] text-orange-400 uppercase tracking-widest mb-1 leading-none">Wait Time</p>
-          <div className="flex items-center gap-1.5">
-            <Clock size={14} className="text-orange-600" />
-            <span className="text-sm font-['Gilroy_Bold'] text-gray-900">{canteen.waitTime}</span>
-          </div>
-        </div>
-        <div className="bg-emerald-50/50 p-4 rounded-3xl border border-emerald-100/50">
-          <p className="text-[10px] font-['Gilroy_Bold'] text-emerald-400 uppercase tracking-widest mb-1 leading-none">Speciality</p>
-          <div className="flex items-center gap-1.5">
-            <UtensilsCrossed size={14} className="text-emerald-600" />
-            <span className="text-sm font-['Gilroy_Bold'] text-gray-900 truncate">{canteen.special}</span>
-          </div>
-        </div>
-      </div>
-
-      <button className="w-full bg-gray-900 hover:bg-orange-600 text-white py-5 rounded-[24px] font-['Gilroy_Bold'] transition-all flex items-center justify-center gap-2 group/btn shadow-xl shadow-gray-200">
-        View Full Menu <ArrowUpRight size={18} className="group-hover/btn:translate-x-1 group-hover/btn:-translate-y-1 transition-transform" />
+      )}
+      <button className="w-full bg-gray-900 group-hover:bg-orange-600 text-white py-3 rounded-[18px] font-['Gilroy_Bold'] transition-all flex items-center justify-center gap-2">
+        View Menu <ArrowUpRight size={16} />
       </button>
     </div>
   </motion.div>
 );
 
 const CanteensPage = () => {
+  const navigate = useNavigate();
+  const [canteens, setCanteens] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const res = await canteenAPI.getAll();
+        setCanteens(res.data.data || []);
+      } catch {
+        toast.error('Failed to load canteens');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetch();
+  }, []);
+
+  const filtered = canteens.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.location || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
   return (
-    <div className="max-w-7xl mx-auto py-20 px-4">
-      <div className="text-center">
-        <div className="w-24 h-24 bg-orange-50 rounded-[40px] flex items-center justify-center mx-auto mb-8 text-orange-600">
-          <Store size={48} />
-        </div>
-        <h1 className="text-4xl font-['Gilroy_Heavy'] text-gray-900 mb-4">Canteen Network</h1>
-        <p className="text-gray-400 font-['Gilroy_Medium'] max-w-md mx-auto">
-          Explore the university canteens and discover your next favorite meal. Our network is currently being mapped out for your convenience.
-        </p>
+    <div className="max-w-5xl mx-auto py-8 px-4">
+      <div className="mb-8">
+        <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900 mb-1">Canteens</h1>
+        <p className="text-gray-400 text-sm">Choose a canteen to browse its menu</p>
       </div>
+
+      {/* Search */}
+      <div className="relative mb-6">
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search canteens..."
+          className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="text-center py-20">
+          <Store size={40} className="text-gray-200 mx-auto mb-3" />
+          <p className="text-gray-400 font-['Gilroy_Medium']">
+            {canteens.length === 0 ? 'No canteens available' : 'No results found'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {filtered.map(canteen => (
+            <CanteenCard
+              key={canteen._id}
+              canteen={canteen}
+              onClick={() => navigate(`/dashboard/canteens/${canteen._id}/menu`)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 };

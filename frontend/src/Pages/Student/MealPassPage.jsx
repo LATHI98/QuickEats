@@ -18,3 +18,4 @@ const MealPassPage = () => {
 };
 
 export default MealPassPage;
+

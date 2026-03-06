@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShoppingBag, X, Clock, Hash, CheckCircle, ChefHat, Package, XCircle, CreditCard, RefreshCw } from 'lucide-react';
+import { ShoppingBag, X, Clock, Hash, CheckCircle, ChefHat, Package, XCircle, CreditCard, RefreshCw, RotateCcw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { orderAPI } from '../../services/api';
+import { orderAPI, cartAPI } from '../../services/api';
 import { toast } from 'react-toastify';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
@@ -23,136 +24,125 @@ const StatusBadge = ({ status }) => {
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const Icon = cfg.icon;
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${cfg.color}`}>
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest ${cfg.color}`}>
       <Icon size={12} /> {cfg.label}
     </span>
   );
 };
 
-const OrderDetailModal = ({ order, onClose, onCancel, onPayNow }) => {
+const OrderDetailModal = ({ order, onClose, onCancel, onPayNow, onReorder, reorderingId }) => {
   if (!order) return null;
   const paymentCfg = PAYMENT_STATUS[order.payment?.status] || PAYMENT_STATUS.unpaid;
   const canCancel = order.status === 'pending' && order.payment?.status === 'unpaid';
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-xl"
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-white rounded-[40px] max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl relative"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
+        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 flex items-center justify-between p-8 border-b border-gray-50">
           <div>
-            <h2 className="text-lg font-['Gilroy_Heavy'] text-gray-900">Order #{order.queueNumber}</h2>
-            <p className="text-xs text-gray-400 mt-0.5">{new Date(order.createdAt).toLocaleString()}</p>
+            <h2 className="text-2xl font-['Gilroy_Heavy'] text-gray-900">Order #{order.queueNumber}</h2>
+            <p className="text-xs text-gray-400 mt-1 font-['Gilroy_Medium']">{new Date(order.createdAt).toLocaleString()}</p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-            <X size={18} />
+          <button onClick={onClose} className="p-3 hover:bg-gray-100 rounded-2xl transition-colors">
+            <X size={20} className="text-gray-400" />
           </button>
         </div>
 
-        <div className="p-5 space-y-5">
+        <div className="p-8 space-y-8">
           {/* Status */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-gray-500">Status</span>
+          <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl">
+            <span className="text-sm font-['Gilroy_Heavy'] text-gray-500">Current Status</span>
             <StatusBadge status={order.status} />
           </div>
 
-          {/* Queue & Pickup */}
-          <div className="bg-orange-50 rounded-xl p-4 grid grid-cols-2 gap-4">
-            <div className="text-center">
-              <Hash size={16} className="text-orange-400 mx-auto mb-1" />
-              <p className="text-2xl font-['Gilroy_Heavy'] text-orange-600">{order.queueNumber}</p>
-              <p className="text-xs text-gray-500">Queue Number</p>
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-orange-50 rounded-3xl p-6 text-center">
+              <Hash size={20} className="text-orange-400 mx-auto mb-2" />
+              <p className="text-3xl font-['Gilroy_Heavy'] text-orange-600">{order.queueNumber}</p>
+              <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-widest mt-1">Token ID</p>
             </div>
-            <div className="text-center">
-              <Clock size={16} className="text-orange-400 mx-auto mb-1" />
-              <p className="text-sm font-['Gilroy_Heavy'] text-orange-600">
+            <div className="bg-orange-50 rounded-3xl p-6 text-center">
+              <Clock size={20} className="text-orange-400 mx-auto mb-2" />
+              <p className="text-lg font-['Gilroy_Heavy'] text-orange-600">
                 {new Date(order.estimatedPickupTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
-              <p className="text-xs text-gray-500">Pickup Time</p>
+              <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-widest mt-1">Pickup Time</p>
             </div>
           </div>
 
-          {/* Pickup Code + QR Image — shown when order is ready */}
-          {order.status === 'ready' && order.pickupCode && (
-            <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 text-center">
-              <p className="text-xs font-['Gilroy_Heavy'] text-indigo-400 uppercase tracking-widest mb-3">Show this at the counter</p>
-              <img
-                src={order.qrCodeData || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${order.pickupCode}&qzone=1&color=4338ca`}
-                alt="Pickup QR"
-                className="w-44 h-44 mx-auto rounded-xl mb-3"
-              />
-              <p className="text-3xl font-['Gilroy_Heavy'] text-indigo-700 tracking-widest">{order.pickupCode}</p>
-              <p className="text-xs text-indigo-300 mt-1">Staff will enter this code to confirm delivery</p>
-            </div>
-          )}
-
           {/* Items */}
           <div>
-            <p className="text-sm font-['Gilroy_Heavy'] text-gray-700 mb-2">Items</p>
-            <div className="space-y-2">
+            <h3 className="text-sm font-['Gilroy_Heavy'] text-gray-900 uppercase tracking-widest mb-4">Cart Summary</h3>
+            <div className="space-y-4 bg-gray-50/50 p-6 rounded-3xl">
               {order.items?.map((item, i) => (
-                <div key={i} className="flex justify-between text-sm">
-                  <span className="text-gray-600">{item.name} × {item.quantity}</span>
-                  <span className="text-gray-800 font-medium">LKR {(item.unitPrice * item.quantity).toLocaleString()}</span>
+                <div key={i} className="flex justify-between items-center text-sm font-['Gilroy_Medium']">
+                  <span className="text-gray-600">{item.name} <span className="text-orange-500 font-['Gilroy_Heavy'] ml-1">×{item.quantity}</span></span>
+                  <span className="text-gray-900">LKR {(item.unitPrice * item.quantity).toLocaleString()}</span>
                 </div>
               ))}
-              <div className="flex justify-between text-sm font-['Gilroy_Heavy'] pt-2 border-t border-gray-100">
-                <span>Total</span>
-                <span className="text-orange-600">LKR {order.totalPrice?.toLocaleString()}</span>
+              <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                <span className="font-['Gilroy_Heavy'] text-gray-900">Total Bill</span>
+                <span className="text-xl font-['Gilroy_Heavy'] text-orange-600">LKR {order.totalPrice?.toLocaleString()}</span>
               </div>
             </div>
           </div>
 
-          {/* Payment */}
-          <div className="bg-gray-50 rounded-xl p-4">
-            <p className="text-sm font-['Gilroy_Heavy'] text-gray-700 mb-2">Payment</p>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-500">Method</span>
-              <span className="capitalize text-gray-700">{order.payment?.method || '—'}</span>
-            </div>
-            <div className="flex justify-between text-sm mt-1">
-              <span className="text-gray-500">Status</span>
-              <span className={`font-medium ${paymentCfg.color}`}>{paymentCfg.label}</span>
-            </div>
-            {order.payment?.rejectionReason && (
-              <p className="text-xs text-red-500 mt-1">Reason: {order.payment.rejectionReason}</p>
-            )}
-          </div>
-
           {/* Action buttons */}
-          {order.status !== 'cancelled' &&
-            (order.payment?.status === 'unpaid' || order.payment?.status === 'rejected') && (
+          <div className="space-y-3 pt-4">
+            <button
+              onClick={() => onReorder(order)}
+              disabled={reorderingId === order._id}
+              className="w-full h-16 flex items-center justify-center gap-3 bg-gray-900 text-white rounded-2xl font-['Gilroy_Heavy'] transition-all hover:bg-orange-600 active:scale-95 disabled:opacity-50"
+            >
+              {reorderingId === order._id ? (
+                <RefreshCw size={20} className="animate-spin" />
+              ) : (
+                <>
+                  <RotateCcw size={20} />
+                  <span>One-Tap Reorder</span>
+                </>
+              )}
+            </button>
+
+            {order.status !== 'cancelled' &&
+              (order.payment?.status === 'unpaid' || order.payment?.status === 'rejected') && (
+                <button
+                  onClick={() => onPayNow(order._id)}
+                  className="w-full h-16 flex items-center justify-center gap-3 bg-orange-500 text-white rounded-2xl font-['Gilroy_Heavy'] hover:bg-orange-600 transition-all shadow-xl shadow-orange-100"
+                >
+                  <CreditCard size={20} />
+                  {order.payment?.status === 'rejected' ? 'Fix Payment' : 'Pay Now'}
+                </button>
+              )}
+
+            {canCancel && (
               <button
-                onClick={() => onPayNow(order._id)}
-                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-['Gilroy_Heavy'] transition-colors"
+                onClick={() => onCancel(order._id)}
+                className="w-full py-4 text-red-400 text-xs font-['Gilroy_Heavy'] hover:text-red-500 transition-colors uppercase tracking-widest"
               >
-                <CreditCard size={16} />
-                {order.payment?.status === 'rejected' ? 'Re-submit Payment' : 'Pay Now'}
+                Cancel Order
               </button>
             )}
-          {canCancel && (
-            <button
-              onClick={() => onCancel(order._id)}
-              className="w-full flex items-center justify-center gap-2 border border-red-200 text-red-500 py-3 rounded-xl font-['Gilroy_Heavy'] hover:bg-red-50 transition-colors"
-            >
-              <XCircle size={16} /> Cancel Order
-            </button>
-          )}
+          </div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
 
 const FILTERS = [
-  { value: '', label: 'All' },
-  { value: 'pending', label: 'Pending' },
+  { value: '', label: 'All Orders' },
+  { value: 'pending', label: 'Queued' },
   { value: 'preparing', label: 'Preparing' },
   { value: 'ready', label: 'Ready' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'completed', label: 'Past' },
 ];
 
 const OrdersPage = () => {
@@ -162,6 +152,7 @@ const OrdersPage = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [statusFilter, setStatusFilter] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [reorderingId, setReorderingId] = useState(null);
 
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -181,18 +172,20 @@ const OrdersPage = () => {
 
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
-  // Auto-refresh every 30s
-  useEffect(() => {
-    const interval = setInterval(() => fetchOrders(true), 30000);
-    return () => clearInterval(interval);
-  }, [fetchOrders]);
-
-  const openDetail = async (orderId) => {
+  const handleReorder = async (order) => {
+    setReorderingId(order._id);
     try {
-      const res = await orderAPI.getMyOrderById(orderId);
-      setSelectedOrder(res.data.data);
-    } catch {
-      toast.error('Failed to load order details');
+      // Add all items from the past order to cart
+      const promises = order.items.map(item =>
+        cartAPI.addItem(item.menuItem, item.quantity)
+      );
+      await Promise.all(promises);
+      toast.success('Successfully added items to cart! 🛒');
+      navigate('/dashboard/cart');
+    } catch (err) {
+      toast.error('Could not reorder all items. Some may be unavailable.');
+    } finally {
+      setReorderingId(null);
     }
   };
 
@@ -213,36 +206,34 @@ const OrdersPage = () => {
   };
 
   if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-4xl mx-auto py-12 px-6">
+      <div className="flex items-center justify-between mb-10">
         <div>
-          <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900">My Orders</h1>
-          <p className="text-gray-400 text-sm mt-1">Track your food orders and history</p>
+          <h1 className="text-4xl font-['Gilroy_Heavy'] text-gray-900 tracking-tight">Order History</h1>
+          <p className="text-gray-400 text-sm mt-1 font-['Gilroy_Medium']">Manage and repeat your favorites</p>
         </div>
         <button
           onClick={() => fetchOrders(true)}
-          className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+          className={`p-3 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-all ${refreshing ? 'animate-spin' : ''}`}
         >
-          <RefreshCw size={18} className="text-gray-500" />
+          <RefreshCw size={20} className="text-gray-500" />
         </button>
       </div>
 
-      {/* Status filters */}
-      <div className="flex gap-2 mb-6 flex-wrap">
+      <div className="flex gap-2 overflow-x-auto pb-6 -mx-2 px-2 no-scrollbar">
         {FILTERS.map(f => (
           <button
             key={f.value}
             onClick={() => setStatusFilter(f.value)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${statusFilter === f.value
-              ? 'bg-orange-500 text-white'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            className={`whitespace-nowrap px-6 py-2.5 rounded-2xl text-xs font-['Gilroy_Heavy'] uppercase tracking-widest transition-all ${statusFilter === f.value
+              ? 'bg-orange-500 text-white shadow-lg shadow-orange-100'
+              : 'bg-white border border-gray-100 text-gray-400 hover:border-gray-300'
               }`}
           >
             {f.label}
@@ -250,61 +241,87 @@ const OrdersPage = () => {
         ))}
       </div>
 
-      {/* Orders list */}
       {orders.length === 0 ? (
-        <div className="text-center py-20">
-          <div className="w-20 h-20 bg-orange-50 rounded-[30px] flex items-center justify-center mx-auto mb-4 text-orange-400">
-            <ShoppingBag size={40} />
+        <div className="text-center py-24 bg-gray-50 rounded-[40px]">
+          <div className="w-20 h-20 bg-white shadow-sm rounded-[30px] flex items-center justify-center mx-auto mb-6 text-orange-400">
+            <ShoppingBag size={36} strokeWidth={1.5} />
           </div>
-          <p className="text-gray-400 font-['Gilroy_Medium']">No orders found</p>
+          <p className="text-gray-400 font-['Gilroy_Heavy'] text-lg">No orders found</p>
+          <p className="text-gray-400 text-sm mt-1 font-['Gilroy_Medium']">Your culinary journey starts with your first order!</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {orders.map(order => {
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {orders.map((order, index) => {
             const paymentCfg = PAYMENT_STATUS[order.payment?.status] || PAYMENT_STATUS.unpaid;
             return (
-              <div
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
                 key={order._id}
-                onClick={() => openDetail(order._id)}
-                className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => setSelectedOrder(order)}
+                className="bg-white border border-gray-100 rounded-[32px] p-6 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
               >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500">
+                <div className="flex justify-between items-start mb-6">
+                  <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-colors">
                     <ShoppingBag size={20} />
                   </div>
+                  <StatusBadge status={order.status} />
+                </div>
+
+                <div className="space-y-4">
                   <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-['Gilroy_Heavy'] text-gray-900">Queue #{order.queueNumber}</span>
-                      <StatusBadge status={order.status} />
-                    </div>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {order.items?.length} item{order.items?.length !== 1 ? 's' : ''} · LKR {order.totalPrice?.toLocaleString()}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {new Date(order.createdAt).toLocaleDateString()} ·{' '}
-                      <span className={`font-medium ${paymentCfg.color}`}>{paymentCfg.label}</span>
+                    <h3 className="text-lg font-['Gilroy_Heavy'] text-gray-900">Queue #{order.queueNumber}</h3>
+                    <p className="text-xs text-gray-400 font-['Gilroy_Medium'] mt-0.5">
+                      {order.items?.length} Items · LKR {order.totalPrice?.toLocaleString()}
                     </p>
                   </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${order.payment?.status === 'verified' ? 'bg-green-500' : 'bg-red-400'}`} />
+                      <span className={`text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest ${paymentCfg.color}`}>
+                        {paymentCfg.label}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-widest">Ordered</p>
+                      <p className="text-xs font-['Gilroy_Heavy'] text-gray-700">{new Date(order.createdAt).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReorder(order);
+                    }}
+                    disabled={reorderingId === order._id}
+                    className="w-full py-3 bg-gray-50 group-hover:bg-orange-50 rounded-xl text-gray-400 group-hover:text-orange-600 font-['Gilroy_Heavy'] text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all mt-2"
+                  >
+                    {reorderingId === order._id ? (
+                      <RefreshCw size={12} className="animate-spin" />
+                    ) : (
+                      <>
+                        <RotateCcw size={12} />
+                        Reorder Fast
+                      </>
+                    )}
+                  </button>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-gray-400">Pickup</p>
-                  <p className="text-sm font-['Gilroy_Heavy'] text-gray-700">
-                    {new Date(order.estimatedPickupTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-              </div>
+              </motion.div>
             );
           })}
         </div>
       )}
 
-      {/* Order Detail Modal */}
       {selectedOrder && (
         <OrderDetailModal
           order={selectedOrder}
+          reorderingId={reorderingId}
           onClose={() => setSelectedOrder(null)}
           onPayNow={handlePayNow}
           onCancel={handleCancel}
+          onReorder={handleReorder}
         />
       )}
     </div>

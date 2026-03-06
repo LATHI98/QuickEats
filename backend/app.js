@@ -49,7 +49,7 @@ async function seedDatabase() {
   if (existingAdmin) {
     existingAdmin.password = 'admin123';
     existingAdmin.isActive = true;
-    if (!existingAdmin.username) existingAdmin.username = 'superadmin';
+    existingAdmin.role = 'admin';
     await existingAdmin.save();
     console.log('Super admin updated: admin@quickeats.com / admin123');
   } else {
@@ -58,7 +58,7 @@ async function seedDatabase() {
       username: 'superadmin',
       email: 'admin@quickeats.com',
       password: 'admin123',
-      role: 'superAdmin',
+      role: 'admin',
       isActive: true,
     });
     console.log('Super admin created: admin@quickeats.com / admin123');

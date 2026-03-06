@@ -16,21 +16,29 @@ const CanteenMenuPage = () => {
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [addingId, setAddingId] = useState(null);
+  const [recommendedSlots, setRecommendedSlots] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState(null);
 
-  // Fetch canteen info + menu
+  // Fetch canteen info + menu + recommendations
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
       try {
-        const [canteenRes, menuRes, queueRes] = await Promise.all([
+        const [canteenRes, menuRes, queueRes, recommendRes] = await Promise.all([
           canteenAPI.getById(canteenId),
           canteenAPI.getMenu(canteenId),
           queueAPI.getStatus(canteenId).catch(() => ({ data: { data: null } })),
+          queueAPI.getRecommendedSlots(canteenId).catch(() => ({ data: { data: [] } })),
         ]);
         setCanteen(canteenRes.data.data);
         setMenuItems(menuRes.data.data || []);
         if (queueRes.data.data) {
           setQueueStatus(queueRes.data.data);
+        }
+        if (recommendRes.data.data?.length > 0) {
+          setRecommendedSlots(recommendRes.data.data);
+          // Auto-select ASAP by default
+          setSelectedSlot(recommendRes.data.data[0].time);
         }
       } catch {
         toast.error('Failed to load menu');
@@ -133,7 +141,7 @@ const CanteenMenuPage = () => {
           <div className="text-red-500 mt-0.5">🔥</div>
           <div>
             <h3 className="font-['Gilroy_Heavy'] text-red-800 text-sm mb-0.5">Surge Alert: High Demand</h3>
-            <p className="text-red-600 text-xs">This canteen is currently very busy. Order early to avoid long wait times!</p>
+            <p className="text-red-600 text-xs">{queueStatus.surgeReason || 'This canteen is currently very busy. Order early to avoid long wait times!'}</p>
           </div>
         </div>
       )}
@@ -157,8 +165,8 @@ const CanteenMenuPage = () => {
               key={cat}
               onClick={() => setSelectedCategory(cat)}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCategory === cat
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-orange-500 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
             >
               {cat === '' ? 'All' : cat}

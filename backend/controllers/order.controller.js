@@ -16,8 +16,31 @@ const generatePickupCode = () => {
 };
 
 // Helper: get or create next available queue slot for a canteen
-async function assignQueueSlot(canteenId) {
+async function assignQueueSlot(canteenId, preferredSlotTime = null) {
   const now = new Date();
+
+  // If user picked a specific vibe/slot
+  if (preferredSlotTime) {
+    const slotTime = new Date(preferredSlotTime);
+    const dateStr = slotTime.toISOString().split('T')[0];
+    let slot = await QueueSlot.findOne({ canteen: canteenId, slotTime });
+    if (!slot) {
+      slot = await QueueSlot.create({
+        canteen: canteenId,
+        date: dateStr,
+        slotTime,
+        orderCount: 0,
+        maxCapacity: MAX_ORDERS_PER_SLOT,
+      });
+    }
+    if (slot.orderCount < slot.maxCapacity) {
+      slot.orderCount += 1;
+      await slot.save();
+      return { slotTime, slot };
+    }
+    // If preferred is full, fallback to auto-assign
+  }
+
   const dateStr = now.toISOString().split('T')[0]; // 'YYYY-MM-DD'
 
   // Round up to next slot boundary
@@ -71,8 +94,8 @@ async function getNextQueueNumber(canteenId) {
 // POST /api/orders
 export const placeOrder = async (req, res) => {
   try {
-    const { groupSessionId } = req.body || {};
-    console.log(`Placing order. User: ${req.user._id}, GroupSession: ${groupSessionId}`);
+    const { groupSessionId, preferredSlotTime } = req.body || {};
+    console.log(`Placing order. User: ${req.user._id}, PreferredSlot: ${preferredSlotTime}`);
 
     let cart = await Cart.findOne({ student: req.user._id });
     let session = null;
@@ -125,7 +148,7 @@ export const placeOrder = async (req, res) => {
     const totalPrice = cart.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
     // Assign queue slot + number
-    const { slotTime } = await assignQueueSlot(cart.canteen);
+    const { slotTime } = await assignQueueSlot(cart.canteen, preferredSlotTime);
     const queueNumber = await getNextQueueNumber(cart.canteen);
 
     // Generate short pickup code (retry if collision)

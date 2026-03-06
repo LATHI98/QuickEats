@@ -1,6 +1,7 @@
 import QueueSlot from '../models/QueueSlot.model.js';
 import Order from '../models/Order.model.js';
 import CanteenQueue from '../models/CanteenQueue.model.js';
+import * as PredictionService from '../services/prediction.service.js';
 
 const SLOT_INTERVAL_MINUTES = 10;
 const SLOTS_TO_SHOW = 12; // show next 2 hours of slots
@@ -82,10 +83,11 @@ export const getQueueStatus = async (req, res) => {
     const nowServing = queueRecord.nowServing;
     const nextInQueue = activeOrders.find(o => o.queueNumber > nowServing && o.status === 'pending');
 
-    // Wait time & surge based on pending + preparing count
-    const activeCountForWait = grouped.pending.length + grouped.preparing.length;
-    const estimatedWaitTime = activeCountForWait * 3;
-    const surgeAlert = activeCountForWait >= 10;
+    // Wait time & surge based on AI Prediction Service
+    const [estimatedWaitTime, surgePrediction] = await Promise.all([
+      PredictionService.predictWaitTime(canteenId),
+      PredictionService.predictSurge(canteenId),
+    ]);
 
     res.json({
       success: true,
@@ -94,7 +96,8 @@ export const getQueueStatus = async (req, res) => {
         nextQueueNumber: nextInQueue?.queueNumber || null,
         totalActive: activeOrders.length,
         estimatedWaitTime,
-        surgeAlert,
+        surgeAlert: surgePrediction.isSurge,
+        surgeReason: surgePrediction.reason,
         grouped,
       },
     });
@@ -131,7 +134,7 @@ export const getMyQueuePosition = async (req, res) => {
       data: {
         queueNumber: order.queueNumber,
         ordersAhead,
-        estimatedWaitTimeMinutes: ordersAhead * 3,
+        estimatedWaitTimeMinutes: await PredictionService.predictWaitTime(canteenId),
         estimatedPickupTime: order.estimatedPickupTime,
         status: order.status,
       },
@@ -170,6 +173,32 @@ export const setNowServing = async (req, res) => {
   }
 };
 
+// PATCH /api/queue/claim-priority/:orderId
+// Student clicks "I'm here" — bumps priority for callNext
+export const claimPriority = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await Order.findOne({ _id: orderId, student: req.user._id });
+
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+    if (order.status !== 'pending' && order.status !== 'preparing') {
+      return res.status(400).json({ success: false, message: 'Can only claim priority for active orders' });
+    }
+    if (order.isPriorityClaimed) {
+      return res.status(400).json({ success: false, message: 'Priority already claimed' });
+    }
+
+    order.isPriorityClaimed = true;
+    order.priorityLevel = 1;
+    order.priorityClaimedAt = new Date();
+    await order.save();
+
+    res.json({ success: true, message: 'Priority claimed! You are now higher in the call queue.', data: order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // PATCH /api/queue/:canteenId/call-next
 // Automatically advances "now serving" to the next pending queue number
 export const callNext = async (req, res) => {
@@ -188,13 +217,13 @@ export const callNext = async (req, res) => {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
-    // Find the next pending order after the current nowServing
+    // Find the next order (prioritize those who claimed they are here)
     const nextOrder = await Order.findOne({
       canteen: canteenId,
       queueNumber: { $gt: record.nowServing },
       status: 'pending',
       createdAt: { $gte: today, $lt: tomorrow },
-    }).sort({ queueNumber: 1 });
+    }).sort({ priorityLevel: -1, queueNumber: 1 });
 
     if (!nextOrder) {
       return res.status(404).json({ success: false, message: 'No pending orders in queue' });
@@ -210,6 +239,17 @@ export const callNext = async (req, res) => {
       success: true,
       data: { nowServing: updated.nowServing, student: nextOrder.student },
     });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// GET /api/queue/:canteenId/recommended-slots
+export const getRecommendedSlots = async (req, res) => {
+  try {
+    const { canteenId } = req.params;
+    const slots = await PredictionService.getRecommendedSlots(canteenId);
+    res.json({ success: true, data: slots });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

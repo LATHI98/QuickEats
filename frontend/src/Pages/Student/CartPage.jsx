@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, ShoppingCart, Minus, Plus, Trash2, ArrowLeft, ClipboardList, Lock } from 'lucide-react';
-import { cartAPI, orderAPI, groupSessionAPI } from '../../services/api';
+import { cartAPI, orderAPI, groupSessionAPI, queueAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
 const CartPage = () => {
@@ -11,16 +11,20 @@ const CartPage = () => {
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
+  const [recommendedSlots, setRecommendedSlots] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const [cartRes, sessionRes] = await Promise.all([
         cartAPI.getCart(),
-        groupSessionAPI.getActiveSession().catch(() => ({ data: { data: null } })) // Keep original catch for session
+        groupSessionAPI.getActiveSession().catch(() => ({ data: { data: null } }))
       ]);
 
       let activeSession = null;
+      let currentCart = null;
+
       if (sessionRes.data?.data) {
         activeSession = sessionRes.data.data;
         setSession(activeSession);
@@ -32,18 +36,21 @@ const CartPage = () => {
       const isCreator = activeSession && activeSession.creator._id === currentUser.id;
 
       if (activeSession && isCreator && activeSession.paymentMode === 'pay_together') {
-        // If creator and pay_together, fetch merged cart instead of personal cart
         const mergedRes = await groupSessionAPI.getMergedCart(activeSession._id);
-        if (mergedRes.data?.data) {
-          // Assuming mergedRes.data.data is a cart-like object with items and totalPrice
-          setCart(mergedRes.data.data);
-        } else {
-          setCart({ items: [], totalPrice: 0 }); // Set an empty cart if merged cart is empty
-        }
-      } else if (cartRes.data?.data) {
-        setCart(cartRes.data.data);
+        currentCart = mergedRes.data?.data || { items: [], totalPrice: 0 };
       } else {
-        setCart({ items: [], totalPrice: 0 }); // Set an empty cart if personal cart is empty
+        currentCart = cartRes.data?.data || { items: [], totalPrice: 0 };
+      }
+
+      setCart(currentCart);
+
+      // Fetch recommended slots if we have a canteen
+      if (currentCart?.canteen?._id) {
+        const slotsRes = await queueAPI.getRecommendedSlots(currentCart.canteen._id).catch(() => ({ data: { data: [] } }));
+        setRecommendedSlots(slotsRes.data.data);
+        if (slotsRes.data.data?.length > 0) {
+          setSelectedSlot(slotsRes.data.data[1].time); // Default to Optimized
+        }
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to load cart data');
@@ -84,7 +91,11 @@ const CartPage = () => {
   const handlePlaceOrder = async () => {
     setPlacing(true);
     try {
-      const payload = session ? { groupSessionId: session._id } : undefined;
+      const payload = {
+        preferredSlotTime: selectedSlot
+      };
+      if (session) payload.groupSessionId = session._id;
+
       const res = await orderAPI.placeOrder(payload);
       const order = res.data.data;
       toast.success(`Order placed! Queue #${order.queueNumber}`);
@@ -204,6 +215,51 @@ const CartPage = () => {
             })}
           </div>
 
+          {/* Pickup Vibe Selection */}
+          {recommendedSlots.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-3">
+                <Users size={16} className="text-orange-500" />
+                <h3 className="text-sm font-['Gilroy_Heavy'] text-gray-900 uppercase tracking-wider">Choose your Pickup Vibe</h3>
+              </div>
+              <div className="grid grid-cols-1 gap-2">
+                {recommendedSlots.map((slot) => {
+                  const isSelected = selectedSlot === slot.time;
+                  return (
+                    <button
+                      key={slot.type}
+                      onClick={() => setSelectedSlot(slot.time)}
+                      className={`relative flex items-center justify-between p-4 rounded-2xl border-2 transition-all text-left ${isSelected
+                        ? 'border-orange-500 bg-orange-50 shadow-md ring-1 ring-orange-200'
+                        : 'border-gray-100 bg-white hover:border-gray-200'
+                        }`}
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-['Gilroy_Heavy'] text-gray-900">{slot.label}</span>
+                          {slot.type === 'Optimized' && (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] rounded-full font-bold uppercase">Best</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-0.5">{slot.description}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-['Gilroy_Heavy'] text-gray-900">
+                          {new Date(slot.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      {isSelected && (
+                        <div className="absolute -top-2 -right-2 w-5 h-5 bg-orange-500 text-white rounded-full flex items-center justify-center shadow-sm">
+                          <Plus size={12} className="rotate-45" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Total + Place Order */}
           <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
             <div className="flex justify-between items-center mb-4">
@@ -226,7 +282,6 @@ const CartPage = () => {
                 );
               }
 
-              // Session logic
               if (session.status === 'open') {
                 return (
                   <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 rounded-xl font-['Gilroy_Heavy'] flex justify-center items-center gap-2">
@@ -245,7 +300,6 @@ const CartPage = () => {
                 );
               }
 
-              // Let the creator switch between pay_together and pay_separately right at checkout
               if (isCreator) {
                 return (
                   <div className="space-y-4">
@@ -292,7 +346,6 @@ const CartPage = () => {
                 );
               }
 
-              // Just a normal member checking out separately
               return (
                 <button
                   onClick={handlePlaceOrder}

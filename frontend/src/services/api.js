@@ -17,7 +17,7 @@ api.interceptors.request.use((req) => {
 api.interceptors.response.use(
   (res) => res,
   (err) => {
-    if (err.response?.status === 401) {
+    if (err.response?.status === 401 && !window.location.pathname.includes('/login')) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
@@ -69,6 +69,8 @@ export const queueAPI = {
   getSlots: (canteenId) => api.get(`/api/queue/${canteenId}/slots`),
   getStatus: (canteenId) => api.get(`/api/queue/${canteenId}/status`),
   getMyPosition: (canteenId, orderId) => api.get(`/api/queue/${canteenId}/my-position/${orderId}`),
+  getRecommendedSlots: (canteenId) => api.get(`/api/queue/${canteenId}/recommended-slots`),
+  skipQueue: (orderId) => api.patch(`/api/queue/claim-priority/${orderId}`),
   setNowServing: (canteenId, currentlyServing) => api.patch(`/api/queue/${canteenId}/serving`, { currentlyServing }),
   callNext: (canteenId) => api.patch(`/api/queue/${canteenId}/call-next`),
 };

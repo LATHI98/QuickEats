@@ -20,23 +20,38 @@ const CanteenCard = ({ canteen, onClick }) => (
     {/* Placeholder image / icon banner */}
     <div className="relative h-40 bg-gradient-to-br from-orange-50 to-amber-50 flex items-center justify-center">
       <UtensilsCrossed size={56} className="text-orange-200" />
-      <div className={`absolute top-4 right-4 px-3 py-1.5 rounded-2xl text-[10px] font-['Gilroy_Bold'] uppercase tracking-widest shadow ${
-        canteen.isOpen ? 'bg-emerald-500 text-white' : 'bg-gray-300 text-white'
-      }`}>
-        {canteen.isOpen ? 'Open' : 'Closed'}
+      <div className="absolute top-4 left-4 flex gap-2">
+        <div className={`px-3 py-1.5 rounded-2xl text-[10px] font-['Gilroy_Bold'] uppercase tracking-widest shadow ${canteen.isOpen ? 'bg-emerald-500 text-white' : 'bg-gray-300 text-white'
+          }`}>
+          {canteen.isOpen ? 'Open' : 'Closed'}
+        </div>
+        {canteen.isSurge && (
+          <div className="bg-red-500 text-white px-3 py-1.5 rounded-2xl text-[10px] font-['Gilroy_Bold'] uppercase tracking-widest shadow animate-pulse">
+            🔥 Surge
+          </div>
+        )}
       </div>
+      {canteen.currentWaitTime && (
+        <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-2xl text-[11px] font-['Gilroy_Bold'] text-orange-600 shadow-sm flex items-center gap-1.5 border border-orange-100">
+          <span className="text-orange-400">⏱</span> ~{canteen.currentWaitTime} mins
+        </div>
+      )}
     </div>
 
     <div className="p-6">
       <h3 className="text-xl font-['Gilroy_Heavy'] text-gray-900 mb-1 line-clamp-1">{canteen.name}</h3>
-      {canteen.location && (
-        <div className="flex items-center text-gray-400 text-sm font-['Gilroy_Medium'] mb-5">
-          <MapPin size={13} className="mr-1 shrink-0" /> {canteen.location}
-        </div>
-      )}
-      <button className="w-full bg-gray-900 group-hover:bg-orange-600 text-white py-3 rounded-[18px] font-['Gilroy_Bold'] transition-all flex items-center justify-center gap-2">
-        View Menu <ArrowUpRight size={16} />
-      </button>
+      <div className="flex items-center justify-between">
+        {canteen.location && (
+          <div className="flex items-center text-gray-400 text-sm font-['Gilroy_Medium']">
+            <MapPin size={13} className="mr-1 shrink-0" /> {canteen.location}
+          </div>
+        )}
+      </div>
+      <div className="mt-5">
+        <button className="w-full bg-gray-900 group-hover:bg-orange-600 text-white py-3 rounded-[18px] font-['Gilroy_Bold'] transition-all flex items-center justify-center gap-2">
+          View Menu <ArrowUpRight size={16} />
+        </button>
+      </div>
     </div>
   </motion.div>
 );

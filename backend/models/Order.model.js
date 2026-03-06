@@ -44,6 +44,9 @@ const orderSchema = new mongoose.Schema(
     pickupCode: { type: String, unique: true, sparse: true },  // short 6-char code shown to student
     qrCodeData: { type: String, default: null },                // base64 QR image generated from pickupCode
     payment: { type: paymentSchema, default: () => ({}) },
+    priorityLevel: { type: Number, default: 0 }, // 0: normal, 1: skipped queue
+    isPriorityClaimed: { type: Boolean, default: false },
+    priorityClaimedAt: { type: Date, default: null },
     pickupVerified: { type: Boolean, default: false },
     pickupVerifiedAt: { type: Date, default: null },
   },
@@ -53,6 +56,7 @@ const orderSchema = new mongoose.Schema(
 // Index for efficient canteen+date queries
 orderSchema.index({ canteen: 1, createdAt: -1 });
 orderSchema.index({ student: 1, createdAt: -1 });
+orderSchema.index({ canteen: 1, status: 1 });
 // Note: pickupCode already has unique:true on the field, no separate index needed
 
 const Order = mongoose.model('Order', orderSchema);

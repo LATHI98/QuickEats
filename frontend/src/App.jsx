@@ -32,6 +32,7 @@ import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
 import OrderTrackingPage from './Pages/Student/OrderTrackingPage';
+import GroupOrderHub from './Pages/Student/GroupOrderHub';
 
 function App() {
   return (
@@ -58,6 +59,7 @@ function App() {
             <Route path="order-tracking" element={<OrderTrackingPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="group-order" element={<GroupOrderHub />} />
           </Route>
         </Route>
 

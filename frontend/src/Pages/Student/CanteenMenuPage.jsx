@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Plus, Minus, Search, UtensilsCrossed, CheckCircle } from 'lucide-react';
-import { canteenAPI, cartAPI } from '../../services/api';
+import { canteenAPI, cartAPI, queueAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
 const CanteenMenuPage = () => {
@@ -11,6 +11,7 @@ const CanteenMenuPage = () => {
   const [canteen, setCanteen] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
   const [cart, setCart] = useState({}); // { menuItemId: quantity }
+  const [queueStatus, setQueueStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
@@ -21,12 +22,16 @@ const CanteenMenuPage = () => {
     const fetch = async () => {
       setLoading(true);
       try {
-        const [canteenRes, menuRes] = await Promise.all([
+        const [canteenRes, menuRes, queueRes] = await Promise.all([
           canteenAPI.getById(canteenId),
           canteenAPI.getMenu(canteenId),
+          queueAPI.getStatus(canteenId).catch(() => ({ data: { data: null } })),
         ]);
         setCanteen(canteenRes.data.data);
         setMenuItems(menuRes.data.data || []);
+        if (queueRes.data.data) {
+          setQueueStatus(queueRes.data.data);
+        }
       } catch {
         toast.error('Failed to load menu');
         navigate('/dashboard/canteens');
@@ -99,7 +104,14 @@ const CanteenMenuPage = () => {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900">{canteen?.name}</h1>
-          <p className="text-gray-400 text-sm mt-1">{canteen?.location}</p>
+          <div className="flex items-center gap-3 mt-1.5">
+            <p className="text-gray-400 text-sm">{canteen?.location}</p>
+            {queueStatus?.estimatedWaitTime > 0 && (
+              <span className="bg-orange-50 text-orange-600 px-2.5 py-0.5 rounded-full text-xs font-['Gilroy_Medium'] border border-orange-100 flex items-center gap-1">
+                ⏱ ~{queueStatus.estimatedWaitTime} min wait
+              </span>
+            )}
+          </div>
         </div>
         {cartCount > 0 && (
           <button
@@ -114,6 +126,17 @@ const CanteenMenuPage = () => {
           </button>
         )}
       </div>
+
+      {/* Surge Alert Banner */}
+      {queueStatus?.surgeAlert && (
+        <div className="mb-6 px-4 py-3 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3">
+          <div className="text-red-500 mt-0.5">🔥</div>
+          <div>
+            <h3 className="font-['Gilroy_Heavy'] text-red-800 text-sm mb-0.5">Surge Alert: High Demand</h3>
+            <p className="text-red-600 text-xs">This canteen is currently very busy. Order early to avoid long wait times!</p>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="relative mb-4">
@@ -133,11 +156,10 @@ const CanteenMenuPage = () => {
             <button
               key={cat}
               onClick={() => setSelectedCategory(cat)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                selectedCategory === cat
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCategory === cat
                   ? 'bg-orange-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
+                }`}
             >
               {cat === '' ? 'All' : cat}
             </button>

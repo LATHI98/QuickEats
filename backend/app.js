@@ -13,6 +13,7 @@ import cartRoutes from './routes/cart.routes.js';
 import orderRoutes from './routes/order.routes.js';
 import queueRoutes from './routes/queue.routes.js';
 import canteenRoutes from './routes/canteen.routes.js';
+import groupSessionRoutes from './routes/groupSession.routes.js';
 import { stripeWebhook } from './controllers/payment.controller.js';
 import User from './models/User.model.js';
 import Canteen from './models/Canteen.model.js';
@@ -152,6 +153,7 @@ app.use('/api/canteens', canteenRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/queue', queueRoutes);
+app.use('/api/group-sessions', groupSessionRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

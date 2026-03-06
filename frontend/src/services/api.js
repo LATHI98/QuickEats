@@ -44,14 +44,15 @@ export const cartAPI = {
 
 // ── Orders ────────────────────────────────────────────────────────────────────
 export const orderAPI = {
-  placeOrder: () => api.post('/api/orders'),
+  placeOrder: (data) => api.post('/api/orders', data),
   getMyOrders: (params) => api.get('/api/orders/my', { params }),
   getMyOrderById: (orderId) => api.get(`/api/orders/my/${orderId}`),
   cancelOrder: (orderId) => api.patch(`/api/orders/${orderId}/cancel`),
   // Staff
   getCanteenOrders: (params) => api.get('/api/orders/canteen', { params }),
   updateOrderStatus: (orderId, status) => api.patch(`/api/orders/${orderId}/status`, { status }),
-  verifyPickup: (orderId, qrToken) => api.post(`/api/orders/${orderId}/pickup-verify`, { qrToken }),
+  verifyPickup: (orderId) => api.post(`/api/orders/${orderId}/pickup-verify`),
+  pickupByCode: (pickupCode) => api.post('/api/orders/pickup-by-code', { pickupCode }),
 };
 
 // ── Payment ───────────────────────────────────────────────────────────────────
@@ -69,6 +70,17 @@ export const queueAPI = {
   getStatus: (canteenId) => api.get(`/api/queue/${canteenId}/status`),
   getMyPosition: (canteenId, orderId) => api.get(`/api/queue/${canteenId}/my-position/${orderId}`),
   setNowServing: (canteenId, currentlyServing) => api.patch(`/api/queue/${canteenId}/serving`, { currentlyServing }),
+  callNext: (canteenId) => api.patch(`/api/queue/${canteenId}/call-next`),
+};
+
+// ── Group Session ────────────────────────────────────────────────────────────
+export const groupSessionAPI = {
+  createSession: (data) => api.post('/api/group-sessions', data),
+  joinSession: (shareCode) => api.post('/api/group-sessions/join', { shareCode }),
+  getSession: (id) => api.get(`/api/group-sessions/${id}`),
+  lockSession: (id) => api.patch(`/api/group-sessions/${id}/lock`),
+  // A helper endpoint might be useful but we can just handle errors if no session is open
+  getActiveSession: () => api.get('/api/group-sessions/my/active'), // Needs to be added to backend
 };
 
 export default api;

@@ -6,6 +6,10 @@ import {
     joinSession,
     getSession,
     lockSession,
+    editSession,
+    removeMember,
+    deleteSession,
+    getMergedCart
 } from '../controllers/groupSession.controller.js';
 
 const router = express.Router();
@@ -19,5 +23,10 @@ router.post('/', createSession);
 router.post('/join', joinSession);
 router.get('/:id', getSession);
 router.patch('/:id/lock', lockSession);
+router.patch('/:id', editSession);
+router.delete('/:id/members/:memberId', removeMember);
+router.get('/:id/merged-cart', getMergedCart);
+router.delete('/:id', deleteSession);
+
 
 export default router;

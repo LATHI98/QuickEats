@@ -79,8 +79,12 @@ export const groupSessionAPI = {
   joinSession: (shareCode) => api.post('/api/group-sessions/join', { shareCode }),
   getSession: (id) => api.get(`/api/group-sessions/${id}`),
   lockSession: (id) => api.patch(`/api/group-sessions/${id}/lock`),
-  // A helper endpoint might be useful but we can just handle errors if no session is open
-  getActiveSession: () => api.get('/api/group-sessions/my/active'), // Needs to be added to backend
+  editSession: (id, params) => api.patch(`/api/group-sessions/${id}`, params),
+  removeMember: (id, memberId) => api.delete(`/api/group-sessions/${id}/members/${memberId}`),
+  leaveSession: (id, memberId) => api.delete(`/api/group-sessions/${id}/members/${memberId}`),
+  deleteSession: (id) => api.delete(`/api/group-sessions/${id}`),
+  getActiveSession: () => api.get('/api/group-sessions/my/active'),
+  getMergedCart: (id) => api.get(`/api/group-sessions/${id}/merged-cart`),
 };
 
 export default api;

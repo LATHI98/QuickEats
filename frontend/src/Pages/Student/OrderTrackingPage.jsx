@@ -4,9 +4,9 @@ import { orderAPI, queueAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
 const STATUS_COLOR = {
-  pending:   'bg-yellow-100 text-yellow-700',
+  pending: 'bg-yellow-100 text-yellow-700',
   preparing: 'bg-blue-100 text-blue-700',
-  ready:     'bg-green-100 text-green-700',
+  ready: 'bg-green-100 text-green-700',
 };
 
 const OrderTrackingPage = () => {
@@ -76,7 +76,7 @@ const OrderTrackingPage = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900">Order Tracking</h1>
-          <p className="text-gray-400 text-sm mt-1">Your active order QR & queue position</p>
+          <p className="text-gray-400 text-sm mt-1">Your active order & queue position</p>
         </div>
         <button
           onClick={() => refresh(true)}
@@ -95,7 +95,7 @@ const OrderTrackingPage = () => {
           </div>
           <p className="text-gray-900 font-['Gilroy_Heavy'] text-lg mb-1">No Active Order</p>
           <p className="text-gray-400 text-sm font-['Gilroy_Medium'] max-w-xs mx-auto">
-            Place an order and your QR pass and queue position will appear here.
+            Place an order and your pickup code and queue position will appear here.
           </p>
         </div>
       ) : (
@@ -110,23 +110,29 @@ const OrderTrackingPage = () => {
             </span>
           </div>
 
-          {/* QR Code Card */}
+          {/* Pickup QR Card */}
           <div className="bg-white border border-gray-100 rounded-2xl p-6 text-center shadow-sm">
-            <p className="text-xs text-gray-400 mb-4 font-['Gilroy_Medium']">Show this QR code at the canteen counter</p>
-            {activeOrder.qrCode ? (
-              <img
-                src={activeOrder.qrCode}
-                alt="Order QR Code"
-                className="w-52 h-52 mx-auto rounded-xl border-4 border-orange-100"
-              />
+            {activeOrder.status === 'ready' && activeOrder.pickupCode ? (
+              <>
+                <p className="text-xs font-['Gilroy_Heavy'] text-indigo-400 uppercase tracking-widest mb-3">Show this at the counter</p>
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${activeOrder.pickupCode}&qzone=1&color=4338ca`}
+                  alt="Pickup QR Code"
+                  className="w-52 h-52 mx-auto rounded-xl mb-3"
+                />
+                <p className="text-4xl font-['Gilroy_Heavy'] text-indigo-700 tracking-widest mb-1">{activeOrder.pickupCode}</p>
+                <p className="text-xs text-indigo-300">Staff will enter this code to confirm your delivery</p>
+              </>
             ) : (
-              <div className="w-52 h-52 mx-auto rounded-xl bg-gray-50 flex items-center justify-center text-gray-300 text-sm">
-                QR unavailable
-              </div>
+              <>
+                <QrCode size={32} className="text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-400 font-['Gilroy_Medium']">
+                  {activeOrder.status === 'pending' && 'Your QR code will appear here once your order is ready.'}
+                  {activeOrder.status === 'preparing' && 'Still preparing — your QR code will show when ready!'}
+                </p>
+              </>
             )}
-            <p className="text-xs text-gray-400 mt-4">
-              Order #{activeOrder.queueNumber} · {activeOrder.canteenName || 'Main Canteen'}
-            </p>
+            <p className="text-xs text-gray-400 mt-4">Order #{activeOrder.queueNumber}</p>
           </div>
 
           {/* Queue & Pickup info */}

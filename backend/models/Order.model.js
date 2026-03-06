@@ -31,6 +31,7 @@ const orderSchema = new mongoose.Schema(
   {
     student: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     canteen: { type: mongoose.Schema.Types.ObjectId, ref: 'Canteen', required: true },
+    groupSession: { type: mongoose.Schema.Types.ObjectId, ref: 'GroupSession', default: null },
     items: { type: [orderItemSchema], required: true },
     totalPrice: { type: Number, required: true },
     status: {
@@ -40,8 +41,8 @@ const orderSchema = new mongoose.Schema(
     },
     queueNumber: { type: Number, required: true },
     estimatedPickupTime: { type: Date, required: true },
-    qrToken: { type: String, required: true, unique: true },
-    qrCode: { type: String, required: true },         // base64 data URL
+    pickupCode: { type: String, unique: true, sparse: true },  // short 6-char code shown to student
+    qrCodeData: { type: String, default: null },                // base64 QR image generated from pickupCode
     payment: { type: paymentSchema, default: () => ({}) },
     pickupVerified: { type: Boolean, default: false },
     pickupVerifiedAt: { type: Date, default: null },
@@ -52,7 +53,7 @@ const orderSchema = new mongoose.Schema(
 // Index for efficient canteen+date queries
 orderSchema.index({ canteen: 1, createdAt: -1 });
 orderSchema.index({ student: 1, createdAt: -1 });
-// Note: qrToken already has unique:true on the field, no separate index needed
+// Note: pickupCode already has unique:true on the field, no separate index needed
 
 const Order = mongoose.model('Order', orderSchema);
 export default Order;

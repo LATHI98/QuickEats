@@ -1,11 +1,19 @@
-import { v4 as uuidv4 } from 'uuid';
 import QRCode from 'qrcode';
 import Order from '../models/Order.model.js';
 import Cart from '../models/Cart.model.js';
 import QueueSlot from '../models/QueueSlot.model.js';
+import GroupSession from '../models/GroupSession.model.js';
 
 const SLOT_INTERVAL_MINUTES = 10;
 const MAX_ORDERS_PER_SLOT = 10;
+
+// Generate a short 6-character alphanumeric pickup code (e.g. "QK82F1")
+const generatePickupCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no confusable chars (0/O, 1/I)
+  let code = '';
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  return code;
+};
 
 // Helper: get or create next available queue slot for a canteen
 async function assignQueueSlot(canteenId) {
@@ -63,8 +71,42 @@ async function getNextQueueNumber(canteenId) {
 // POST /api/orders
 export const placeOrder = async (req, res) => {
   try {
-    const cart = await Cart.findOne({ student: req.user._id });
-    if (!cart || cart.items.length === 0) {
+    const { groupSessionId } = req.body || {};
+
+    let cart = await Cart.findOne({ student: req.user._id });
+    let session = null;
+    let cartsToClear = [req.user._id];
+
+    if (groupSessionId) {
+      session = await GroupSession.findById(groupSessionId);
+      if (!session) return res.status(404).json({ success: false, message: 'Group session not found' });
+      if (session.status !== 'locked') return res.status(400).json({ success: false, message: 'Session must be locked to checkout' });
+      if (!session.members.includes(req.user._id)) return res.status(403).json({ success: false, message: 'Not a member of this session' });
+
+      if (session.paymentMode === 'pay_together') {
+        if (session.creator.toString() !== req.user._id.toString()) {
+          return res.status(403).json({ success: false, message: 'Only the session creator can place a pay_together order' });
+        }
+
+        // Merge all member carts
+        const memberCarts = await Cart.find({ student: { $in: session.members }, canteen: session.canteen });
+        const allItems = [];
+        memberCarts.forEach(c => allItems.push(...c.items));
+
+        if (allItems.length === 0) {
+          return res.status(400).json({ success: false, message: 'Group carts are empty' });
+        }
+
+        cart = {
+          student: req.user._id,
+          canteen: session.canteen,
+          items: allItems,
+        };
+        cartsToClear = session.members;
+      }
+    }
+
+    if (!cart || !cart.items || cart.items.length === 0) {
       return res.status(400).json({ success: false, message: 'Your cart is empty' });
     }
 
@@ -74,23 +116,38 @@ export const placeOrder = async (req, res) => {
     const { slotTime } = await assignQueueSlot(cart.canteen);
     const queueNumber = await getNextQueueNumber(cart.canteen);
 
-    // Generate QR
-    const qrToken = uuidv4();
-    const qrCode = await QRCode.toDataURL(qrToken);
+    // Generate short pickup code (retry if collision)
+    let pickupCode;
+    let attempts = 0;
+    do {
+      pickupCode = generatePickupCode();
+      attempts++;
+      if (attempts > 10) throw new Error('Could not generate unique pickup code');
+    } while (await Order.exists({ pickupCode }));
 
-    const order = await Order.create({
+    // Generate QR image from the short pickup code
+    const qrCodeData = await QRCode.toDataURL(pickupCode, {
+      width: 220,
+      margin: 1,
+      color: { dark: '#4338ca', light: '#eef2ff' }, // indigo on indigo-50
+    });
+
+    const orderPayload = {
       student: req.user._id,
       canteen: cart.canteen,
       items: cart.items,
       totalPrice,
       queueNumber,
       estimatedPickupTime: slotTime,
-      qrToken,
-      qrCode,
-    });
+      pickupCode,
+      qrCodeData,
+    };
+    if (session) orderPayload.groupSession = session._id;
 
-    // Clear cart
-    await Cart.findOneAndDelete({ student: req.user._id });
+    const order = await Order.create(orderPayload);
+
+    // Clear cart(s)
+    await Cart.deleteMany({ student: { $in: cartsToClear } });
 
     res.status(201).json({ success: true, data: order });
   } catch (err) {
@@ -140,7 +197,6 @@ export const getMyOrders = async (req, res) => {
     }
 
     const orders = await Order.find(filter)
-      .select('-qrCode -qrToken')   // exclude large fields from list
       .populate('canteen', 'name')
       .sort({ createdAt: -1 });
 
@@ -164,13 +220,22 @@ export const getMyOrderById = async (req, res) => {
   }
 };
 
-// GET /api/orders/canteen  ?status=&date=  (canteen staff)
+// GET /api/orders/canteen  ?status=&date=&canteen=  (canteen staff / admin)
 export const getCanteenOrders = async (req, res) => {
   try {
-    const canteenId = req.user.canteen;
-    if (!canteenId) return res.status(400).json({ success: false, message: 'No canteen assigned to your account' });
+    const isAdmin = ['admin', 'superAdmin'].includes(req.user.role);
 
-    const filter = { canteen: canteenId };
+    // Staff must use their assigned canteen; admins can optionally filter by canteen param
+    let canteenId;
+    if (isAdmin) {
+      canteenId = req.query.canteen || null; // optional for admin
+    } else {
+      canteenId = req.user.canteen;
+      if (!canteenId) return res.status(400).json({ success: false, message: 'No canteen assigned to your account' });
+    }
+
+    const filter = {};
+    if (canteenId) filter.canteen = canteenId;
     if (req.query.status) filter.status = req.query.status;
     if (req.query.date) {
       const start = new Date(req.query.date);
@@ -182,7 +247,9 @@ export const getCanteenOrders = async (req, res) => {
 
     const orders = await Order.find(filter)
       .populate('student', 'name studentId email')
-      .sort({ queueNumber: 1 });
+      .populate('canteen', 'name')
+      .populate('groupSession', 'shareCode paymentMode')
+      .sort({ createdAt: -1 });
 
     res.json({ success: true, count: orders.length, data: orders });
   } catch (err) {
@@ -229,20 +296,15 @@ export const updateOrderStatus = async (req, res) => {
   }
 };
 
-// POST /api/orders/:orderId/pickup-verify  { qrToken }
+// POST /api/orders/:orderId/pickup-verify  (staff clicks on the matching order — no token needed)
 export const verifyPickup = async (req, res) => {
   try {
-    const { qrToken } = req.body;
-    if (!qrToken) return res.status(400).json({ success: false, message: 'qrToken is required' });
-
-    const order = await Order.findById(req.params.orderId);
+    const order = await Order.findById(req.params.orderId).populate('student', 'name studentId');
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
-    if (order.canteen.toString() !== req.user.canteen?.toString()) {
+    const isAdmin = ['admin', 'superAdmin'].includes(req.user.role);
+    if (!isAdmin && order.canteen.toString() !== req.user.canteen?.toString()) {
       return res.status(403).json({ success: false, message: 'Not authorized for this canteen' });
-    }
-    if (order.qrToken !== qrToken) {
-      return res.status(400).json({ success: false, message: 'Invalid QR token' });
     }
     if (order.pickupVerified) {
       return res.status(400).json({ success: false, message: 'Order already picked up' });
@@ -256,8 +318,42 @@ export const verifyPickup = async (req, res) => {
     order.status = 'completed';
     await order.save();
 
-    res.json({ success: true, message: 'Pickup verified', data: order });
+    res.json({ success: true, message: 'Pickup confirmed', data: order });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
+
+// POST /api/orders/pickup-by-code  { pickupCode }  (staff enters/scans 6-char code)
+export const pickupByCode = async (req, res) => {
+  try {
+    const { pickupCode } = req.body;
+    if (!pickupCode) return res.status(400).json({ success: false, message: 'pickupCode is required' });
+
+    const order = await Order.findOne({ pickupCode: pickupCode.toUpperCase().trim() })
+      .populate('student', 'name studentId');
+
+    if (!order) return res.status(404).json({ success: false, message: 'No order found with that code' });
+
+    const isAdmin = ['admin', 'superAdmin'].includes(req.user.role);
+    if (!isAdmin && order.canteen.toString() !== req.user.canteen?.toString()) {
+      return res.status(403).json({ success: false, message: 'This order belongs to a different canteen' });
+    }
+    if (order.status !== 'ready') {
+      return res.status(400).json({ success: false, message: `Order is currently '${order.status}' — it must be 'ready' before pickup` });
+    }
+    if (order.pickupVerified) {
+      return res.status(400).json({ success: false, message: 'This order has already been picked up' });
+    }
+
+    order.pickupVerified = true;
+    order.pickupVerifiedAt = new Date();
+    order.status = 'completed';
+    await order.save();
+
+    res.json({ success: true, message: `Pickup confirmed for ${order.student?.name || 'student'}`, data: order });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+

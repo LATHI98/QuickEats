@@ -1,28 +1,35 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShoppingCart, Minus, Plus, Trash2, ArrowLeft, ClipboardList } from 'lucide-react';
-import { cartAPI, orderAPI } from '../../services/api';
+import { Users, ShoppingCart, Minus, Plus, Trash2, ArrowLeft, ClipboardList, Lock } from 'lucide-react';
+import { cartAPI, orderAPI, groupSessionAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
 const CartPage = () => {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
+  const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
   const [updatingId, setUpdatingId] = useState(null);
 
-  const fetchCart = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await cartAPI.getCart();
-      setCart(res.data.data);
+      const [cartRes, sessionRes] = await Promise.all([
+        cartAPI.getCart(),
+        groupSessionAPI.getActiveSession().catch(() => ({ data: { data: null } }))
+      ]);
+      setCart(cartRes.data.data);
+      if (sessionRes.data?.data) {
+        setSession(sessionRes.data.data);
+      }
     } catch {
-      toast.error('Failed to load cart');
+      toast.error('Failed to load cart data');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { fetchCart(); }, [fetchCart]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleUpdate = async (menuItemId, newQty) => {
     setUpdatingId(menuItemId);
@@ -32,7 +39,7 @@ const CartPage = () => {
       } else {
         await cartAPI.updateItem(menuItemId, newQty);
       }
-      await fetchCart();
+      await fetchData();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to update');
     } finally {
@@ -54,7 +61,8 @@ const CartPage = () => {
   const handlePlaceOrder = async () => {
     setPlacing(true);
     try {
-      const res = await orderAPI.placeOrder();
+      const payload = session ? { groupSessionId: session._id } : undefined;
+      const res = await orderAPI.placeOrder(payload);
       const order = res.data.data;
       toast.success(`Order placed! Queue #${order.queueNumber}`);
       navigate(`/dashboard/payment/${order._id}`);
@@ -123,6 +131,17 @@ const CartPage = () => {
             </div>
           )}
 
+          {/* Group Session Alert */}
+          {session && (
+            <div className="mb-4 bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-3">
+              <Users size={18} className="text-blue-500 mt-0.5" />
+              <div>
+                <p className="text-blue-800 text-sm font-['Gilroy_Heavy']">Part of Group Order</p>
+                <p className="text-blue-600 text-xs mt-0.5">Share Code: {session.shareCode}</p>
+              </div>
+            </div>
+          )}
+
           {/* Items */}
           <div className="space-y-3 mb-6">
             {items.map(item => {
@@ -170,23 +189,51 @@ const CartPage = () => {
                 LKR {total.toLocaleString()}
               </span>
             </div>
-            <button
-              onClick={handlePlaceOrder}
-              disabled={placing}
-              className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-['Gilroy_Heavy'] transition-colors"
-            >
-              {placing ? (
-                <>
-                  <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Placing Order...
-                </>
-              ) : (
-                <>
-                  <ClipboardList size={16} />
-                  Place Order · LKR {total.toLocaleString()}
-                </>
-              )}
-            </button>
+
+            {(() => {
+              if (!session) {
+                return (
+                  <button
+                    onClick={handlePlaceOrder}
+                    disabled={placing}
+                    className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-['Gilroy_Heavy'] transition-colors"
+                  >
+                    {placing ? 'Placing Order...' : `Place Order · LKR ${total.toLocaleString()}`}
+                  </button>
+                );
+              }
+
+              // Session logic
+              if (session.status === 'open') {
+                return (
+                  <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 rounded-xl font-['Gilroy_Heavy'] flex justify-center items-center gap-2">
+                    <Lock size={16} /> Lock Group Session First
+                  </button>
+                );
+              }
+
+              const isCreator = session.creator._id === JSON.parse(localStorage.getItem('user')).id;
+              if (session.paymentMode === 'pay_together' && !isCreator) {
+                return (
+                  <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 rounded-xl font-['Gilroy_Heavy'] text-sm">
+                    Waiting for Creator to Pay
+                  </button>
+                );
+              }
+
+              return (
+                <button
+                  onClick={handlePlaceOrder}
+                  disabled={placing}
+                  className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-['Gilroy_Heavy'] transition-colors"
+                >
+                  {placing ? 'Placing Order...' : (
+                    session.paymentMode === 'pay_together' ? 'Pay for Everyone' : 'Place Group Order'
+                  )}
+                </button>
+              );
+            })()}
+
             <p className="text-xs text-gray-400 text-center mt-3">
               You'll choose payment method on the next screen
             </p>

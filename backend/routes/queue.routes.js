@@ -1,6 +1,6 @@
 import express from 'express';
 import { protect, authorize } from '../middleware/auth.middleware.js';
-import { getAvailableSlots, getQueueStatus, getMyQueuePosition, setNowServing } from '../controllers/queue.controller.js';
+import { getAvailableSlots, getQueueStatus, getMyQueuePosition, setNowServing, callNext } from '../controllers/queue.controller.js';
 
 const router = express.Router();
 
@@ -11,7 +11,10 @@ router.get('/:canteenId/status', protect, authorize('student', 'canteenStaff', '
 // Students: my queue position
 router.get('/:canteenId/my-position/:orderId', protect, authorize('student'), getMyQueuePosition);
 
-// Staff: set "now serving" number
-router.patch('/:canteenId/serving', protect, authorize('canteenStaff', 'canteenManager'), setNowServing);
+// Staff: set "now serving" number manually
+router.patch('/:canteenId/serving', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), setNowServing);
+
+// Staff: auto-call the next pending order
+router.patch('/:canteenId/call-next', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), callNext);
 
 export default router;

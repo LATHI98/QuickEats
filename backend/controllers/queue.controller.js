@@ -1,19 +1,28 @@
 import QueueSlot from '../models/QueueSlot.model.js';
 import Order from '../models/Order.model.js';
+import CanteenQueue from '../models/CanteenQueue.model.js';
 
 const SLOT_INTERVAL_MINUTES = 10;
 const SLOTS_TO_SHOW = 12; // show next 2 hours of slots
 
-// In-memory "now serving" counter per canteen (resets on server restart)
-// For persistence, this could be stored in DB or Redis
-const nowServingMap = {};
+// Helper: get today's date string
+const todayStr = () => new Date().toISOString().split('T')[0];
+
+// Helper: get or create a CanteenQueue record for today
+async function getQueueRecord(canteenId) {
+  const date = todayStr();
+  return CanteenQueue.findOneAndUpdate(
+    { canteen: canteenId, date },
+    { $setOnInsert: { nowServing: 0 } },
+    { new: true, upsert: true }
+  );
+}
 
 // GET /api/queue/:canteenId/slots
 export const getAvailableSlots = async (req, res) => {
   try {
     const { canteenId } = req.params;
     const now = new Date();
-    const dateStr = now.toISOString().split('T')[0];
 
     const slots = [];
     const roundedMinutes = Math.ceil((now.getMinutes() + 1) / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
@@ -30,6 +39,7 @@ export const getAvailableSlots = async (req, res) => {
         orderCount,
         maxCapacity,
         remaining: maxCapacity - orderCount,
+        isFull: orderCount >= maxCapacity,
         available: orderCount < maxCapacity,
       });
 
@@ -50,14 +60,17 @@ export const getQueueStatus = async (req, res) => {
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
 
-    const activeOrders = await Order.find({
-      canteen: canteenId,
-      createdAt: { $gte: today, $lt: tomorrow },
-      status: { $in: ['pending', 'preparing', 'ready'] },
-    })
-      .select('queueNumber status estimatedPickupTime student totalPrice')
-      .populate('student', 'name studentId')
-      .sort({ queueNumber: 1 });
+    const [activeOrders, queueRecord] = await Promise.all([
+      Order.find({
+        canteen: canteenId,
+        createdAt: { $gte: today, $lt: tomorrow },
+        status: { $in: ['pending', 'preparing', 'ready'] },
+      })
+        .select('queueNumber status estimatedPickupTime student totalPrice createdAt')
+        .populate('student', 'name studentId')
+        .sort({ queueNumber: 1 }),
+      getQueueRecord(canteenId),
+    ]);
 
     const grouped = {
       pending: activeOrders.filter(o => o.status === 'pending'),
@@ -65,13 +78,23 @@ export const getQueueStatus = async (req, res) => {
       ready: activeOrders.filter(o => o.status === 'ready'),
     };
 
-    const nowServing = nowServingMap[canteenId] || 0;
+    // Find the next queue number after nowServing that is still active
+    const nowServing = queueRecord.nowServing;
+    const nextInQueue = activeOrders.find(o => o.queueNumber > nowServing && o.status === 'pending');
+
+    // Wait time & surge based on pending + preparing count
+    const activeCountForWait = grouped.pending.length + grouped.preparing.length;
+    const estimatedWaitTime = activeCountForWait * 3;
+    const surgeAlert = activeCountForWait >= 10;
 
     res.json({
       success: true,
       data: {
         nowServing,
+        nextQueueNumber: nextInQueue?.queueNumber || null,
         totalActive: activeOrders.length,
+        estimatedWaitTime,
+        surgeAlert,
         grouped,
       },
     });
@@ -89,10 +112,9 @@ export const getMyQueuePosition = async (req, res) => {
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     if (['completed', 'cancelled'].includes(order.status)) {
-      return res.json({ success: true, data: { queueNumber: order.queueNumber, status: order.status, ordersAhead: 0 } });
+      return res.json({ success: true, data: { queueNumber: order.queueNumber, status: order.status, ordersAhead: 0, estimatedWaitTimeMinutes: 0 } });
     }
 
-    // Count orders with same/earlier queue number that are still active (pending/preparing)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
@@ -109,6 +131,7 @@ export const getMyQueuePosition = async (req, res) => {
       data: {
         queueNumber: order.queueNumber,
         ordersAhead,
+        estimatedWaitTimeMinutes: ordersAhead * 3,
         estimatedPickupTime: order.estimatedPickupTime,
         status: order.status,
       },
@@ -119,6 +142,7 @@ export const getMyQueuePosition = async (req, res) => {
 };
 
 // PATCH /api/queue/:canteenId/serving  { currentlyServing }
+// Staff manually sets "now serving" to a specific number
 export const setNowServing = async (req, res) => {
   try {
     const { canteenId } = req.params;
@@ -128,14 +152,64 @@ export const setNowServing = async (req, res) => {
       return res.status(400).json({ success: false, message: 'currentlyServing must be a non-negative number' });
     }
 
-    // Enforce canteen ownership
-    if (req.user.canteen?.toString() !== canteenId) {
+    const isAdmin = ['admin', 'superAdmin'].includes(req.user.role);
+    if (!isAdmin && req.user.canteen?.toString() !== canteenId) {
       return res.status(403).json({ success: false, message: 'Not authorized for this canteen' });
     }
 
-    nowServingMap[canteenId] = Number(currentlyServing);
+    const date = todayStr();
+    const record = await CanteenQueue.findOneAndUpdate(
+      { canteen: canteenId, date },
+      { nowServing: Number(currentlyServing) },
+      { new: true, upsert: true }
+    );
 
-    res.json({ success: true, data: { canteenId, currentlyServing: nowServingMap[canteenId] } });
+    res.json({ success: true, data: { canteenId, nowServing: record.nowServing } });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// PATCH /api/queue/:canteenId/call-next
+// Automatically advances "now serving" to the next pending queue number
+export const callNext = async (req, res) => {
+  try {
+    const { canteenId } = req.params;
+
+    const isAdmin = ['admin', 'superAdmin'].includes(req.user.role);
+    if (!isAdmin && req.user.canteen?.toString() !== canteenId) {
+      return res.status(403).json({ success: false, message: 'Not authorized for this canteen' });
+    }
+
+    const date = todayStr();
+    const record = await getQueueRecord(canteenId);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
+
+    // Find the next pending order after the current nowServing
+    const nextOrder = await Order.findOne({
+      canteen: canteenId,
+      queueNumber: { $gt: record.nowServing },
+      status: 'pending',
+      createdAt: { $gte: today, $lt: tomorrow },
+    }).sort({ queueNumber: 1 });
+
+    if (!nextOrder) {
+      return res.status(404).json({ success: false, message: 'No pending orders in queue' });
+    }
+
+    const updated = await CanteenQueue.findOneAndUpdate(
+      { canteen: canteenId, date },
+      { nowServing: nextOrder.queueNumber },
+      { new: true, upsert: true }
+    );
+
+    res.json({
+      success: true,
+      data: { nowServing: updated.nowServing, student: nextOrder.student },
+    });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

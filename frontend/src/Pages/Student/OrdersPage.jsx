@@ -5,18 +5,18 @@ import { orderAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
 const STATUS_CONFIG = {
-  pending:   { label: 'Pending',   color: 'bg-yellow-100 text-yellow-700', icon: Clock },
-  preparing: { label: 'Preparing', color: 'bg-blue-100 text-blue-700',     icon: ChefHat },
-  ready:     { label: 'Ready',     color: 'bg-green-100 text-green-700',   icon: Package },
-  completed: { label: 'Completed', color: 'bg-gray-100 text-gray-600',     icon: CheckCircle },
-  cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-500',       icon: XCircle },
+  pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
+  preparing: { label: 'Preparing', color: 'bg-blue-100 text-blue-700', icon: ChefHat },
+  ready: { label: 'Ready', color: 'bg-green-100 text-green-700', icon: Package },
+  completed: { label: 'Completed', color: 'bg-gray-100 text-gray-600', icon: CheckCircle },
+  cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-500', icon: XCircle },
 };
 
 const PAYMENT_STATUS = {
-  unpaid:               { label: 'Unpaid',                color: 'text-red-500' },
+  unpaid: { label: 'Unpaid', color: 'text-red-500' },
   pending_verification: { label: 'Awaiting Verification', color: 'text-yellow-600' },
-  verified:             { label: 'Verified',              color: 'text-green-600' },
-  rejected:             { label: 'Rejected',              color: 'text-red-500' },
+  verified: { label: 'Verified', color: 'text-green-600' },
+  rejected: { label: 'Rejected', color: 'text-red-500' },
 };
 
 const StatusBadge = ({ status }) => {
@@ -74,11 +74,17 @@ const OrderDetailModal = ({ order, onClose, onCancel, onPayNow }) => {
             </div>
           </div>
 
-          {/* QR Code */}
-          {order.qrCode && (
-            <div className="text-center">
-              <p className="text-xs text-gray-400 mb-2">Show this QR at pickup</p>
-              <img src={order.qrCode} alt="QR Code" className="w-36 h-36 mx-auto rounded-xl border border-gray-100" />
+          {/* Pickup Code + QR Image — shown when order is ready */}
+          {order.status === 'ready' && order.pickupCode && (
+            <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 text-center">
+              <p className="text-xs font-['Gilroy_Heavy'] text-indigo-400 uppercase tracking-widest mb-3">Show this at the counter</p>
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${order.pickupCode}&qzone=1&color=4338ca`}
+                alt="Pickup QR"
+                className="w-44 h-44 mx-auto rounded-xl mb-3"
+              />
+              <p className="text-3xl font-['Gilroy_Heavy'] text-indigo-700 tracking-widest">{order.pickupCode}</p>
+              <p className="text-xs text-indigo-300 mt-1">Staff will enter this code to confirm delivery</p>
             </div>
           )}
 
@@ -117,15 +123,15 @@ const OrderDetailModal = ({ order, onClose, onCancel, onPayNow }) => {
 
           {/* Action buttons */}
           {order.status !== 'cancelled' &&
-           (order.payment?.status === 'unpaid' || order.payment?.status === 'rejected') && (
-            <button
-              onClick={() => onPayNow(order._id)}
-              className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-['Gilroy_Heavy'] transition-colors"
-            >
-              <CreditCard size={16} />
-              {order.payment?.status === 'rejected' ? 'Re-submit Payment' : 'Pay Now'}
-            </button>
-          )}
+            (order.payment?.status === 'unpaid' || order.payment?.status === 'rejected') && (
+              <button
+                onClick={() => onPayNow(order._id)}
+                className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-['Gilroy_Heavy'] transition-colors"
+              >
+                <CreditCard size={16} />
+                {order.payment?.status === 'rejected' ? 'Re-submit Payment' : 'Pay Now'}
+              </button>
+            )}
           {canCancel && (
             <button
               onClick={() => onCancel(order._id)}
@@ -234,11 +240,10 @@ const OrdersPage = () => {
           <button
             key={f.value}
             onClick={() => setStatusFilter(f.value)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              statusFilter === f.value
-                ? 'bg-orange-500 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
+            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${statusFilter === f.value
+              ? 'bg-orange-500 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
           >
             {f.label}
           </button>

@@ -8,6 +8,7 @@ import {
   getCanteenOrders,
   updateOrderStatus,
   verifyPickup,
+  pickupByCode,
 } from '../controllers/order.controller.js';
 import {
   createStripeIntent,
@@ -27,10 +28,11 @@ router.patch('/:orderId/cancel', protect, authorize('student'), cancelOrder);
 router.get('/my', protect, authorize('student'), getMyOrders);
 router.get('/my/:orderId', protect, authorize('student'), getMyOrderById);
 
-// ── Staff: Order Status Management ───────────────────────────────────────────
-router.get('/canteen', protect, authorize('canteenStaff', 'canteenManager', 'superAdmin'), getCanteenOrders);
-router.patch('/:orderId/status', protect, authorize('canteenStaff', 'canteenManager'), updateOrderStatus);
-router.post('/:orderId/pickup-verify', protect, authorize('canteenStaff', 'canteenManager'), verifyPickup);
+// ── Staff + Admin: Order Status Management ───────────────────────────────────
+router.get('/canteen', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), getCanteenOrders);
+router.patch('/:orderId/status', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), updateOrderStatus);
+router.post('/:orderId/pickup-verify', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), verifyPickup);
+router.post('/pickup-by-code', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), pickupByCode);
 
 // ── Payment: Stripe ───────────────────────────────────────────────────────────
 router.post('/:orderId/payment/stripe/create-intent', protect, authorize('student'), createStripeIntent);

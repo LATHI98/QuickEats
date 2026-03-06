@@ -17,7 +17,8 @@ import {
   CreditCard,
   MessageSquare,
   Ticket,
-  CalendarCheck
+  CalendarCheck,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -65,6 +66,7 @@ const StudentLayout = () => {
                 <MenuLink to="/dashboard" icon={Home} label="Dashboard" active={location.pathname === '/dashboard'} />
                 <MenuLink to="/dashboard/orders" icon={ClipboardList} label="My Orders" active={location.pathname === '/dashboard/orders'} />
                 <MenuLink to="/dashboard/canteens" icon={Utensils} label="Canteens" active={location.pathname === '/dashboard/canteens'} />
+                <MenuLink to="/dashboard/group-order" icon={Users} label="Group Order" active={location.pathname === '/dashboard/group-order'} badge="New" />
               </nav>
             </div>
 

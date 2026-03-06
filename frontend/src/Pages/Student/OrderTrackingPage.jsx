@@ -116,7 +116,7 @@ const OrderTrackingPage = () => {
               <>
                 <p className="text-xs font-['Gilroy_Heavy'] text-indigo-400 uppercase tracking-widest mb-3">Show this at the counter</p>
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${activeOrder.pickupCode}&qzone=1&color=4338ca`}
+                  src={activeOrder.qrCodeData || `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${activeOrder.pickupCode}&qzone=1&color=4338ca`}
                   alt="Pickup QR Code"
                   className="w-52 h-52 mx-auto rounded-xl mb-3"
                 />

@@ -11,6 +11,8 @@ const groupSessionSchema = new mongoose.Schema(
             enum: ['pay_separately', 'pay_together'],
             default: 'pay_separately'
         },
+        name: { type: String, default: 'Group Order' },
+        qrCodeData: { type: String, default: null },
         status: {
             type: String,
             enum: ['open', 'locked', 'completed'],

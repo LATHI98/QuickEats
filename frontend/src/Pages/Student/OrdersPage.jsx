@@ -79,7 +79,7 @@ const OrderDetailModal = ({ order, onClose, onCancel, onPayNow }) => {
             <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-5 text-center">
               <p className="text-xs font-['Gilroy_Heavy'] text-indigo-400 uppercase tracking-widest mb-3">Show this at the counter</p>
               <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${order.pickupCode}&qzone=1&color=4338ca`}
+                src={order.qrCodeData || `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${order.pickupCode}&qzone=1&color=4338ca`}
                 alt="Pickup QR"
                 className="w-44 h-44 mx-auto rounded-xl mb-3"
               />

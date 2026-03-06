@@ -72,6 +72,7 @@ async function getNextQueueNumber(canteenId) {
 export const placeOrder = async (req, res) => {
   try {
     const { groupSessionId } = req.body || {};
+    console.log(`Placing order. User: ${req.user._id}, GroupSession: ${groupSessionId}`);
 
     let cart = await Cart.findOne({ student: req.user._id });
     let session = null;
@@ -81,7 +82,9 @@ export const placeOrder = async (req, res) => {
       session = await GroupSession.findById(groupSessionId);
       if (!session) return res.status(404).json({ success: false, message: 'Group session not found' });
       if (session.status !== 'locked') return res.status(400).json({ success: false, message: 'Session must be locked to checkout' });
-      if (!session.members.includes(req.user._id)) return res.status(403).json({ success: false, message: 'Not a member of this session' });
+
+      const isMember = session.members.some(m => m.toString() === req.user._id.toString());
+      if (!isMember) return res.status(403).json({ success: false, message: 'Not a member of this session' });
 
       if (session.paymentMode === 'pay_together') {
         if (session.creator.toString() !== req.user._id.toString()) {
@@ -91,10 +94,19 @@ export const placeOrder = async (req, res) => {
         // Merge all member carts
         const memberCarts = await Cart.find({ student: { $in: session.members }, canteen: session.canteen });
         const allItems = [];
-        memberCarts.forEach(c => allItems.push(...c.items));
+        memberCarts.forEach(c => {
+          // Convert to plain objects to avoid subdocument conflicts
+          const items = c.items.map(item => ({
+            menuItem: item.menuItem,
+            name: item.name,
+            unitPrice: item.unitPrice,
+            quantity: item.quantity
+          }));
+          allItems.push(...items);
+        });
 
         if (allItems.length === 0) {
-          return res.status(400).json({ success: false, message: 'Group carts are empty' });
+          return res.status(400).json({ success: false, message: 'Group members have no items in their carts for this canteen' });
         }
 
         cart = {
@@ -122,36 +134,39 @@ export const placeOrder = async (req, res) => {
     do {
       pickupCode = generatePickupCode();
       attempts++;
-      if (attempts > 10) throw new Error('Could not generate unique pickup code');
+      if (attempts > 10) throw new Error('Could not generate unique pickup code after 10 attempts');
     } while (await Order.exists({ pickupCode }));
 
     // Generate QR image from the short pickup code
     const qrCodeData = await QRCode.toDataURL(pickupCode, {
       width: 220,
       margin: 1,
-      color: { dark: '#4338ca', light: '#eef2ff' }, // indigo on indigo-50
+      color: { dark: '#4338ca', light: '#eef2ff' },
     });
 
     const orderPayload = {
       student: req.user._id,
       canteen: cart.canteen,
-      items: cart.items,
+      items: cart.items, // These are now plain objects if from pay_together, or Mongoose subdocs if from single cart
       totalPrice,
       queueNumber,
       estimatedPickupTime: slotTime,
       pickupCode,
       qrCodeData,
+      status: 'pending'
     };
     if (session) orderPayload.groupSession = session._id;
 
     const order = await Order.create(orderPayload);
+    console.log(`Order created: ${order._id}`);
 
     // Clear cart(s)
     await Cart.deleteMany({ student: { $in: cartsToClear } });
 
     res.status(201).json({ success: true, data: order });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error('Place order error:', err);
+    res.status(500).json({ success: false, message: err.message || 'Internal server error while placing order' });
   }
 };
 

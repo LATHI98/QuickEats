@@ -14,16 +14,39 @@ const CartPage = () => {
 
   const fetchData = useCallback(async () => {
     try {
+      setLoading(true);
       const [cartRes, sessionRes] = await Promise.all([
         cartAPI.getCart(),
-        groupSessionAPI.getActiveSession().catch(() => ({ data: { data: null } }))
+        groupSessionAPI.getActiveSession().catch(() => ({ data: { data: null } })) // Keep original catch for session
       ]);
-      setCart(cartRes.data.data);
+
+      let activeSession = null;
       if (sessionRes.data?.data) {
-        setSession(sessionRes.data.data);
+        activeSession = sessionRes.data.data;
+        setSession(activeSession);
+      } else {
+        setSession(null);
       }
-    } catch {
-      toast.error('Failed to load cart data');
+
+      const currentUser = JSON.parse(localStorage.getItem('user'));
+      const isCreator = activeSession && activeSession.creator._id === currentUser.id;
+
+      if (activeSession && isCreator && activeSession.paymentMode === 'pay_together') {
+        // If creator and pay_together, fetch merged cart instead of personal cart
+        const mergedRes = await groupSessionAPI.getMergedCart(activeSession._id);
+        if (mergedRes.data?.data) {
+          // Assuming mergedRes.data.data is a cart-like object with items and totalPrice
+          setCart(mergedRes.data.data);
+        } else {
+          setCart({ items: [], totalPrice: 0 }); // Set an empty cart if merged cart is empty
+        }
+      } else if (cartRes.data?.data) {
+        setCart(cartRes.data.data);
+      } else {
+        setCart({ items: [], totalPrice: 0 }); // Set an empty cart if personal cart is empty
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load cart data');
     } finally {
       setLoading(false);
     }
@@ -213,6 +236,7 @@ const CartPage = () => {
               }
 
               const isCreator = session.creator._id === JSON.parse(localStorage.getItem('user')).id;
+
               if (session.paymentMode === 'pay_together' && !isCreator) {
                 return (
                   <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 rounded-xl font-['Gilroy_Heavy'] text-sm">
@@ -221,15 +245,61 @@ const CartPage = () => {
                 );
               }
 
+              // Let the creator switch between pay_together and pay_separately right at checkout
+              if (isCreator) {
+                return (
+                  <div className="space-y-4">
+                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
+                      <p className="text-xs font-['Gilroy_Medium'] text-gray-500 mb-2 uppercase tracking-wide">Group Payment Mode</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={async () => {
+                            try {
+                              await groupSessionAPI.editSession(session._id, { paymentMode: 'pay_separately' });
+                              setSession({ ...session, paymentMode: 'pay_separately' });
+                              toast.success('Updated to Pay Separately');
+                            } catch (err) { toast.error('Failed to update mode'); }
+                          }}
+                          className={`flex-1 py-2 rounded-lg text-sm font-['Gilroy_Medium'] transition-colors ${session.paymentMode === 'pay_separately' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}
+                        >
+                          Pay Separately
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await groupSessionAPI.editSession(session._id, { paymentMode: 'pay_together' });
+                              setSession({ ...session, paymentMode: 'pay_together' });
+                              toast.success('Updated to Pay Together');
+                            } catch (err) { toast.error('Failed to update mode'); }
+                          }}
+                          className={`flex-1 py-2 rounded-lg text-sm font-['Gilroy_Medium'] transition-colors ${session.paymentMode === 'pay_together' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}
+                        >
+                          Pay for Everyone
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handlePlaceOrder}
+                      disabled={placing}
+                      className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-['Gilroy_Heavy'] transition-colors"
+                    >
+                      {placing ? 'Placing Order...' : (
+                        session.paymentMode === 'pay_together' ? 'Pay for Everyone & Order' : 'Place My Order'
+                      )}
+                    </button>
+                  </div>
+                );
+              }
+
+              // Just a normal member checking out separately
               return (
                 <button
                   onClick={handlePlaceOrder}
                   disabled={placing}
                   className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-['Gilroy_Heavy'] transition-colors"
                 >
-                  {placing ? 'Placing Order...' : (
-                    session.paymentMode === 'pay_together' ? 'Pay for Everyone' : 'Place Group Order'
-                  )}
+                  {placing ? 'Placing Order...' : 'Place My Order'}
                 </button>
               );
             })()}

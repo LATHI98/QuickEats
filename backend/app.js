@@ -9,6 +9,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, '..', '.env') });
 
 import authRoutes from './routes/auth.routes.js';
+import mealPassRoutes from './routes/mealPass.routes.js';
+import purchasedPassRoutes from './routes/purchasedPass.routes.js';
+import budgetRoutes from './routes/budget.routes.js';
+import expenseRoutes from './routes/expense.routes.js';
+
+
+
+
 
 const app = express();
 
@@ -36,6 +44,14 @@ mongoose.connect(process.env.MONGODBURL)
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/meal-passes', mealPassRoutes);
+app.use('/api/purchased-passes', purchasedPassRoutes);
+app.use('/api/budgets', budgetRoutes);
+app.use('/api/expenses', expenseRoutes);
+
+
+
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

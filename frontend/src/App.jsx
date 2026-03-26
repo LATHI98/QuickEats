@@ -19,6 +19,7 @@ import AdminMenu from './Pages/Admin/MenuPage';
 import AdminOrders from './Pages/Admin/OrdersPage';
 import AdminUsers from './Pages/Admin/UsersPage';
 import AdminSettings from './Pages/Admin/SettingsPage';
+import StaffDashboardPage from './Pages/Admin/StaffDashboardPage';
 
 // Student pages
 import StudentDashboard from './Pages/Student/DashboardPage';
@@ -28,6 +29,7 @@ import ProfilePage from './Pages/Student/ProfilePage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
+import HealthMealPlanPage from './Pages/Student/HealthMealPlanPage';
 
 function App() {
   return (
@@ -49,6 +51,7 @@ function App() {
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="meal-pass" element={<MealPassPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
+            <Route path="meal-plan" element={<HealthMealPlanPage />} />
             <Route path="profile" element={<ProfilePage />} />
           </Route>
         </Route>
@@ -63,6 +66,7 @@ function App() {
             <Route path="orders" element={<AdminOrders />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="staff" element={<StaffDashboardPage />} />
           </Route>
         </Route>
 

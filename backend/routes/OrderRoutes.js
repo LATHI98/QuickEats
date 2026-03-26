@@ -9,6 +9,8 @@ router.post('/', async (req, res) => {
 
   const food = await Food.findById(foodId);
 
+  if (!food) return res.status(404).json({ message: 'Food not found' });
+
   if (food.stock < quantity) {
     return res.status(400).json({ message: 'Out of stock' });
   }
@@ -23,7 +25,7 @@ router.post('/', async (req, res) => {
 });
 
 router.get('/', async (req, res) => {
-  const orders = await Order.find().populate('foodId');
+  const orders = await Order.find().populate('foodId').sort({ date: -1 });
   res.json(orders);
 });
 

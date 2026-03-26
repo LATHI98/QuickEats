@@ -19,6 +19,10 @@ import AdminMenu from './Pages/Admin/MenuPage';
 import AdminOrders from './Pages/Admin/OrdersPage';
 import AdminUsers from './Pages/Admin/UsersPage';
 import AdminSettings from './Pages/Admin/SettingsPage';
+import AdminMealPass from './Pages/Admin/MealPassManagementPage';
+import AdminApprovals from './Pages/Admin/MealPassApprovalsPage';
+
+
 
 // Student pages
 import StudentDashboard from './Pages/Student/DashboardPage';
@@ -27,7 +31,9 @@ import StudentOrders from './Pages/Student/OrdersPage';
 import ProfilePage from './Pages/Student/ProfilePage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
+import MyMealPasses from './Pages/Student/MyMealPassesPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
+
 
 function App() {
   return (
@@ -49,6 +55,8 @@ function App() {
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="meal-pass" element={<MealPassPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
+            <Route path="my-passes" element={<MyMealPasses />} />
+
             <Route path="profile" element={<ProfilePage />} />
           </Route>
         </Route>
@@ -62,7 +70,11 @@ function App() {
             <Route path="menu" element={<AdminMenu />} />
             <Route path="orders" element={<AdminOrders />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="meal-pass" element={<AdminMealPass />} />
+            <Route path="approvals" element={<AdminApprovals />} />
             <Route path="settings" element={<AdminSettings />} />
+
+
           </Route>
         </Route>
 

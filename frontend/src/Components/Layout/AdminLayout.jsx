@@ -13,7 +13,10 @@ import {
   ChevronRight,
   Shield,
   ChefHat,
+  Ticket,
+  Clock,
 } from 'lucide-react';
+
 import { useAuth } from '../../contexts/AuthContext';
 
 const superAdminNav = [
@@ -139,8 +142,21 @@ const AdminLayout = () => {
                   label="Menu Manager"
                   active={location.pathname === '/admin/menu'}
                 />
+                <MenuLink
+                  to="/admin/meal-pass"
+                  icon={Ticket}
+                  label="Meal Pass"
+                  active={location.pathname === '/admin/meal-pass'}
+                />
+                <MenuLink
+                  to="/admin/approvals"
+                  icon={Clock}
+                  label="Meal Pass Records"
+                  active={location.pathname === '/admin/approvals'}
+                />
               </nav>
             </div>
+
 
             {/* Section: ACCOUNT */}
             <div>

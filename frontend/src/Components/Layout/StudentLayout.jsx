@@ -17,7 +17,8 @@ import {
   CreditCard,
   MessageSquare,
   Ticket,
-  CalendarCheck
+  CalendarCheck,
+  Salad
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -63,7 +64,7 @@ const StudentLayout = () => {
               <p className="px-4 text-[10px] font-['Gilroy_Bold'] text-gray-300 uppercase tracking-[0.2em] mb-4">Main</p>
               <nav className="space-y-1">
                 <MenuLink to="/dashboard" icon={Home} label="Dashboard" active={location.pathname === '/dashboard'} />
-                <MenuLink to="/dashboard/orders" icon={ClipboardList} label="My Orders" active={location.pathname === '/dashboard/orders'} />
+                <MenuLink to="/dashboard/orders" icon={ClipboardList} label="My Menu" active={location.pathname === '/dashboard/orders'} />
                 <MenuLink to="/dashboard/canteens" icon={Utensils} label="Canteens" active={location.pathname === '/dashboard/canteens'} />
               </nav>
             </div>
@@ -75,6 +76,7 @@ const StudentLayout = () => {
                 <MenuLink to="/dashboard/reservations" icon={CalendarCheck} label="Reservations" active={location.pathname === '/dashboard/reservations'} />
                 <MenuLink to="/dashboard/meal-pass" icon={Ticket} label="Meal Pass" active={location.pathname === '/dashboard/meal-pass'} badge="New" />
                 <MenuLink to="/dashboard/budget" icon={CreditCard} label="Meal Budget" active={location.pathname === '/dashboard/budget'} />
+                <MenuLink to="/dashboard/meal-plan" icon={Salad} label="Sports Meal Plan" active={location.pathname === '/dashboard/meal-plan'} badge="SLIIT" />
               </nav>
             </div>
 

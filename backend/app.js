@@ -74,10 +74,15 @@ async function seedDatabase() {
   }
 }
 
+// Register all routes
+app.use('/api/auth', authRoutes);
 app.use('/api/food', foodRoutes);
 app.use('/api/order', orderRoutes);
 app.use('/api/review', reviewRoutes);
 app.use('/api/staff', staffRoutes);
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
 mongoose.connect(process.env.MONGODBURL)
   .then(async () => {
@@ -86,8 +91,3 @@ mongoose.connect(process.env.MONGODBURL)
   })
   .catch(err => console.error('MongoDB connection error:', err));
 
-// Routes
-app.use('/api/auth', authRoutes);
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

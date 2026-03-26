@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Shield,
   ChefHat,
+  LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -138,6 +139,13 @@ const AdminLayout = () => {
                   icon={UtensilsCrossed}
                   label="Menu Manager"
                   active={location.pathname === '/admin/menu'}
+                />
+                <MenuLink
+                  to="/admin/staff"
+                  icon={LayoutGrid}
+                  label="Staff Dashboard"
+                  active={location.pathname === '/admin/staff'}
+                  badge={user?.role === 'canteenStaff' ? 'You' : undefined}
                 />
               </nav>
             </div>

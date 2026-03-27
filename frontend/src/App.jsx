@@ -33,6 +33,7 @@ import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
 import MyMealPasses from './Pages/Student/MyMealPassesPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
+import CanteenReviewPage from './Pages/Student/CanteenReviewPage';
 
 
 function App() {
@@ -56,6 +57,7 @@ function App() {
             <Route path="meal-pass" element={<MealPassPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
             <Route path="my-passes" element={<MyMealPasses />} />
+            <Route path="reviews" element={<CanteenReviewPage />} />
 
             <Route path="profile" element={<ProfilePage />} />
           </Route>

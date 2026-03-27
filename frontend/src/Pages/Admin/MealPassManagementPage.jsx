@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Plus, Search, Edit2, Trash2, Ticket, X, 
   Save, Image as ImageIcon, Tag, Hash, 
-  Layers, MapPin, Info, DollarSign
+  Layers, MapPin, Info, DollarSign, Upload
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import mealPassService from '../../services/mealPassService';
@@ -21,6 +21,7 @@ const AdminMealPassPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPass, setEditingPass] = useState(null);
+  const fileInputRef = useRef(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -30,8 +31,9 @@ const AdminMealPassPage = () => {
     canteen: '',
     category: 'lunch',
     tags: '',
-    image: '',
+    image: null, // This will hold the file object
   });
+  const [imagePreview, setImagePreview] = useState(null);
 
   useEffect(() => {
     fetchMealPasses();
@@ -55,13 +57,14 @@ const AdminMealPassPage = () => {
       setFormData({
         name: pass.name,
         price: pass.price,
-        discount: pass.discount,
-        description: pass.description,
+        discount: pass.discount || '',
+        description: pass.description || '',
         canteen: pass.canteen,
         category: pass.category,
         tags: pass.tags.join(', '),
-        image: pass.image,
+        image: null,
       });
+      setImagePreview(pass.image ? (pass.image.startsWith('http') ? pass.image : `http://localhost:5000${pass.image}`) : null);
     } else {
       setEditingPass(null);
       setFormData({
@@ -72,25 +75,60 @@ const AdminMealPassPage = () => {
         canteen: '',
         category: 'lunch',
         tags: '',
-        image: '',
+        image: null,
       });
+      setImagePreview(null);
     }
     setIsModalOpen(true);
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData({ ...formData, image: file });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const processedData = {
-      ...formData,
-      tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== ''),
-    };
+    
+    if (!formData.name.trim() || !formData.price.trim() || !formData.canteen.trim()) {
+      toast.error('Name, Price, and Canteen are mandatory');
+      return;
+    }
+
+    // Basic price validation (strip currency symbols if any, check if number)
+    const priceValue = formData.price.replace(/[^\d.]/g, '');
+    if (!priceValue || isNaN(priceValue)) {
+      toast.error('Please enter a valid numeric price');
+      return;
+    }
+
+    // Use FormData for file upload
+    const data = new FormData();
+    data.append('name', formData.name.trim());
+    data.append('price', formData.price.trim());
+    data.append('canteen', formData.canteen.trim());
+    data.append('category', formData.category);
+    
+    // Optional fields
+    if (formData.discount) data.append('discount', formData.discount.trim());
+    if (formData.description) data.append('description', formData.description.trim());
+    if (formData.tags) data.append('tags', formData.tags);
+    if (formData.image) data.append('image', formData.image);
+
 
     try {
       if (editingPass) {
-        await mealPassService.updateMealPass(editingPass._id, processedData);
+        await mealPassService.updateMealPass(editingPass._id, data);
         toast.success('Meal pass updated successfully');
       } else {
-        await mealPassService.createMealPass(processedData);
+        await mealPassService.createMealPass(data);
         toast.success('Meal pass created successfully');
       }
       setIsModalOpen(false);
@@ -113,8 +151,8 @@ const AdminMealPassPage = () => {
   };
 
   const filteredPasses = mealPasses.filter(pass => 
-    pass.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    pass.canteen.toLowerCase().includes(searchQuery.toLowerCase())
+    pass.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    pass.canteen?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -138,7 +176,6 @@ const AdminMealPassPage = () => {
           </div>
           <span className="tracking-tight">Add New Pass</span>
         </button>
-
       </header>
 
       {/* Search Bar */}
@@ -161,7 +198,6 @@ const AdminMealPassPage = () => {
         </div>
       ) : filteredPasses.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-
           {filteredPasses.map(pass => (
             <motion.div
               key={pass._id}
@@ -172,7 +208,7 @@ const AdminMealPassPage = () => {
             >
               <div className="relative h-48 overflow-hidden rounded-t-[24px] bg-white group-hover:shadow-[inset_0_0_60px_rgba(0,0,0,0.05)] transition-all duration-500">
                 <img 
-                  src={pass.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
+                  src={pass.image ? (pass.image.startsWith('http') ? pass.image : `http://localhost:5000${pass.image}`) : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
                   alt={pass.name}
                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                 />
@@ -210,18 +246,18 @@ const AdminMealPassPage = () => {
                 </div>
 
                 <p className="text-gray-400 text-xs font-['Gilroy_Medium'] line-clamp-2 mb-4">
-                  {pass.description}
+                  {pass.description || 'No description provided.'}
                 </p>
 
                 <div className="mt-auto flex flex-wrap gap-1.5">
-                  {pass.tags.map(tag => (
+                  {pass.tags && pass.tags.map(tag => (
                     <span key={tag} className="bg-gray-50 text-gray-400 px-2 py-0.5 rounded-full text-[9px] font-['Gilroy_Bold'] uppercase tracking-wider">
                       {tag}
                     </span>
                   ))}
+                  {(!pass.tags || pass.tags.length === 0) && <span className="text-[9px] text-gray-300 italic">No tags</span>}
                 </div>
               </div>
-
             </motion.div>
           ))}
         </div>
@@ -240,19 +276,19 @@ const AdminMealPassPage = () => {
       {/* --- ADD/EDIT MODAL --- */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm"
+              className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm"
               onClick={() => setIsModalOpen(false)}
             />
             <motion.div
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl overflow-hidden"
+              className="relative w-full max-w-2xl bg-white rounded-[40px] shadow-2xl overflow-hidden my-8"
             >
               <div className="bg-orange-50 p-8 border-b border-orange-100 flex justify-between items-center">
                 <div>
@@ -268,10 +304,10 @@ const AdminMealPassPage = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto max-h-[70vh]">
+              <form onSubmit={handleSubmit} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Meal Name</label>
+                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Meal Name *</label>
                     <div className="relative">
                       <Ticket size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
@@ -287,7 +323,7 @@ const AdminMealPassPage = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Price</label>
+                      <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Price *</label>
                       <div className="relative">
                         <DollarSign size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
@@ -305,7 +341,6 @@ const AdminMealPassPage = () => {
                       <div className="relative">
                         <Tag size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
-                          required
                           type="text"
                           placeholder="100% Free"
                           className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
@@ -317,7 +352,7 @@ const AdminMealPassPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Canteen Location</label>
+                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Canteen Location *</label>
                     <div className="relative">
                       <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
@@ -334,7 +369,7 @@ const AdminMealPassPage = () => {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Category</label>
+                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Category *</label>
                     <div className="relative">
                       <Layers size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <select
@@ -343,66 +378,86 @@ const AdminMealPassPage = () => {
                         onChange={e => setFormData({...formData, category: e.target.value})}
                       >
                         {CATEGORIES.map(cat => (
-                          <option key={cat.id} value={cat.id}>{cat.name}</option>
+                           <option key={cat.id} value={cat.id}>{cat.name}</option>
                         ))}
                       </select>
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Image URL</label>
-                    <div className="relative">
-                      <ImageIcon size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="url"
-                        placeholder="https://images.unsplash..."
-                        className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
-                        value={formData.image}
-                        onChange={e => setFormData({...formData, image: e.target.value})}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Tags (Comma Separated)</label>
-                    <div className="relative">
-                      <Hash size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                      <input
-                        type="text"
-                        placeholder="Spicy, Popular, Veg"
-                        className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
-                        value={formData.tags}
-                        onChange={e => setFormData({...formData, tags: e.target.value})}
+                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Upload Image</label>
+                    <div 
+                      onClick={() => fileInputRef.current?.click()}
+                      className="border-2 border-dashed border-gray-100 rounded-3xl p-6 flex flex-col items-center justify-center gap-3 hover:border-orange-200 hover:bg-orange-50/30 transition-all cursor-pointer group group-active:scale-[0.98]"
+                    >
+                      {imagePreview ? (
+                         <div className="relative w-full h-24 rounded-2xl overflow-hidden">
+                            <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                               <Upload className="text-white" size={24} />
+                            </div>
+                         </div>
+                      ) : (
+                        <>
+                          <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 group-hover:text-orange-500 group-hover:bg-white transition-all">
+                             <Upload size={20} />
+                          </div>
+                          <div className="text-center">
+                            <p className="text-[10px] font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest">Drop here or Click</p>
+                          </div>
+                        </>
+                      )}
+                      <input 
+                        type="file" 
+                        ref={fileInputRef}
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={handleImageChange}
                       />
                     </div>
                   </div>
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Description</label>
-                  <div className="relative">
-                    <Info size={18} className="absolute left-4 top-4 text-gray-400" />
-                    <textarea
-                      required
-                      placeholder="Enter meal details..."
-                      rows="4"
-                      className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700 resize-none"
-                      value={formData.description}
-                      onChange={e => setFormData({...formData, description: e.target.value})}
-                    />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Tags (Comma Separated)</label>
+                      <div className="relative">
+                        <Hash size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Spicy, Popular, Veg"
+                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
+                          value={formData.tags}
+                          onChange={e => setFormData({...formData, tags: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Description</label>
+                      <div className="relative">
+                        <Info size={18} className="absolute left-4 top-3 text-gray-400" />
+                        <textarea
+                          placeholder="Enter meal details (optional)..."
+                          rows="2"
+                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700 resize-none"
+                          value={formData.description}
+                          onChange={e => setFormData({...formData, description: e.target.value})}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
 
                 <div className="md:col-span-2 pt-4 flex justify-end">
                   <button
                     type="submit"
-                    className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 py-3 rounded-xl font-['Gilroy_Bold'] text-base hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                    className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-10 py-4 rounded-2xl font-['Gilroy_Bold'] text-base hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/20 active:scale-[0.98] flex items-center justify-center gap-3"
                   >
                     <Save size={18} strokeWidth={2.5} />
                     <span>{editingPass ? 'Update Meal Pass' : 'Add Meal Pass'}</span>
                   </button>
                 </div>
-
               </form>
             </motion.div>
           </div>

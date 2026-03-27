@@ -22,6 +22,10 @@ const purchasedPassSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  phoneNumber: {
+    type: String,
+    required: true
+  },
   mealName: {
     type: String,
     required: true

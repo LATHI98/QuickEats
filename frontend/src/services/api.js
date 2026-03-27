@@ -3,8 +3,8 @@ import config from '../config/config';
 
 const api = axios.create({
   baseURL: config.API_URL,
-  headers: { 'Content-Type': 'application/json' },
 });
+
 
 // Attach Bearer token to every request
 api.interceptors.request.use((req) => {

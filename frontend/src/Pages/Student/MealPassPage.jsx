@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Search, Sunrise, Sun, Coffee, Croissant, 
   IceCream, MapPin, Ticket, X, CalendarDays, 
-  CreditCard, User, QrCode, CreditCard as CashIcon, ShieldCheck
+  CreditCard, User, QrCode, CreditCard as CashIcon, ShieldCheck, 
+  Phone, Lock, Hash
 } from 'lucide-react';
 import mealPassService from '../../services/mealPassService';
 import purchasedPassService from '../../services/purchasedPassService';
@@ -40,8 +41,12 @@ const MealPassPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     studentId: '',
+    phoneNumber: '',
     duration: 'week',
-    paymentMethod: 'online'
+    paymentMethod: 'online',
+    cardNumber: '',
+    expiry: '',
+    cvv: ''
   });
 
   const [MEAL_PASS_ITEMS, setMealPassItems] = useState([]);
@@ -86,7 +91,34 @@ const MealPassPage = () => {
 
   const handleProceedToPay = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.studentId) return;
+    if (!formData.name || !formData.studentId || !formData.phoneNumber) {
+      toast.error('All fields are mandatory');
+      return;
+    }
+
+    if (!/^\d{10}$/.test(formData.phoneNumber)) {
+      toast.error('Phone number must be exactly 10 digits');
+      return;
+    }
+
+    if (formData.paymentMethod === 'online') {
+      if (!formData.cardNumber || !formData.expiry || !formData.cvv) {
+        toast.error('Card details are mandatory for online payment');
+        return;
+      }
+      if (formData.cardNumber.replace(/\s/g, '').length !== 16) {
+        toast.error('Invalid card number (should be 16 digits)');
+        return;
+      }
+      if (!/^\d{2}\/\d{2}$/.test(formData.expiry)) {
+        toast.error('Invalid expiry format (MM/YY)');
+        return;
+      }
+      if (formData.cvv.length !== 3) {
+        toast.error('Invalid CVV (should be 3 digits)');
+        return;
+      }
+    }
 
     if (!user) {
       toast.error('Please login to purchase a meal pass');
@@ -104,6 +136,7 @@ const MealPassPage = () => {
       mealPassId: selectedMeal._id,
       name: formData.name,
       studentId: formData.studentId,
+      phoneNumber: formData.phoneNumber,
       duration: formData.duration,
       mealName: selectedMeal ? selectedMeal.name : 'Any Default Meal',
       canteen: selectedMeal ? selectedMeal.canteen : 'Multiple Locations',
@@ -111,8 +144,9 @@ const MealPassPage = () => {
       validUntil: expiry.toISOString(),
       paymentMethod: formData.paymentMethod,
       ticketId: 'MP-' + Math.floor(100000 + Math.random() * 900000),
-      price: Number(selectedMeal.price.replace(/[^0-9]/g, '')) || 0
+      price: typeof selectedMeal.price === 'string' ? Number(selectedMeal.price.replace(/[^0-9]/g, '')) : Number(selectedMeal.price) || 0
     };
+
 
     try {
       await purchasedPassService.createPurchase(purchaseData);
@@ -229,19 +263,22 @@ const MealPassPage = () => {
               >
               <div className="relative h-48 group-hover:shadow-[inset_0_0_60px_rgba(0,0,0,0.05)] transition-all duration-500 overflow-hidden">
 
-                 <img 
-                  src={item.image} 
-                  alt={item.name} 
-                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-30 group-hover:opacity-10 transition-opacity" />
+                  <img 
+                   src={item.image ? (item.image.startsWith('http') ? item.image : `http://localhost:5000${item.image}`) : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
+                   alt={item.name} 
+                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                 />
+                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-30 group-hover:opacity-10 transition-opacity" />
+
                 <div className="absolute top-6 right-6 bg-white/95 backdrop-blur-sm p-3 rounded-full opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all font-bold text-orange-500 text-sm shadow-xl z-10 flex items-center gap-2">
                   <Ticket size={16} /> Get Pass
                 </div>
-                <div className="absolute top-6 left-6 bg-gray-900/95 backdrop-blur-sm px-4 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
-                  <Ticket size={14} className="text-white" />
-                  <span className="text-xs font-semibold text-white tracking-wide">{item.discount}</span>
-                </div>
+                {item.discount && (
+                  <div className="absolute top-6 left-6 bg-gray-900/95 backdrop-blur-sm px-4 py-1.5 rounded-full flex items-center gap-2 shadow-lg">
+                    <Ticket size={14} className="text-white" />
+                    <span className="text-xs font-semibold text-white tracking-wide">{item.discount}</span>
+                  </div>
+                )}
               </div>
 
                  <div className="p-5 pt-4 flex-1 flex flex-col">
@@ -302,9 +339,9 @@ const MealPassPage = () => {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="relative w-full max-w-md bg-white rounded-[32px] shadow-2xl overflow-hidden"
+              className="relative w-full max-w-lg bg-white rounded-[28px] shadow-2xl overflow-hidden"
             >
-              <div className="bg-orange-50 p-6 border-b border-orange-100 flex flex-col gap-1 relative">
+              <div className="bg-orange-50 p-5 border-b border-orange-100 flex flex-col gap-1 relative">
                 <button onClick={() => setShowPurchaseModal(false)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-900 transition-colors bg-white p-2 rounded-full shadow-sm">
                   <X size={20} />
                 </button>
@@ -316,7 +353,7 @@ const MealPassPage = () => {
                 )}
               </div>
 
-              <form onSubmit={handleProceedToPay} className="p-6 space-y-6">
+              <form onSubmit={handleProceedToPay} className="p-5 space-y-4">
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1">Full Name</label>
@@ -326,7 +363,7 @@ const MealPassPage = () => {
                         required
                         type="text" 
                         placeholder="John Doe"
-                        className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-3 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-sm"
                         value={formData.name}
                         onChange={e => setFormData({...formData, name: e.target.value})}
                       />
@@ -340,9 +377,24 @@ const MealPassPage = () => {
                         required
                         type="text" 
                         placeholder="STU-12345"
-                        className="w-full bg-gray-50 border border-gray-200 rounded-2xl py-3 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-sm"
                         value={formData.studentId}
                         onChange={e => setFormData({...formData, studentId: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">Phone Number (10 Digits)</label>
+                    <div className="relative">
+                      <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input 
+                        required
+                        type="tel" 
+                        maxLength="10"
+                        placeholder="07XXXXXXXX"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-sm"
+                        value={formData.phoneNumber}
+                        onChange={e => setFormData({...formData, phoneNumber: e.target.value.replace(/\D/g, '')})}
                       />
                     </div>
                   </div>
@@ -354,20 +406,20 @@ const MealPassPage = () => {
                     <button 
                       type="button"
                       onClick={() => setFormData({...formData, duration: 'week'})}
-                      className={`py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 border transition-all ${
+                      className={`py-2 px-4 rounded-xl font-bold flex items-center justify-center gap-2 border transition-all text-sm ${
                         formData.duration === 'week' ? 'bg-orange-50 border-orange-500 text-orange-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
                       }`}
                     >
-                      <CalendarDays size={18} /> 1 Week
+                      <CalendarDays size={16} /> 1 Week
                     </button>
                     <button 
                       type="button"
                       onClick={() => setFormData({...formData, duration: 'month'})}
-                      className={`py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 border transition-all ${
+                      className={`py-2 px-4 rounded-xl font-bold flex items-center justify-center gap-2 border transition-all text-sm ${
                         formData.duration === 'month' ? 'bg-orange-50 border-orange-500 text-orange-600' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
                       }`}
                     >
-                      <CalendarDays size={18} /> 1 Month
+                      <CalendarDays size={16} /> 1 Month
                     </button>
                   </div>
                 </div>
@@ -378,32 +430,73 @@ const MealPassPage = () => {
                     <button 
                       type="button"
                       onClick={() => setFormData({...formData, paymentMethod: 'online'})}
-                      className={`py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 border transition-all ${
+                      className={`py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 border transition-all text-sm ${
                         formData.paymentMethod === 'online' ? 'bg-gray-900 border-gray-900 text-white shadow-md' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
                       }`}
                     >
-                      <CreditCard size={18} /> Pay Online
+                      <CreditCard size={16} /> Pay Online
                     </button>
                     <button 
                       type="button"
                       onClick={() => setFormData({...formData, paymentMethod: 'cash'})}
-                      className={`py-3 px-4 rounded-2xl font-bold flex items-center justify-center gap-2 border transition-all ${
+                      className={`py-2.5 px-4 rounded-xl font-bold flex items-center justify-center gap-2 border transition-all text-sm ${
                         formData.paymentMethod === 'cash' ? 'bg-gray-900 border-gray-900 text-white shadow-md' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
                       }`}
                     >
-                      <CashIcon size={18} /> Pay Cash
+                      <CashIcon size={16} /> Pay Cash
                     </button>
                   </div>
                   {formData.paymentMethod === 'online' && (
-                    <p className="text-xs text-orange-500 font-medium text-center mt-3 bg-orange-50 py-2 rounded-lg border border-orange-100">
-                      (Dummy Online Payment Mode Selected)
-                    </p>
+                    <div className="space-y-3 mt-4 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <div className="relative">
+                        <CreditCard size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400" />
+                        <input 
+                          type="text"
+                          placeholder="Card Number (XXXX XXXX XXXX XXXX)"
+                          maxLength="19"
+                          className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-xs tracking-[0.1em]"
+                          value={formData.cardNumber}
+                          onChange={e => {
+                            const val = e.target.value.replace(/\D/g, '').replace(/(.{4})/g, '$1 ').trim();
+                            setFormData({...formData, cardNumber: val});
+                          }}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="relative">
+                          <CalendarDays size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400" />
+                          <input 
+                            type="text"
+                            placeholder="Exp: MM/YY"
+                            maxLength="5"
+                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-xs"
+                            value={formData.expiry}
+                            onChange={e => {
+                              let val = e.target.value.replace(/\D/g, '');
+                              if (val.length >= 3) val = val.slice(0, 2) + '/' + val.slice(2, 4);
+                              setFormData({...formData, expiry: val});
+                            }}
+                          />
+                        </div>
+                        <div className="relative">
+                          <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400" />
+                          <input 
+                            type="password"
+                            placeholder="CVV: 123"
+                            maxLength="3"
+                            className="w-full bg-gray-50 border border-gray-100 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-xs"
+                            value={formData.cvv}
+                            onChange={e => setFormData({...formData, cvv: e.target.value.replace(/\D/g, '')})}
+                          />
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </div>
 
                 <button 
                   type="submit" 
-                  className="w-full bg-orange-500 hover:bg-orange-600 outline-none text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1"
+                  className="w-full bg-orange-500 hover:bg-orange-600 outline-none text-white py-3.5 rounded-xl font-black text-base shadow-lg shadow-orange-500/30 transition-all hover:-translate-y-1"
                 >
                   Proceed to Pay
                 </button>

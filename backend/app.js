@@ -4,11 +4,19 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import fs from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: join(__dirname, '..', '.env') });
 
+// Ensure uploads directory exists
+const uploadDir = join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir);
+}
+
 import authRoutes from './routes/auth.routes.js';
+
 import mealPassRoutes from './routes/mealPass.routes.js';
 import purchasedPassRoutes from './routes/purchasedPass.routes.js';
 import budgetRoutes from './routes/budget.routes.js';
@@ -37,6 +45,14 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
+app.use('/uploads', express.static(join(__dirname, 'uploads')));
+
 
 mongoose.connect(process.env.MONGODBURL)
   .then(() => console.log('Connected to MongoDB'))

@@ -42,10 +42,10 @@ const MyMealPassesPage = () => {
 
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 font-sans">
+    <div className="max-w-7xl mx-auto px-4 md:px-8 pt-4 pb-8 font-sans">
       
       {/* Page Header */}
-      <div className="flex items-center gap-4 mb-12">
+      <div className="flex items-center gap-4 mb-8">
         <button 
           onClick={() => navigate('/dashboard/meal-pass')}
           className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:text-gray-900 shadow-sm border border-gray-100 transition-colors"
@@ -53,18 +53,17 @@ const MyMealPassesPage = () => {
           <ArrowLeft size={24} />
         </button>
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
+          <h1 className="text-3xl font-black text-orange-600 tracking-tight flex items-center gap-3">
             <History className="text-orange-500" size={32} />
             Meal Pass History
           </h1>
-          <p className="text-gray-500 font-medium mt-1">View and manage your purchased digital dining tickets.</p>
         </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 gap-6 max-w-5xl mx-auto">
           {[1, 2].map(i => (
-            <div key={i} className="h-[260px] bg-white rounded-[32px] animate-pulse border border-gray-100 shadow-sm" />
+            <div key={i} className="h-[160px] bg-white rounded-[24px] animate-pulse border border-gray-100 shadow-sm" />
           ))}
         </div>
       ) : activePasses.length === 0 ? (
@@ -85,7 +84,7 @@ const MyMealPassesPage = () => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 gap-6 max-w-5xl mx-auto">
           <AnimatePresence>
             {activePasses.map((pass, index) => (
               <motion.div 
@@ -93,38 +92,35 @@ const MyMealPassesPage = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.1 }}
                 key={pass.ticketId} 
-                className="w-full flex flex-col sm:flex-row bg-white rounded-[32px] overflow-hidden shadow-sm hover:shadow-xl transition-all border border-gray-100 min-h-[260px]"
+                className="w-full flex-col sm:flex-row flex bg-white rounded-[24px] overflow-hidden shadow-sm hover:shadow-xl transition-all border border-gray-100 min-h-[160px]"
               >
                 {/* Left Ticket Stub */}
-                <div className="sm:w-[35%] bg-gradient-to-br from-orange-500 to-orange-600 p-8 flex flex-col justify-between text-white relative border-b-2 sm:border-b-0 sm:border-r-2 border-dashed border-orange-300">
-                  <div className="hidden sm:block absolute top-1/2 -translate-y-1/2 -right-4 w-8 h-8 bg-gray-50 rounded-full z-10" />
+                <div className="sm:w-[28%] bg-gradient-to-br from-orange-500 to-orange-600 p-5 flex flex-col justify-between text-white relative border-b-2 sm:border-b-0 sm:border-r-2 border-dashed border-orange-300">
+                  <div className="hidden sm:block absolute top-1/2 -translate-y-1/2 -right-3 w-6 h-6 bg-gray-50 rounded-full z-10" />
                   
                   <div>
-                    <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mb-6 backdrop-blur-sm shadow-inner">
-                      <ShieldCheck size={32} className="text-white relative z-20" />
-                    </div>
-                    <h2 className="text-3xl font-black uppercase tracking-wide leading-none mb-1">
+                    <h2 className="text-xl font-black uppercase tracking-wide leading-none mb-1">
                       {pass.duration === 'week' ? 'Weekly' : 'Monthly'}
                     </h2>
-                    <p className="text-xs font-bold tracking-widest uppercase opacity-80 mt-2">Meal Pass</p>
+                    <p className="text-[10px] font-bold tracking-widest uppercase opacity-80 mt-1">Meal Pass</p>
                   </div>
-                                   <div className="mt-10">
-                    <p className="text-[11px] font-bold uppercase tracking-widest opacity-80 mb-2">Valid Until</p>
-                    <p className="text-base font-bold bg-white/20 px-4 py-2 rounded-xl inline-block backdrop-blur-sm">
+                                   <div className="mt-4">
+                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mb-1">Valid Until</p>
+                    <p className="text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg inline-block backdrop-blur-sm">
                       {new Date(pass.validUntil).toLocaleDateString()}
                     </p>
                   </div>
                 </div>
 
                 {/* Right Ticket Body */}
-                <div className="sm:w-[65%] p-8 flex flex-col justify-between bg-zinc-50 relative flex-1">
-                  <div className="hidden sm:block absolute top-1/2 -translate-y-1/2 -left-4 w-8 h-8 bg-gray-50 rounded-full z-10" />
+                <div className="sm:w-[72%] p-5 px-8 flex flex-col justify-between bg-zinc-50 relative flex-1">
+                  <div className="hidden sm:block absolute top-1/2 -translate-y-1/2 -left-3 w-6 h-6 bg-gray-50 rounded-full z-10" />
 
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Pass Holder</p>
-                      <p className="text-2xl font-black text-gray-900 leading-tight break-words max-w-full sm:max-w-[200px]">{pass.name}</p>
-                      <p className="text-sm font-bold text-gray-400 mt-1">{pass.studentId}</p>
+                      <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest mb-1">Pass Holder</p>
+                      <h3 className="text-lg font-black text-gray-900 leading-tight">{pass.name}</h3>
+                      <p className="text-xs font-bold text-gray-400 mt-0.5">{pass.studentId}</p>
                     </div>
 
                     <div className="flex flex-col items-end gap-2">
@@ -156,22 +152,27 @@ const MyMealPassesPage = () => {
                   </div>
 
 
-                  <div className="my-6">
-                    <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">Assigned Meal</p>
-                    <div className="bg-white px-4 py-2.5 rounded-xl border border-gray-100 shadow-sm inline-block max-w-full">
-                      <p className="text-sm font-black text-gray-900 truncate">{pass.mealName || 'Any Meal'}</p>
+                  <div className="flex items-center gap-6">
+                    <div>
+                      <p className="text-[9px] font-black text-orange-500 uppercase tracking-widest mb-0.5">Assigned Meal</p>
+                      <p className="text-sm font-black text-gray-900">{pass.mealName || 'Any Meal'}</p>
                     </div>
                   </div>
 
-                  <div className="flex justify-between items-end mt-auto gap-4">
-                    <button 
-                      onClick={() => handleDelete(pass._id)}
-                      className="p-2.5 bg-gray-100 rounded-xl text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all border border-transparent hover:border-red-100"
-                      title="Delete Record"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                    <p className="text-[10px] text-gray-400 font-mono font-bold tracking-[0.2em]">{pass.ticketId}</p>
+                  <div className="flex justify-between items-center mt-auto">
+                    <div className="flex items-center gap-4">
+                       <p className="text-[9px] text-gray-300 font-mono font-bold tracking-[0.2em]">{pass.ticketId}</p>
+                    </div>
+                    
+                    {pass.paymentMethod === 'cash' && (pass.status === 'pending' || pass.status === 'rejected') && (
+                      <button 
+                        onClick={() => handleDelete(pass._id)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition-all font-bold text-[10px] uppercase tracking-wider"
+                      >
+                        <Trash2 size={12} />
+                        Clear Request
+                      </button>
+                    )}
                   </div>
                 </div>
 

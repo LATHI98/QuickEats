@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
@@ -75,6 +75,7 @@ const StudentLayout = () => {
                 <MenuLink to="/dashboard/reservations" icon={CalendarCheck} label="Reservations" active={location.pathname === '/dashboard/reservations'} />
                 <MenuLink to="/dashboard/meal-pass" icon={Ticket} label="Meal Pass" active={location.pathname === '/dashboard/meal-pass'} badge="New" />
                 <MenuLink to="/dashboard/budget" icon={CreditCard} label="Meal Budget" active={location.pathname === '/dashboard/budget'} />
+                <MenuLink to="/dashboard/reviews" icon={MessageSquare} label="Reviews & Rating" active={location.pathname === '/dashboard/reviews'} />
               </nav>
             </div>
 

@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   CheckCircle, Clock, Search, 
   Ticket, User, CreditCard, 
-  Check, Trash2, Activity, XCircle
+  Check, Trash2, Activity, XCircle,
+  Phone
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import purchasedPassService from '../../services/purchasedPassService';
@@ -156,6 +157,10 @@ const MealPassRecordsPage = () => {
                        <div className="flex items-center gap-2 text-sm text-gray-500 font-bold">
                         <User size={14} className="text-gray-400" />
                         {pass.studentId}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-gray-400 font-bold bg-gray-50 px-2 py-0.5 rounded-lg border border-gray-100 italic">
+                        <Phone size={12} className="text-orange-400" />
+                        {pass.phoneNumber}
                       </div>
                       <div className="flex items-center gap-2 text-sm text-gray-500 font-bold">
                         <Ticket size={14} className="text-orange-500" />

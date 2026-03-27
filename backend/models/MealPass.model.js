@@ -11,12 +11,10 @@ const mealPassSchema = new mongoose.Schema({
     required: true
   },
   discount: {
-    type: String,
-    required: true
+    type: String
   },
   description: {
-    type: String,
-    required: true
+    type: String
   },
   canteen: {
     type: String,

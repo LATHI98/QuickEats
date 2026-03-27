@@ -10,9 +10,19 @@ export const getMealPasses = async (req, res) => {
 };
 
 export const createMealPass = async (req, res) => {
-  const mealPass = req.body;
-  const newMealPass = new MealPass(mealPass);
   try {
+    const mealData = req.body;
+    
+    // If sent via FormData, tags might be a string
+    if (typeof mealData.tags === 'string') {
+      mealData.tags = mealData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+    }
+
+    if (req.file) {
+      mealData.image = `/uploads/${req.file.filename}`;
+    }
+
+    const newMealPass = new MealPass(mealData);
     await newMealPass.save();
     res.status(201).json(newMealPass);
   } catch (error) {
@@ -22,14 +32,32 @@ export const createMealPass = async (req, res) => {
 
 export const updateMealPass = async (req, res) => {
   const { id } = req.params;
-  const mealPass = req.body;
   try {
-    const updatedMealPass = await MealPass.findByIdAndUpdate(id, mealPass, { new: true });
+    const mealData = req.body;
+
+    // Handle tags parsing
+    if (typeof mealData.tags === 'string') {
+      mealData.tags = mealData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+    }
+
+    if (req.file) {
+      mealData.image = `/uploads/${req.file.filename}`;
+    }
+
+    const updatedMealPass = await MealPass.findByIdAndUpdate(id, mealData, { new: true });
+    
+    if (!updatedMealPass) {
+      return res.status(404).json({ message: 'Meal pass not found' });
+    }
+
     res.status(200).json(updatedMealPass);
   } catch (error) {
-    res.status(404).json({ message: error.message });
+    console.error('Update Meal Pass error:', error);
+    res.status(500).json({ message: error.message });
   }
 };
+
+
 
 export const deleteMealPass = async (req, res) => {
   const { id } = req.params;

@@ -2,7 +2,7 @@ import Expense from '../models/Expense.model.js';
 
 export const createExpense = async (req, res) => {
   try {
-    const { itemName, amount, date } = req.body;
+    const { itemName, amount, date, category } = req.body;
     const userId = req.user?._id;
 
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
@@ -11,7 +11,8 @@ export const createExpense = async (req, res) => {
       userId,
       itemName,
       amount: Number(amount),
-      date: date || new Date()
+      date: date || new Date(),
+      category: category || 'Other Expense'
     });
 
     await newExpense.save();

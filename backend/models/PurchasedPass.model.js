@@ -22,6 +22,11 @@ const purchasedPassSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  userRole: {
+    type: String,
+    enum: ['student', 'universityStaff'],
+    default: 'student'
+  },
   phoneNumber: {
     type: String,
     required: true

@@ -145,8 +145,7 @@ const LoginPage = () => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-orange-950/60 to-transparent"></div>
         <div className="absolute bottom-20 left-20 right-20 text-white">
-          <h2 className="text-5xl font-['Gilroy_Heavy'] mb-4 leading-tight">Healthy Meals, <br />Smartly Managed.</h2>
-          <p className="text-xl text-white/80 max-w-sm font-['Gilroy_Medium']">Join thousands of students optimizing their campus dining experience.</p>
+
         </div>
       </div>
     </div>

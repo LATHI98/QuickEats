@@ -57,9 +57,22 @@ export const AuthProvider = ({ children }) => {
   const isManager = () => user?.role === 'canteenManager';
   const isSuperAdmin = () => user?.role === 'superAdmin';
 
+  const updateProfile = async (formData) => {
+    const res = await api.put('/api/auth/me', formData);
+    const updatedUser = res.data.user;
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+    return updatedUser;
+  };
+
+  const deleteAccount = async () => {
+    await api.delete('/api/auth/me');
+    logout();
+  };
+
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, logout, isStudent, isManager, isSuperAdmin }}
+      value={{ user, loading, login, logout, updateProfile, deleteAccount, isStudent, isManager, isSuperAdmin }}
     >
       {children}
     </AuthContext.Provider>

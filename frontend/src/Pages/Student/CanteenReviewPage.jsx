@@ -6,24 +6,38 @@ import canteenImg from '../../assets/images/canteen.jpg';
 
 const CANTEENS = [
   { 
-    id: 'main', 
-    name: 'Main University Canteen', 
-    location: 'Central Plaza, Ground Floor',
-    description: 'Our largest dining hall featuring a wide selection of local and international cuisines. Best for hearty lunches and group study-dine sessions. Known for its quick service during peak hours.',
+    id: 'computing', 
+    name: 'Faculty of Computing Canteen', 
+    location: 'New Building, Ground Floor',
+    description: 'A modern and vibrant dining space for computing students and staff. Featuring high-speed WiFi and tech-inspired decor, it offers the perfect environment for coding over coffee.',
     image: canteenImg
   },
   { 
     id: 'science', 
     name: 'Science Block Cafe', 
-    location: 'Science Block B, Room 204',
+    location: 'Main Building, Block B',
     description: 'A modern, quick-service cafe specializing in espresso drinks, artisanal sandwiches, and fresh pastries. Perfect for a quick recharge between labs and deep work sessions.',
+    image: canteenImg
+  },
+  { 
+    id: 'perera', 
+    name: 'Perera and Sons', 
+    location: 'Main Building, Food Court',
+    description: 'A premier Sri Lankan bakery and restaurant offering a delightful range of savory pastries, sweets, and traditional meal combos. Known for consistent quality and great service.',
+    image: canteenImg
+  },
+  { 
+    id: 'juice', 
+    name: 'Library Juice Bar', 
+    location: 'Main Building, Library Annex',
+    description: 'Refresh your mind with our cold-pressed juices, protein smoothies, and seasonal fruit bowls. Located in the library annex for a quiet, healthy break during study marathons.',
     image: canteenImg
   },
   { 
     id: 'engineering', 
     name: 'Engineering Block Mess', 
     location: 'West Wing, Near Lab 5',
-    description: 'A spacious high-energy dining area designed for engineering students. Offers high-protein lunch specials and a quiet mezzanine floor perfect for project discussions. Features the most affordable vegetarian meals on campus.',
+    description: 'A spacious high-energy dining area designed for engineering students. Offers high-protein lunch specials and a quiet mezzanine floor perfect for project discussions.',
     image: canteenImg
   },
   { 
@@ -31,20 +45,6 @@ const CANTEENS = [
     name: 'Global Education Plaza Cafe', 
     location: 'International Quad, Building 4',
     description: 'A premium, fast-paced kiosk serving diverse grab-and-go options from around the world. Situated right next to the central fountain, it offers a great outdoor seating area for socializing.',
-    image: canteenImg
-  },
-  { 
-    id: 'hostel', 
-    name: 'Hostel Mess A', 
-    location: 'Residential Phase 1',
-    description: 'Comforting home-style cooking at student-friendly prices. Known for its traditional weekly specials and nostalgic atmosphere that reminds you of home.',
-    image: canteenImg
-  },
-  { 
-    id: 'juice', 
-    name: 'Library Juice Bar', 
-    location: 'Main Library, Left Annex',
-    description: 'Refresh your mind with our cold-pressed juices, protein smoothies, and seasonal fruit bowls. Located in the library annex for a quiet, healthy break during study marathons.',
     image: canteenImg
   }
 ];
@@ -98,7 +98,7 @@ const CanteenReviewPage = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12 font-sans overflow-hidden">
+    <div className="max-w-6xl mx-auto space-y-6 pb-12 font-sans overflow-hidden">
       <header className="space-y-1">
         <h1 className="text-3xl font-black text-gray-900 tracking-tight flex items-center gap-3">
           <MessageSquare className="text-orange-500" size={32} />
@@ -116,12 +116,12 @@ const CanteenReviewPage = () => {
                 <select 
                   value={selectedCanteen.id} 
                   onChange={(e) => setSelectedCanteen(CANTEENS.find(c => c.id === e.target.value))}
-                  className="w-full bg-gray-50 border border-gray-100 rounded-2xl py-4 flex pl-12 pr-6 outline-none appearance-none focus:ring-4 focus:ring-orange-500/5 focus:border-orange-200 transition-all text-sm font-bold text-gray-800"
+                  className="w-full bg-orange-50/50 border border-orange-100 rounded-2xl py-4 flex pl-12 pr-6 outline-none appearance-none focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 focus:shadow-lg focus:shadow-orange-500/5 transition-all text-sm font-bold text-gray-800 shadow-sm"
                 >
                   {CANTEENS.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
                 <Utensils className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-500" size={18} />
-                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-orange-500" size={18} />
               </div>
             </div>
 
@@ -218,19 +218,16 @@ const CanteenReviewPage = () => {
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`w-fit mx-auto px-12 py-3.5 rounded-full font-black text-[11px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all relative overflow-hidden ${
+                  className={`w-fit min-w-[200px] mx-auto px-12 py-4 rounded-full font-black text-[12px] uppercase tracking-[0.2em] flex items-center justify-center gap-2 transition-all relative overflow-hidden shadow-xl ${
                     isSubmitting 
-                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' 
-                      : 'bg-[#1a1a1a] text-white hover:bg-orange-600 hover:shadow-2xl hover:shadow-orange-200 active:scale-[0.98]'
+                      ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
+                      : 'bg-orange-600 text-white hover:bg-orange-700 hover:shadow-orange-500/30 active:scale-[0.98]'
                   }`}
                 >
                   {isSubmitting ? (
-                    <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                   ) : (
-                    <>
-                      <Send size={16} />
-                      Submit Review
-                    </>
+                    "Submit Review"
                   )}
                 </button>
               </form>

@@ -362,10 +362,9 @@ const MealPassPage = () => {
                     <div className="relative">
                       <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
-                        readOnly
                         type="text" 
                         placeholder="John Doe"
-                        className="w-full bg-gray-100 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none font-medium text-gray-500 text-sm cursor-not-allowed"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-sm"
                         value={formData.name}
                         onChange={e => setFormData({...formData, name: e.target.value})}
                       />
@@ -378,10 +377,9 @@ const MealPassPage = () => {
                     <div className="relative">
                       <QrCode size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
-                        readOnly
                         type="text" 
                         placeholder={user?.role === 'universityStaff' ? 'STAFF-12345' : 'STU-12345'}
-                        className="w-full bg-gray-100 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none font-medium text-gray-500 text-sm cursor-not-allowed"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-sm"
                         value={formData.studentId}
                         onChange={e => setFormData({...formData, studentId: e.target.value})}
                       />
@@ -392,11 +390,10 @@ const MealPassPage = () => {
                     <div className="relative">
                       <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
-                        readOnly
                         type="tel" 
                         maxLength="10"
                         placeholder="07XXXXXXXX"
-                        className="w-full bg-gray-100 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none font-medium text-gray-500 text-sm cursor-not-allowed"
+                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-sm"
                         value={formData.phoneNumber}
                         onChange={e => setFormData({...formData, phoneNumber: e.target.value.replace(/\D/g, '')})}
                       />

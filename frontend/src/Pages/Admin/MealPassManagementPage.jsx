@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Plus, Search, Edit2, Trash2, Ticket, X, 
-  Save, Image as ImageIcon, Tag, Hash, 
+import {
+  Plus, Search, Edit2, Trash2, Ticket, X,
+  Save, Image as ImageIcon, Tag, Hash,
   Layers, MapPin, Info, DollarSign, Upload
 } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -21,8 +21,9 @@ const AdminMealPassPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPass, setEditingPass] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const fileInputRef = useRef(null);
-  
+
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -96,7 +97,7 @@ const AdminMealPassPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.name.trim() || !formData.price.trim() || !formData.canteen.trim()) {
       toast.error('Name, Price, and Canteen are mandatory');
       return;
@@ -115,7 +116,7 @@ const AdminMealPassPage = () => {
     data.append('price', formData.price.trim());
     data.append('canteen', formData.canteen.trim());
     data.append('category', formData.category);
-    
+
     // Optional fields
     if (formData.discount) data.append('discount', formData.discount.trim());
     if (formData.description) data.append('description', formData.description.trim());
@@ -150,10 +151,15 @@ const AdminMealPassPage = () => {
     }
   };
 
-  const filteredPasses = mealPasses.filter(pass => 
-    pass.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    pass.canteen?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredPasses = mealPasses.filter(pass => {
+    const matchesSearch =
+      pass.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      pass.canteen?.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesCategory = selectedCategory === 'all' || pass.category?.toLowerCase() === selectedCategory.toLowerCase();
+
+    return matchesSearch && matchesCategory;
+  });
 
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-12 px-4 md:px-0">
@@ -162,9 +168,7 @@ const AdminMealPassPage = () => {
           <h1 className="text-3xl font-['Gilroy_Bold'] text-orange-600 tracking-tight">
             Meal Pass Management
           </h1>
-          <p className="text-lg text-gray-400 font-['Gilroy_Medium']">
-            Create and manage available meal passes for students.
-          </p>
+
         </div>
 
         <button
@@ -190,6 +194,31 @@ const AdminMealPassPage = () => {
         />
       </div>
 
+      {/* Category Filter Bar */}
+      <div className="flex items-center gap-3 overflow-x-auto pb-4 scrollbar-hide">
+        <button
+          onClick={() => setSelectedCategory('all')}
+          className={`px-6 py-2.5 rounded-full text-xs font-['Gilroy_Bold'] tracking-widest uppercase transition-all shrink-0 border ${selectedCategory === 'all'
+              ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/20'
+              : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200 hover:text-orange-500'
+            }`}
+        >
+          All Meals
+        </button>
+        {CATEGORIES.map(cat => (
+          <button
+            key={cat.id}
+            onClick={() => setSelectedCategory(cat.id)}
+            className={`px-6 py-2.5 rounded-full text-xs font-['Gilroy_Bold'] tracking-widest uppercase transition-all shrink-0 border ${selectedCategory === cat.id
+                ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/20'
+                : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200 hover:text-orange-500'
+              }`}
+          >
+            {cat.name}
+          </button>
+        ))}
+      </div>
+
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {[1, 2, 3].map(i => (
@@ -207,25 +236,25 @@ const AdminMealPassPage = () => {
               className="bg-white rounded-[32px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all group flex flex-col"
             >
               <div className="relative h-48 overflow-hidden rounded-t-[24px] bg-white group-hover:shadow-[inset_0_0_60px_rgba(0,0,0,0.05)] transition-all duration-500">
-                <img 
-                  src={pass.image ? (pass.image.startsWith('http') ? pass.image : `http://localhost:5000${pass.image}`) : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
+                <img
+                  src={pass.image ? (pass.image.startsWith('http') ? pass.image : `http://localhost:5000${pass.image}`) : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'}
                   alt={pass.name}
                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                 />
 
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6 justify-end gap-2">
-                   <button 
+                  <button
                     onClick={() => handleOpenModal(pass)}
                     className="p-3 bg-white/90 backdrop-blur-md rounded-xl text-gray-900 hover:bg-white hover:text-orange-600 transition-all shadow-lg"
-                   >
+                  >
                     <Edit2 size={18} />
-                   </button>
-                   <button 
+                  </button>
+                  <button
                     onClick={() => handleDelete(pass._id)}
                     className="p-3 bg-red-500 text-white rounded-xl hover:bg-red-600 transition-all shadow-lg"
-                   >
+                  >
                     <Trash2 size={18} />
-                   </button>
+                  </button>
                 </div>
                 <div className="absolute top-4 left-4">
                   <span className="bg-white/95 backdrop-blur-md px-4 py-1.5 rounded-full text-[11px] font-['Gilroy_Bold'] tracking-widest text-orange-600 uppercase shadow-sm">
@@ -239,7 +268,7 @@ const AdminMealPassPage = () => {
                   <h3 className="text-lg font-['Gilroy_Bold'] text-gray-900 group-hover:text-orange-600 transition-colors line-clamp-1">{pass.name}</h3>
                   <span className="text-base font-['Gilroy_Heavy'] text-gray-900">{pass.price}</span>
                 </div>
-                
+
                 <div className="flex items-center gap-1.5 text-orange-500 text-xs font-['Gilroy_Bold'] mb-3">
                   <MapPin size={14} />
                   <span>{pass.canteen}</span>
@@ -316,7 +345,7 @@ const AdminMealPassPage = () => {
                         placeholder="e.g. Chicken Rice"
                         className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
                         value={formData.name}
-                        onChange={e => setFormData({...formData, name: e.target.value})}
+                        onChange={e => setFormData({ ...formData, name: e.target.value })}
                       />
                     </div>
                   </div>
@@ -332,7 +361,7 @@ const AdminMealPassPage = () => {
                           placeholder="Rs. 650"
                           className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
                           value={formData.price}
-                          onChange={e => setFormData({...formData, price: e.target.value})}
+                          onChange={e => setFormData({ ...formData, price: e.target.value })}
                         />
                       </div>
                     </div>
@@ -345,7 +374,7 @@ const AdminMealPassPage = () => {
                           placeholder="100% Free"
                           className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
                           value={formData.discount}
-                          onChange={e => setFormData({...formData, discount: e.target.value})}
+                          onChange={e => setFormData({ ...formData, discount: e.target.value })}
                         />
                       </div>
                     </div>
@@ -361,7 +390,7 @@ const AdminMealPassPage = () => {
                         placeholder="e.g. Main Canteen"
                         className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
                         value={formData.canteen}
-                        onChange={e => setFormData({...formData, canteen: e.target.value})}
+                        onChange={e => setFormData({ ...formData, canteen: e.target.value })}
                       />
                     </div>
                   </div>
@@ -375,10 +404,10 @@ const AdminMealPassPage = () => {
                       <select
                         className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700 appearance-none"
                         value={formData.category}
-                        onChange={e => setFormData({...formData, category: e.target.value})}
+                        onChange={e => setFormData({ ...formData, category: e.target.value })}
                       >
                         {CATEGORIES.map(cat => (
-                           <option key={cat.id} value={cat.id}>{cat.name}</option>
+                          <option key={cat.id} value={cat.id}>{cat.name}</option>
                         ))}
                       </select>
                     </div>
@@ -386,31 +415,31 @@ const AdminMealPassPage = () => {
 
                   <div>
                     <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Upload Image</label>
-                    <div 
+                    <div
                       onClick={() => fileInputRef.current?.click()}
                       className="border-2 border-dashed border-gray-100 rounded-3xl p-6 flex flex-col items-center justify-center gap-3 hover:border-orange-200 hover:bg-orange-50/30 transition-all cursor-pointer group group-active:scale-[0.98]"
                     >
                       {imagePreview ? (
-                         <div className="relative w-full h-24 rounded-2xl overflow-hidden">
-                            <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
-                            <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                               <Upload className="text-white" size={24} />
-                            </div>
-                         </div>
+                        <div className="relative w-full h-24 rounded-2xl overflow-hidden">
+                          <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Upload className="text-white" size={24} />
+                          </div>
+                        </div>
                       ) : (
                         <>
                           <div className="w-12 h-12 bg-gray-50 rounded-2xl flex items-center justify-center text-gray-400 group-hover:text-orange-500 group-hover:bg-white transition-all">
-                             <Upload size={20} />
+                            <Upload size={20} />
                           </div>
                           <div className="text-center">
                             <p className="text-[10px] font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest">Drop here or Click</p>
                           </div>
                         </>
                       )}
-                      <input 
-                        type="file" 
+                      <input
+                        type="file"
                         ref={fileInputRef}
-                        className="hidden" 
+                        className="hidden"
                         accept="image/*"
                         onChange={handleImageChange}
                       />
@@ -429,7 +458,7 @@ const AdminMealPassPage = () => {
                           placeholder="Spicy, Popular, Veg"
                           className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
                           value={formData.tags}
-                          onChange={e => setFormData({...formData, tags: e.target.value})}
+                          onChange={e => setFormData({ ...formData, tags: e.target.value })}
                         />
                       </div>
                     </div>
@@ -442,7 +471,7 @@ const AdminMealPassPage = () => {
                           rows="2"
                           className="w-full bg-gray-50 border border-transparent rounded-2xl py-3 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700 resize-none"
                           value={formData.description}
-                          onChange={e => setFormData({...formData, description: e.target.value})}
+                          onChange={e => setFormData({ ...formData, description: e.target.value })}
                         />
                       </div>
                     </div>

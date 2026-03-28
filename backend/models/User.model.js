@@ -13,6 +13,7 @@ const userSchema = new mongoose.Schema(
       default: 'student',
     },
     studentId: { type: String, default: null },
+    phoneNumber: { type: String, default: null, trim: true },
     canteen: { type: mongoose.Schema.Types.ObjectId, ref: 'Canteen', default: null },
     isActive: { type: Boolean, default: true },
     isVerified: { type: Boolean, default: false },

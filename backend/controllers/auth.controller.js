@@ -12,6 +12,7 @@ const userPayload = (user) => ({
   email: user.email,
   role: user.role,
   studentId: user.studentId,
+  phoneNumber: user.phoneNumber,
   canteen: user.canteen,
 });
 
@@ -144,6 +145,38 @@ export const resetPassword = async (req, res) => {
 // GET /api/auth/me  (protected)
 export const getMe = async (req, res) => {
   res.json({ user: userPayload(req.user) });
+};
+
+// PUT /api/auth/me (protected) - Edit Profile
+export const updateMe = async (req, res) => {
+  try {
+    const { name, email, studentId, phoneNumber } = req.body;
+    const user = await User.findById(req.user._id);
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (studentId) user.studentId = studentId;
+    if (phoneNumber) user.phoneNumber = phoneNumber;
+
+    await user.save();
+    res.json({ message: 'Profile updated successfully', user: userPayload(user) });
+  } catch (err) {
+    console.error('Update me error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// DELETE /api/auth/me (protected) - Delete Account
+export const deleteMe = async (req, res) => {
+  try {
+    await User.findByIdAndDelete(req.user._id);
+    res.json({ message: 'Account deleted successfully' });
+  } catch (err) {
+    console.error('Delete me error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
 };
 
 // POST /api/auth/create-user  (superAdmin only)

@@ -77,6 +77,12 @@ const MealPassPage = () => {
     fetchMealPasses();
     if (user) {
       fetchMyPurchasedPasses();
+      setFormData(prev => ({
+        ...prev,
+        name: user.name || '',
+        studentId: user.studentId || '',
+        phoneNumber: user.phoneNumber || ''
+      }));
     }
   }, [user]);
 
@@ -136,6 +142,7 @@ const MealPassPage = () => {
       mealPassId: selectedMeal._id,
       name: formData.name,
       studentId: formData.studentId,
+      userRole: user.role,
       phoneNumber: formData.phoneNumber,
       duration: formData.duration,
       mealName: selectedMeal ? selectedMeal.name : 'Any Default Meal',
@@ -360,24 +367,26 @@ const MealPassPage = () => {
                     <div className="relative">
                       <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
-                        required
+                        readOnly
                         type="text" 
                         placeholder="John Doe"
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-sm"
+                        className="w-full bg-gray-100 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none font-medium text-gray-500 text-sm cursor-not-allowed"
                         value={formData.name}
                         onChange={e => setFormData({...formData, name: e.target.value})}
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-gray-700 mb-1">Student / Staff ID</label>
+                    <label className="block text-sm font-bold text-gray-700 mb-1">
+                      {user?.role === 'universityStaff' ? 'Staff ID' : 'Student ID'}
+                    </label>
                     <div className="relative">
                       <QrCode size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
-                        required
+                        readOnly
                         type="text" 
-                        placeholder="STU-12345"
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-sm"
+                        placeholder={user?.role === 'universityStaff' ? 'STAFF-12345' : 'STU-12345'}
+                        className="w-full bg-gray-100 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none font-medium text-gray-500 text-sm cursor-not-allowed"
                         value={formData.studentId}
                         onChange={e => setFormData({...formData, studentId: e.target.value})}
                       />
@@ -388,11 +397,11 @@ const MealPassPage = () => {
                     <div className="relative">
                       <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input 
-                        required
+                        readOnly
                         type="tel" 
                         maxLength="10"
                         placeholder="07XXXXXXXX"
-                        className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none focus:border-orange-500 focus:bg-white transition-all font-medium text-gray-700 text-sm"
+                        className="w-full bg-gray-100 border border-gray-200 rounded-xl py-2.5 pl-11 pr-4 outline-none font-medium text-gray-500 text-sm cursor-not-allowed"
                         value={formData.phoneNumber}
                         onChange={e => setFormData({...formData, phoneNumber: e.target.value.replace(/\D/g, '')})}
                       />

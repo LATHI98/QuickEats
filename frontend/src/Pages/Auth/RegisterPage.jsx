@@ -161,8 +161,7 @@ const RegisterPage = () => {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-orange-950/60 to-transparent"></div>
                 <div className="absolute bottom-20 left-20 right-20 text-white">
-                    <h2 className="text-5xl font-['Gilroy_Heavy'] mb-4 leading-tight">Fast, Efficient & <br />Budget-Friendly.</h2>
-                    <p className="text-xl text-white/80 max-w-sm font-['Gilroy_Medium']">Take control of your dining schedule with our all-in-one assistant.</p>
+
                 </div>
             </div>
         </div>

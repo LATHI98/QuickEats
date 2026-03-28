@@ -54,7 +54,7 @@ const getInitials = (name) =>
     .slice(0, 2) || '??';
 
 const AdminLayout = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, selectedCanteenName } = useAuth();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
 
@@ -195,6 +195,14 @@ const AdminLayout = () => {
             <div className="flex items-center space-x-1">
               <HeaderIconButton icon={Bell} dot color="text-gray-400" />
             </div>
+
+            <Link
+              to="/admin/select-canteen"
+              className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 text-orange-700 text-xs font-['Gilroy_Heavy'] hover:bg-orange-100 transition-colors"
+            >
+              <Store size={14} />
+              {selectedCanteenName ? `Switch: ${selectedCanteenName}` : 'Select Canteen'}
+            </Link>
 
             {/* Profile Pic */}
             <div className="w-11 h-11 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:border-orange-200 transition-all">

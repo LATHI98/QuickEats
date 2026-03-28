@@ -5,6 +5,7 @@ import * as PredictionService from '../services/prediction.service.js';
 
 const SLOT_INTERVAL_MINUTES = 10;
 const SLOTS_TO_SHOW = 12; // show next 2 hours of slots
+const isElevatedOpsRole = (role) => ['admin', 'superAdmin', 'canteenManager', 'canteenStaff'].includes(role);
 
 // Helper: get today's date string
 const todayStr = () => new Date().toISOString().split('T')[0];
@@ -155,8 +156,8 @@ export const setNowServing = async (req, res) => {
       return res.status(400).json({ success: false, message: 'currentlyServing must be a non-negative number' });
     }
 
-    const isAdmin = ['admin', 'superAdmin'].includes(req.user.role);
-    if (!isAdmin && req.user.canteen?.toString() !== canteenId) {
+    const isElevated = isElevatedOpsRole(req.user.role);
+    if (!isElevated && req.user.canteen?.toString() !== canteenId) {
       return res.status(403).json({ success: false, message: 'Not authorized for this canteen' });
     }
 
@@ -205,8 +206,8 @@ export const callNext = async (req, res) => {
   try {
     const { canteenId } = req.params;
 
-    const isAdmin = ['admin', 'superAdmin'].includes(req.user.role);
-    if (!isAdmin && req.user.canteen?.toString() !== canteenId) {
+    const isElevated = isElevatedOpsRole(req.user.role);
+    if (!isElevated && req.user.canteen?.toString() !== canteenId) {
       return res.status(403).json({ success: false, message: 'Not authorized for this canteen' });
     }
 

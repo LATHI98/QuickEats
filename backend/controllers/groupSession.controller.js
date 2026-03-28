@@ -77,7 +77,13 @@ export const joinSession = async (req, res) => {
             return res.status(400).json({ success: false, message: `This session is ${session.status} and cannot be joined.` });
         }
 
-        // Add if not already a member
+        // 1. Leave any other active sessions before joining a new one
+        await GroupSession.updateMany(
+            { members: req.user._id, status: { $in: ['open', 'locked'] }, shareCode: { $ne: shareCode.toUpperCase() } },
+            { $pull: { members: req.user._id } }
+        );
+
+        // 2. Add if not already a member
         const isAlreadyMember = session.members.some(m => m.toString() === req.user._id.toString());
         if (!isAlreadyMember) {
             session.members.push(req.user._id);
@@ -244,6 +250,28 @@ export const getMergedCart = async (req, res) => {
         const totalPrice = allItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
 
         res.json({ success: true, data: { items: allItems, totalPrice } });
+    } catch (err) {
+        res.status(500).json({ success: false, message: err.message });
+    }
+};
+// GET /api/group-sessions/:id/member-status
+export const getMemberStatus = async (req, res) => {
+    try {
+        const session = await GroupSession.findById(req.params.id).populate('members', 'name username');
+        if (!session) return res.status(404).json({ success: false, message: 'Session not found' });
+
+        const memberData = await Promise.all(session.members.map(async (m) => {
+            const cart = await Cart.findOne({ student: m._id, canteen: session.canteen });
+            return {
+                _id: m._id,
+                name: m.name,
+                username: m.username,
+                hasItems: cart && cart.items && cart.items.length > 0,
+                itemCount: cart ? cart.items.length : 0
+            };
+        }));
+
+        res.json({ success: true, data: memberData });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
     }

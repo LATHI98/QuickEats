@@ -20,9 +20,25 @@ const paymentSchema = new mongoose.Schema(
     },
     stripePaymentIntentId: { type: String, default: null },
     stripeClientSecret: { type: String, default: null },
+    cashVerificationCode: { type: String, default: null },
+    cashReceivedAmount: { type: Number, default: null },
+    cashChangeAmount: { type: Number, default: null },
+    verificationCodeUsed: { type: String, default: null },
     rejectionReason: { type: String, default: null },
     verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     verifiedAt: { type: Date, default: null },
+  },
+  { _id: false }
+);
+
+const orderActivitySchema = new mongoose.Schema(
+  {
+    action: { type: String, required: true },
+    actor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    actorRole: { type: String, default: null },
+    note: { type: String, default: '' },
+    metadata: { type: mongoose.Schema.Types.Mixed, default: null },
+    createdAt: { type: Date, default: Date.now },
   },
   { _id: false }
 );
@@ -41,9 +57,11 @@ const orderSchema = new mongoose.Schema(
     },
     queueNumber: { type: Number, required: true },
     estimatedPickupTime: { type: Date, required: true },
+    instantPickupRequested: { type: Boolean, default: false },
     pickupCode: { type: String, unique: true, sparse: true },  // short 6-char code shown to student
     qrCodeData: { type: String, default: null },                // base64 QR image generated from pickupCode
     payment: { type: paymentSchema, default: () => ({}) },
+    activityLogs: { type: [orderActivitySchema], default: [] },
     priorityLevel: { type: Number, default: 0 }, // 0: normal, 1: skipped queue
     isPriorityClaimed: { type: Boolean, default: false },
     priorityClaimedAt: { type: Date, default: null },

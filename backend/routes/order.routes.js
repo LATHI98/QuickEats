@@ -43,6 +43,6 @@ router.patch('/:orderId/payment/verify', protect, authorize('canteenStaff', 'can
 router.patch('/:orderId/payment/reject', protect, authorize('canteenStaff', 'canteenManager'), rejectPayment);
 
 // ── Payment: Shared ───────────────────────────────────────────────────────────
-router.get('/:orderId/payment', protect, authorize('student', 'canteenStaff', 'canteenManager'), getPaymentStatus);
+router.get('/:orderId/payment', protect, authorize('student', 'canteenStaff', 'canteenManager', 'admin', 'superAdmin'), getPaymentStatus);
 
 export default router;

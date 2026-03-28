@@ -9,7 +9,8 @@ import {
     editSession,
     removeMember,
     deleteSession,
-    getMergedCart
+    getMergedCart,
+    getMemberStatus
 } from '../controllers/groupSession.controller.js';
 
 const router = express.Router();
@@ -26,6 +27,7 @@ router.patch('/:id/lock', lockSession);
 router.patch('/:id', editSession);
 router.delete('/:id/members/:memberId', removeMember);
 router.get('/:id/merged-cart', getMergedCart);
+router.get('/:id/member-status', getMemberStatus);
 router.delete('/:id', deleteSession);
 
 

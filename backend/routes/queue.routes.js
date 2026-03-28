@@ -5,8 +5,8 @@ import { getAvailableSlots, getQueueStatus, getMyQueuePosition, setNowServing, c
 const router = express.Router();
 
 // Students + Staff can view slots and status
-router.get('/:canteenId/slots', protect, authorize('student', 'canteenStaff', 'canteenManager', 'superAdmin'), getAvailableSlots);
-router.get('/:canteenId/status', protect, authorize('student', 'canteenStaff', 'canteenManager', 'superAdmin'), getQueueStatus);
+router.get('/:canteenId/slots', protect, authorize('student', 'canteenStaff', 'canteenManager', 'admin', 'superAdmin'), getAvailableSlots);
+router.get('/:canteenId/status', protect, authorize('student', 'canteenStaff', 'canteenManager', 'admin', 'superAdmin'), getQueueStatus);
 
 // Students: my queue position and claim priority
 router.get('/:canteenId/my-position/:orderId', protect, authorize('student'), getMyQueuePosition);

@@ -174,6 +174,11 @@ const OrderTrackingPage = () => {
         <div>
           <h1 className="text-4xl font-['Gilroy_Heavy'] text-gray-900 tracking-tight">Track Order</h1>
           <p className="text-gray-400 text-sm mt-1 font-['Gilroy_Medium']">Live updates from the kitchen</p>
+          {activeOrder?.instantPickupRequested && (
+            <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-orange-50 text-orange-600 text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest">
+              <Zap size={10} /> Instant Pickup Mode
+            </span>
+          )}
         </div>
         <button
           onClick={() => refresh(true)}
@@ -227,26 +232,41 @@ const OrderTrackingPage = () => {
           </div>
 
           <AnimatePresence>
-            {activeOrder.status === 'ready' && (
+            {activeOrder.payment?.status === 'verified' && activeOrder.pickupCode && (
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 className="bg-indigo-600 rounded-[32px] p-8 text-center text-white shadow-xl shadow-indigo-100"
               >
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest mb-6">
-                  <Zap size={10} fill="currentColor" /> Ready to Collect
+                  <Zap size={10} fill="currentColor" /> Pickup Pass
                 </div>
 
                 <div className="bg-white p-6 rounded-[32px] mb-6 inline-block mx-auto">
                   <img
-                    src={activeOrder.qrCodeData || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${activeOrder.pickupCode}&qzone=1&color=4338ca`}
+                    src={activeOrder.qrCodeData || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(JSON.stringify({ orderId: activeOrder._id, pickupCode: activeOrder.pickupCode }))}&qzone=1&color=4338ca`}
                     alt="Pickup QR"
                     className="w-48 h-48 mx-auto"
                   />
                 </div>
 
                 <p className="text-5xl font-['Gilroy_Heavy'] tracking-[0.2em] mb-2">{activeOrder.pickupCode}</p>
-                <p className="text-indigo-100 text-sm font-['Gilroy_Medium']">Show this code at the canteen counter</p>
+                <p className="text-indigo-100 text-sm font-['Gilroy_Medium']">
+                  {activeOrder.status === 'ready'
+                    ? 'Order is ready. Show this QR/code to collect your meal.'
+                    : 'Payment verified. Keep this pass ready for pickup time.'}
+                </p>
+              </motion.div>
+            )}
+
+            {activeOrder.payment?.status === 'verified' && !activeOrder.pickupCode && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-indigo-700"
+              >
+                <p className="text-sm font-['Gilroy_Heavy']">Generating your pickup pass...</p>
+                <p className="text-xs text-indigo-500 mt-1">Refresh in a moment if the QR is not visible yet.</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -268,7 +288,7 @@ const OrderTrackingPage = () => {
           </div>
 
           {/* Priority / Skip Queue */}
-          {!activeOrder.isPriorityClaimed && activeOrder.status !== 'ready' && (
+          {!activeOrder.instantPickupRequested && !activeOrder.isPriorityClaimed && activeOrder.status !== 'ready' && (
             <motion.div
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}

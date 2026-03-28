@@ -50,9 +50,9 @@ export const orderAPI = {
   cancelOrder: (orderId) => api.patch(`/api/orders/${orderId}/cancel`),
   // Staff
   getCanteenOrders: (params) => api.get('/api/orders/canteen', { params }),
-  updateOrderStatus: (orderId, status) => api.patch(`/api/orders/${orderId}/status`, { status }),
-  verifyPickup: (orderId) => api.post(`/api/orders/${orderId}/pickup-verify`),
-  pickupByCode: (pickupCode) => api.post('/api/orders/pickup-by-code', { pickupCode }),
+  updateOrderStatus: (orderId, status, reason = '') => api.patch(`/api/orders/${orderId}/status`, { status, reason }),
+  verifyPickup: (orderId, payload) => api.post(`/api/orders/${orderId}/pickup-verify`, payload),
+  pickupByCode: (pickupCode, qrValidated = true) => api.post('/api/orders/pickup-by-code', { pickupCode, qrValidated }),
 };
 
 // ── Payment ───────────────────────────────────────────────────────────────────
@@ -60,7 +60,7 @@ export const paymentAPI = {
   submitCash: (orderId) => api.post(`/api/orders/${orderId}/payment/cash`),
   createStripeIntent: (orderId) => api.post(`/api/orders/${orderId}/payment/stripe/create-intent`),
   getPaymentStatus: (orderId) => api.get(`/api/orders/${orderId}/payment`),
-  verifyPayment: (orderId) => api.patch(`/api/orders/${orderId}/payment/verify`),
+  verifyPayment: (orderId, payload) => api.patch(`/api/orders/${orderId}/payment/verify`, payload),
   rejectPayment: (orderId, reason) => api.patch(`/api/orders/${orderId}/payment/reject`, { reason }),
 };
 
@@ -87,6 +87,7 @@ export const groupSessionAPI = {
   deleteSession: (id) => api.delete(`/api/group-sessions/${id}`),
   getActiveSession: () => api.get('/api/group-sessions/my/active'),
   getMergedCart: (id) => api.get(`/api/group-sessions/${id}/merged-cart`),
+  getMemberStatus: (id) => api.get(`/api/group-sessions/${id}/member-status`),
 };
 
 export default api;

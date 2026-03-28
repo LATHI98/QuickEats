@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ShoppingBag, X, Clock, Hash, CheckCircle, ChefHat, Package, XCircle, CreditCard, RefreshCw, RotateCcw } from 'lucide-react';
+import { ShoppingBag, X, Clock, Hash, CheckCircle, ChefHat, Package, XCircle, CreditCard, RefreshCw, RotateCcw, QrCode, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { orderAPI, cartAPI } from '../../services/api';
 import { toast } from 'react-toastify';
@@ -14,10 +14,10 @@ const STATUS_CONFIG = {
 };
 
 const PAYMENT_STATUS = {
-  unpaid: { label: 'Unpaid', color: 'text-red-500' },
-  pending_verification: { label: 'Awaiting Verification', color: 'text-yellow-600' },
-  verified: { label: 'Verified', color: 'text-green-600' },
-  rejected: { label: 'Rejected', color: 'text-red-500' },
+  unpaid: { label: 'Unpaid', color: 'text-red-500', dotColor: 'bg-red-400' },
+  pending_verification: { label: 'Awaiting Verification', color: 'text-amber-600', dotColor: 'bg-amber-400' },
+  verified: { label: 'Verified', color: 'text-green-600', dotColor: 'bg-green-500' },
+  rejected: { label: 'Rejected', color: 'text-red-500', dotColor: 'bg-red-500' },
 };
 
 const StatusBadge = ({ status }) => {
@@ -30,10 +30,74 @@ const StatusBadge = ({ status }) => {
   );
 };
 
+// ─── Confirm Cancel Modal ─────────────────────────────────────────────────────
+
+const ConfirmCancelModal = ({ order, submitting, onClose, onConfirm }) => {
+  if (!order) return null;
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="text-center mb-5">
+          <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <AlertCircle size={28} className="text-red-500" />
+          </div>
+          <h3 className="text-lg font-['Gilroy_Heavy'] text-gray-900">Cancel This Order?</h3>
+          <p className="text-sm text-gray-500 mt-1">Order <strong>#{order.queueNumber}</strong> will be cancelled and cannot be undone.</p>
+        </div>
+
+        {/* Order items summary */}
+        <div className="bg-gray-50 rounded-xl p-3 mb-5">
+          {order.items?.map((item, i) => (
+            <p key={i} className="text-xs text-gray-600 mb-0.5">{item.name} × {item.quantity}</p>
+          ))}
+          <p className="text-sm font-['Gilroy_Heavy'] text-gray-900 mt-2 pt-2 border-t border-gray-200">
+            Total: LKR {order.totalPrice?.toLocaleString()}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="py-3 rounded-xl border border-gray-200 text-gray-600 font-['Gilroy_Heavy'] text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Keep Order
+          </button>
+          <button
+            onClick={() => onConfirm(order._id)}
+            disabled={submitting}
+            className="py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-['Gilroy_Heavy'] text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Cancelling...
+              </>
+            ) : (
+              <>
+                <XCircle size={14} />
+                Cancel Order
+              </>
+            )}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// ─── Order Detail Modal ───────────────────────────────────────────────────────
+
 const OrderDetailModal = ({ order, onClose, onCancel, onPayNow, onReorder, reorderingId }) => {
   if (!order) return null;
   const paymentCfg = PAYMENT_STATUS[order.payment?.status] || PAYMENT_STATUS.unpaid;
   const canCancel = order.status === 'pending' && order.payment?.status === 'unpaid';
+  const isReady = order.status === 'ready';
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -76,6 +140,33 @@ const OrderDetailModal = ({ order, onClose, onCancel, onPayNow, onReorder, reord
               <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-widest mt-1">Pickup Time</p>
             </div>
           </div>
+
+          {/* Pickup Code & QR — shown when order is ready */}
+          {isReady && order.pickupCode && (
+            <div className="rounded-3xl bg-indigo-50 border border-indigo-100 p-5 text-center">
+              <p className="text-[10px] uppercase tracking-widest text-indigo-400 font-['Gilroy_Heavy'] mb-2">Your Pickup Code</p>
+              <p className="text-4xl tracking-[0.25em] font-['Gilroy_Heavy'] text-indigo-700 mb-3">{order.pickupCode}</p>
+              {order.qrCodeData && (
+                <img
+                  src={order.qrCodeData}
+                  alt="Pickup QR Code"
+                  className="w-36 h-36 mx-auto rounded-xl mb-2"
+                />
+              )}
+              <p className="text-xs text-indigo-500 leading-relaxed mt-2">
+                Show this code or QR to canteen staff when picking up your order.
+              </p>
+            </div>
+          )}
+
+          {isReady && !order.pickupCode && (
+            <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2">
+              <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">
+                Pickup code not yet generated. Please check again in a moment or contact canteen staff.
+              </p>
+            </div>
+          )}
 
           {/* Items */}
           <div>
@@ -124,7 +215,7 @@ const OrderDetailModal = ({ order, onClose, onCancel, onPayNow, onReorder, reord
 
             {canCancel && (
               <button
-                onClick={() => onCancel(order._id)}
+                onClick={() => onCancel(order)}
                 className="w-full py-4 text-red-400 text-xs font-['Gilroy_Heavy'] hover:text-red-500 transition-colors uppercase tracking-widest"
               >
                 Cancel Order
@@ -153,6 +244,8 @@ const OrdersPage = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [reorderingId, setReorderingId] = useState(null);
+  const [cancelOrder, setCancelOrder] = useState(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -193,15 +286,23 @@ const OrdersPage = () => {
     navigate(`/dashboard/payment/${orderId}`);
   };
 
-  const handleCancel = async (orderId) => {
-    if (!window.confirm('Cancel this order?')) return;
+  // Opens styled cancel modal instead of window.confirm()
+  const handleCancelRequest = (order) => {
+    setCancelOrder(order);
+  };
+
+  const handleConfirmCancel = async (orderId) => {
+    setCancelSubmitting(true);
     try {
       await orderAPI.cancelOrder(orderId);
-      toast.success('Order cancelled');
+      toast.success('Order cancelled successfully');
+      setCancelOrder(null);
       setSelectedOrder(null);
       fetchOrders(true);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Cannot cancel this order');
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
@@ -277,9 +378,19 @@ const OrdersPage = () => {
                     </p>
                   </div>
 
+                  {/* Pickup code badge for ready orders */}
+                  {order.status === 'ready' && order.pickupCode && (
+                    <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2">
+                      <QrCode size={14} className="text-indigo-400" />
+                      <span className="text-xs font-['Gilroy_Heavy'] text-indigo-700 tracking-widest">{order.pickupCode}</span>
+                      <span className="text-[9px] text-indigo-400 ml-auto">Show at counter</span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between pt-4 border-t border-gray-50">
                     <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${order.payment?.status === 'verified' ? 'bg-green-500' : 'bg-red-400'}`} />
+                      {/* Distinct dot colors per payment status */}
+                      <div className={`w-2 h-2 rounded-full ${paymentCfg.dotColor}`} />
                       <span className={`text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest ${paymentCfg.color}`}>
                         {paymentCfg.label}
                       </span>
@@ -320,10 +431,18 @@ const OrdersPage = () => {
           reorderingId={reorderingId}
           onClose={() => setSelectedOrder(null)}
           onPayNow={handlePayNow}
-          onCancel={handleCancel}
+          onCancel={handleCancelRequest}
           onReorder={handleReorder}
         />
       )}
+
+      {/* Styled cancel confirmation modal */}
+      <ConfirmCancelModal
+        order={cancelOrder}
+        submitting={cancelSubmitting}
+        onClose={() => setCancelOrder(null)}
+        onConfirm={handleConfirmCancel}
+      />
     </div>
   );
 };

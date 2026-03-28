@@ -30,6 +30,8 @@ const GroupOrderHub = () => {
     // UI State
     const [copied, setCopied] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const [isSwitching, setIsSwitching] = useState(false);
+    const [memberStatuses, setMemberStatuses] = useState([]);
 
     const fetchSession = async () => {
         try {
@@ -52,6 +54,15 @@ const GroupOrderHub = () => {
         }
     };
 
+    const fetchMemberStatuses = async (sessionId) => {
+        try {
+            const res = await groupSessionAPI.getMemberStatus(sessionId);
+            setMemberStatuses(res.data.data || []);
+        } catch (err) {
+            console.error('Failed to fetch member statuses', err);
+        }
+    };
+
     const fetchCanteens = async () => {
         try {
             const res = await canteenAPI.getAll();
@@ -65,7 +76,21 @@ const GroupOrderHub = () => {
     useEffect(() => {
         fetchSession();
         fetchCanteens();
+
+        // Polling for real-time collaboration feel
+        const interval = setInterval(() => {
+            fetchSession();
+        }, 15000);
+
+        return () => clearInterval(interval);
     }, []);
+
+    // Fetch member statuses whenever session updates
+    useEffect(() => {
+        if (session && session._id) {
+            fetchMemberStatuses(session._id);
+        }
+    }, [session]);
 
     const handleCreate = async (e) => {
         e.preventDefault();
@@ -95,6 +120,7 @@ const GroupOrderHub = () => {
             const res = await groupSessionAPI.joinSession(shareCode);
             toast.success('Joined group session!');
             setIsJoining(false);
+            setIsSwitching(false);
             setShareCode('');
             fetchSession();
         } catch (err) {
@@ -188,8 +214,8 @@ const GroupOrderHub = () => {
         </div>
     );
 
-    // NO ACTIVE SESSION VIEW
-    if (!session) {
+    // NO ACTIVE SESSION VIEW (or switching)
+    if (!session || isSwitching) {
         return (
             <div className="max-w-2xl mx-auto py-8 px-4">
                 <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900 mb-2">Group Ordering</h1>
@@ -359,6 +385,15 @@ const GroupOrderHub = () => {
                             <LogOut size={16} /> Leave Group
                         </button>
                     )}
+                    <button
+                        onClick={() => {
+                          if (isSwitching) setIsSwitching(false);
+                          else setIsSwitching(true);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl text-sm font-['Gilroy_Medium'] transition-colors"
+                    >
+                        <Users size={16} /> {isSwitching ? 'Back to Current' : 'Join Different Group'}
+                    </button>
                 </div>
             </div>
 
@@ -481,8 +516,14 @@ const GroupOrderHub = () => {
                                 </div>
                                 <div>
                                     <p className="text-sm font-['Gilroy_Heavy'] text-gray-900 flex items-center gap-2">
-                                        {m.name} {m._id === session.creator._id && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-md">Creator</span>}
+                                        {m.name} 
+                                        {m._id === session.creator._id && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-md">Creator</span>}
                                         {m._id === currentUser.id && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md">You</span>}
+                                        {(() => {
+                                            const status = memberStatuses.find(s => s._id === m._id);
+                                            if (status?.hasItems) return <span className="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-200" title="Has items in cart" />;
+                                            return <span className="w-2 h-2 rounded-full bg-gray-200" title="Cart empty" />;
+                                        })()}
                                     </p>
                                     <p className="text-xs text-gray-400">@{m.username}</p>
                                 </div>

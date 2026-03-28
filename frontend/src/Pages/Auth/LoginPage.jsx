@@ -13,10 +13,13 @@ const LoginPage = () => {
     role: 'student'
   });
   const [loading, setLoading] = useState(false);
-  const { login: authLogin, user } = useAuth();
+  const { login: authLogin, user, selectedCanteenId } = useAuth();
 
   if (user) {
-    return <Navigate to="/dashboard" replace />;
+    if (['student', 'universityStaff'].includes(user.role)) {
+      return <Navigate to="/dashboard" replace />;
+    }
+    return <Navigate to={selectedCanteenId ? '/admin/dashboard' : '/admin/select-canteen'} replace />;
   }
 
   const handleChange = (e) => {

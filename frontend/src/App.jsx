@@ -19,6 +19,7 @@ import AdminMenu from './Pages/Admin/MenuPage';
 import AdminOrders from './Pages/Admin/OrdersPage';
 import AdminUsers from './Pages/Admin/UsersPage';
 import AdminSettings from './Pages/Admin/SettingsPage';
+import SelectCanteenPage from './Pages/Admin/SelectCanteenPage';
 
 // Student pages
 import StudentDashboard from './Pages/Student/DashboardPage';
@@ -65,14 +66,18 @@ function App() {
 
         {/* Admin/Staff routes */}
         <Route element={<ProtectedRoute allowedRoles={['canteenStaff', 'admin', 'canteenManager', 'superAdmin']} />}>
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="canteens" element={<AdminCanteens />} />
-            <Route path="menu" element={<AdminMenu />} />
-            <Route path="orders" element={<AdminOrders />} />
-            <Route path="users" element={<AdminUsers />} />
-            <Route path="settings" element={<AdminSettings />} />
+          <Route path="/admin/select-canteen" element={<SelectCanteenPage />} />
+
+          <Route element={<ProtectedRoute allowedRoles={['canteenStaff', 'admin', 'canteenManager', 'superAdmin']} requireCanteenSelection />}>
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<Navigate to="/admin/dashboard" replace />} />
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="canteens" element={<AdminCanteens />} />
+              <Route path="menu" element={<AdminMenu />} />
+              <Route path="orders" element={<AdminOrders />} />
+              <Route path="users" element={<AdminUsers />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
           </Route>
         </Route>
 

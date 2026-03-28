@@ -2,8 +2,8 @@ import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-const ProtectedRoute = ({ allowedRoles }) => {
-  const { user, loading } = useAuth();
+const ProtectedRoute = ({ allowedRoles, requireCanteenSelection = false }) => {
+  const { user, loading, selectedCanteenId } = useAuth();
 
   if (loading) {
     return (
@@ -20,8 +20,12 @@ const ProtectedRoute = ({ allowedRoles }) => {
 
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect to their correct dashboard, not back to login
-    if (user.role === 'student') return <Navigate to="/dashboard" replace />;
-    return <Navigate to="/admin/dashboard" replace />;
+    if (user.role === 'student' || user.role === 'universityStaff') return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/admin/select-canteen" replace />;
+  }
+
+  if (requireCanteenSelection && !selectedCanteenId) {
+    return <Navigate to="/admin/select-canteen" replace />;
   }
 
   return <Outlet />;

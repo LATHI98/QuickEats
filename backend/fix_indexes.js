@@ -1,45 +1,47 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import path from 'path';
 import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: join(__dirname, '..', '.env') });
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const dropStaleIndexes = async () => {
-    try {
-        const mongoUri = process.env.MONGODBURL || 'mongodb://localhost:27017/QuickEats';
-        console.log(`Connecting to ${mongoUri}`);
-        await mongoose.connect(mongoUri);
-        console.log('Connected to MongoDB');
+dotenv.config({ path: path.join(__dirname, '../.env') });
 
-        const db = mongoose.connection.db;
-        const collections = await db.listCollections().toArray();
-        const ordersExists = collections.some(col => col.name === 'orders');
-
-        if (ordersExists) {
-            const orders = db.collection('orders');
-            const indexes = await orders.indexes();
-            console.log('Current indexes on orders:', indexes.map(i => i.name));
-
-            if (indexes.some(i => i.name === 'qrToken_1')) {
-                console.log('Dropping qrToken_1 index...');
-                await orders.dropIndex('qrToken_1');
-                console.log('Dropped qrToken_1 index successfully.');
-            } else {
-                console.log('qrToken_1 index not found.');
-            }
-        } else {
-            console.log('Orders collection does not exist.');
-        }
-
-        await mongoose.disconnect();
-        console.log('Disconnected from MongoDB');
-        process.exit(0);
-    } catch (err) {
-        console.error('Error dropping index:', err);
-        process.exit(1);
+async function fixIndexes() {
+  try {
+    if (!process.env.MONGODBURL) {
+      throw new Error('MONGODBURL not found in .env');
     }
-};
 
-dropStaleIndexes();
+    await mongoose.connect(process.env.MONGODBURL);
+    console.log('Connected to MongoDB');
+
+    const ordersCollection = mongoose.connection.collection('orders');
+
+    // 1. Drop the problematic index
+    try {
+      await ordersCollection.dropIndex('pickupCode_1');
+      console.log('Dropped index pickupCode_1 from orders collection');
+    } catch (e) {
+      console.log('Index pickupCode_1 not found or already dropped:', e.message);
+    }
+
+    // 2. Re-create the index as sparse and unique
+    await ordersCollection.createIndex({ pickupCode: 1 }, { unique: true, sparse: true });
+    console.log('Successfully created sparse unique index on pickupCode');
+
+    // 3. Optional: Verify existing documents don't have multiple nulls (though dropIndex should have allowed it)
+    const nullCount = await ordersCollection.countDocuments({ pickupCode: null });
+    console.log(`Found ${nullCount} documents with pickupCode: null (these are now allowed to co-exist)`);
+
+    await mongoose.disconnect();
+    console.log('Done');
+    process.exit(0);
+  } catch (err) {
+    console.error('Fix indexes error:', err);
+    process.exit(1);
+  }
+}
+
+fixIndexes();

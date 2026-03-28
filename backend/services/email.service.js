@@ -46,3 +46,26 @@ export const sendOTPEmail = async (email, otp) => {
         html: `<p>Your password reset OTP is: <b>${otp}</b>. It will expire in 10 minutes.</p>`,
     });
 };
+export const sendCancellationEmail = async (email, order, reason = '') => {
+    if (!process.env.EMAIL_USER) {
+        console.log('--- MOCK EMAIL ---');
+        console.log(`To: ${email}`);
+        console.log(`Subject: Your QuickEats order #${order.queueNumber} has been cancelled`);
+        console.log(`Reason: ${reason || 'Not specified'}`);
+        console.log('------------------');
+        return;
+    }
+
+    await transporter.sendMail({
+        from: '"QuickEats" <noreply@quickeats.com>',
+        to: email,
+        subject: `Your QuickEats order #${order.queueNumber} has been cancelled`,
+        html: `
+            <h3>Order Cancelled</h3>
+            <p>We're sorry, but your order <b>#${order.queueNumber}</b> from <b>${order.canteen?.name || 'the canteen'}</b> has been cancelled.</p>
+            ${reason ? `<p><b>Reason:</b> ${reason}</p>` : ''}
+            <p>If you have already paid, any pending transactions will be handled according to our refund policy. You can place a new order by visiting the app.</p>
+            <p>Thank you,<br/>QuickEats Team</p>
+        `,
+    });
+};

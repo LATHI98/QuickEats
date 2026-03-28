@@ -12,12 +12,7 @@ import purchasedPassService from '../../services/purchasedPassService';
 import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 
-import vegriceImg from '../../assets/images/vegrice.jpg';
-import rotiImg from '../../assets/images/roti.jpg';
-import fishImg from '../../assets/images/fish.png';
-import parathaImg from '../../assets/images/paratha.jpg';
-import chickenImg from '../../assets/images/chicken.jpg';
-import eggImg from '../../assets/images/egg.png';
+
 
 const CATEGORIES = [
   { id: 'all', name: 'All Meals', icon: Ticket },

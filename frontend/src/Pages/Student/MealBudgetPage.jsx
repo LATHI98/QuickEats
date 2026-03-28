@@ -119,12 +119,18 @@ const MealBudgetPage = () => {
 
   const handleSaveBudget = async (e) => {
     e.preventDefault();
+    const amountNum = Number(tempAmount);
+    
+    if (!tempAmount || isNaN(amountNum) || amountNum <= 0) {
+      return toast.error('Please enter a valid positive budget amount');
+    }
+    
     try {
-      const data = await budgetService.setBudget({ amount: Number(tempAmount), period: budget.period });
+      const data = await budgetService.setBudget({ amount: amountNum, period: budget.period });
       setBudget(data);
       setIsEditingBudget(false);
       toast.success('Budget Updated');
-    } catch (error) { toast.error('Failed'); }
+    } catch (error) { toast.error(error.response?.data?.message || 'Failed to update'); }
   };
 
   const handleResetBudget = async () => {
@@ -142,12 +148,31 @@ const MealBudgetPage = () => {
 
   const handleAddExpense = async (e) => {
     e.preventDefault();
-    if (!newExpense.itemName || !newExpense.amount) return;
+
+    // Validations
+    if (!newExpense.itemName || newExpense.itemName.trim().length <= 2) {
+      return toast.error('Description must be at least 3 characters');
+    }
+    
+    const amountNum = Number(newExpense.amount);
+    if (!newExpense.amount || isNaN(amountNum) || amountNum <= 0) {
+      return toast.error('Check your amount - it must be more than 0');
+    }
+
+    if (!newExpense.category) {
+      return toast.error('Select a category first!');
+    }
+
     if (categoryTarget !== '') {
-      const updated = { ...categoryTargets, [newExpense.category]: Number(categoryTarget) };
+      const targetNum = Number(categoryTarget);
+      if (isNaN(targetNum) || targetNum < 0) {
+         return toast.error('Category target should be 0 or more');
+      }
+      const updated = { ...categoryTargets, [newExpense.category]: targetNum };
       setCategoryTargets(updated);
       localStorage.setItem('qe_cat_targets', JSON.stringify(updated));
     }
+
     try {
       const data = await expenseService.createExpense(newExpense);
       setManualExpenses([data, ...manualExpenses]);
@@ -155,7 +180,7 @@ const MealBudgetPage = () => {
       setNewExpense({ itemName: '', amount: '', category: 'Breakfast' });
       setCategoryTarget('');
       toast.success('Recorded');
-    } catch (error) { toast.error('Failed'); }
+    } catch (error) { toast.error(error.response?.data?.message || 'Recording failed'); }
   };
 
   const handleDeleteExpense = async (id) => {
@@ -213,7 +238,7 @@ const MealBudgetPage = () => {
                   <section className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                      <div className="flex items-center justify-between mb-8">
                         <h2 className="text-xl font-black flex items-center gap-3 text-[#f97316]">Expense Categories</h2>
-                        <button onClick={() => { setNewExpense({ itemName: '', amount: '', category: '' }); setCategoryTarget(''); setIsAddingExpense(true); }} className="px-5 py-2.5 bg-[#f97316] text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all active:scale-95 flex items-center gap-2">
+                        <button onClick={() => { setNewExpense({ itemName: '', amount: '', category: 'Breakfast' }); setCategoryTarget(''); setIsAddingExpense(true); }} className="px-5 py-2.5 bg-[#f97316] text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-orange-600 transition-all active:scale-95 flex items-center gap-2">
                            <Plus size={14} /> Add Spend
                         </button>
                      </div>

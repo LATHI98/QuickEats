@@ -9,9 +9,19 @@ export const setBudget = async (req, res) => {
 
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
+    // Validation
+    const amountNum = Number(amount);
+    if (!amount || isNaN(amountNum) || amountNum <= 0) {
+      return res.status(400).json({ message: 'Budget amount must be a positive number' });
+    }
+
+    if (!['weekly', 'monthly'].includes(period)) {
+      return res.status(400).json({ message: 'Invalid budget period' });
+    }
+
     const budget = await Budget.findOneAndUpdate(
       { userId },
-      { amount: Number(amount), period },
+      { amount: amountNum, period },
       { new: true, upsert: true }
     );
 

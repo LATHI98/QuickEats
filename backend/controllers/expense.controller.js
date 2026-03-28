@@ -7,9 +7,18 @@ export const createExpense = async (req, res) => {
 
     if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
+    // Validation
+    if (!itemName || itemName.trim().length < 2) {
+      return res.status(400).json({ message: 'Item name must be at least 2 characters' });
+    }
+    
+    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+      return res.status(400).json({ message: 'Amount must be a positive number' });
+    }
+
     const newExpense = new Expense({
       userId,
-      itemName,
+      itemName: itemName.trim(),
       amount: Number(amount),
       date: date || new Date(),
       category: category || 'Other Expense'

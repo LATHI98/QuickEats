@@ -2,6 +2,7 @@ import './App.css';
 import 'react-toastify/dist/ReactToastify.css';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { ToastContainer } from 'react-toastify';
+import { useAuth } from './contexts/AuthContext';
 
 import HomePage from './Pages/HomePage';
 import LoginPage from './Pages/Auth/LoginPage';
@@ -19,7 +20,14 @@ import AdminMenu from './Pages/Admin/MenuPage';
 import AdminOrders from './Pages/Admin/OrdersPage';
 import AdminUsers from './Pages/Admin/UsersPage';
 import AdminSettings from './Pages/Admin/SettingsPage';
-import SelectCanteenPage from './Pages/Admin/SelectCanteenPage';
+import StaffDashboardPage from './Pages/Admin/StaffDashboardPage';
+import AdminReservations from './Pages/Admin/ReservationsPage';
+import TablesManagement from './Pages/Admin/TablesPage';
+
+// Canteen Staff pages
+import CanteenStaffDashboard from './Pages/CanteenStaff/DashboardPage';
+import StockPage from './Pages/CanteenStaff/StockPage';
+import MealPassStaffPage from './Pages/CanteenStaff/MealPassPage';
 
 // Student pages
 import StudentDashboard from './Pages/Student/DashboardPage';
@@ -32,8 +40,13 @@ import ProfilePage from './Pages/Student/ProfilePage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
-import OrderTrackingPage from './Pages/Student/OrderTrackingPage';
-import GroupOrderHub from './Pages/Student/GroupOrderHub';
+import HealthMealPlanPage from './Pages/Student/HealthMealPlanPage';
+
+const AdminDashboardSelector = () => {
+  const { user } = useAuth();
+  if (user?.role === 'canteenStaff') return <CanteenStaffDashboard />;
+  return <AdminDashboard />;
+};
 
 function App() {
   return (
@@ -59,6 +72,7 @@ function App() {
             <Route path="meal-pass" element={<MealPassPage />} />
             <Route path="order-tracking" element={<OrderTrackingPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
+            <Route path="meal-plan" element={<HealthMealPlanPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="group-order" element={<GroupOrderHub />} />
           </Route>
@@ -66,18 +80,19 @@ function App() {
 
         {/* Admin/Staff routes */}
         <Route element={<ProtectedRoute allowedRoles={['canteenStaff', 'admin', 'canteenManager', 'superAdmin']} />}>
-          <Route path="/admin/select-canteen" element={<SelectCanteenPage />} />
-
-          <Route element={<ProtectedRoute allowedRoles={['canteenStaff', 'admin', 'canteenManager', 'superAdmin']} requireCanteenSelection />}>
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<Navigate to="/admin/dashboard" replace />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="canteens" element={<AdminCanteens />} />
-              <Route path="menu" element={<AdminMenu />} />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="settings" element={<AdminSettings />} />
-            </Route>
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboardSelector />} />
+            <Route path="canteens" element={<AdminCanteens />} />
+            <Route path="tables" element={<TablesManagement />} />
+            <Route path="menu" element={<AdminMenu />} />
+            <Route path="orders" element={<AdminOrders />} />
+            <Route path="reservations" element={<AdminReservations />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="settings" element={<AdminSettings />} />
+            <Route path="staff" element={<StaffDashboardPage />} />
+            <Route path="stock" element={<StockPage />} />
+            <Route path="meal-pass" element={<MealPassStaffPage />} />
           </Route>
         </Route>
 

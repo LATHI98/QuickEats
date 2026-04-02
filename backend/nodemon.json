@@ -1,0 +1,5 @@
+{
+  "exec": "node --env-file=.env app.js",
+  "ext": "js,json",
+  "ignore": ["node_modules/"]
+}

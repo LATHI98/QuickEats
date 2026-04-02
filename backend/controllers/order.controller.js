@@ -8,7 +8,14 @@ const SLOT_INTERVAL_MINUTES = 10;
 const MAX_ORDERS_PER_SLOT = 10;
 
 const isAdminRole = (role) => ['admin', 'superAdmin'].includes(role);
-const isElevatedOpsRole = (role) => ['admin', 'superAdmin', 'canteenManager', 'canteenStaff'].includes(role);
+const isElevatedOpsRole = (role) => ['admin', 'superAdmin', 'canteenManager'].includes(role);
+
+const resolveRequestCanteenId = (req) => {
+  const bodyCanteenId = req.body?.canteenId;
+  const queryCanteenId = req.query?.canteen;
+  const userCanteenId = req.user?.canteen ? req.user.canteen.toString() : '';
+  return bodyCanteenId || queryCanteenId || userCanteenId || '';
+};
 
 const appendActivity = (order, { action, actor = null, actorRole = null, note = '', metadata = null }) => {
   order.activityLogs.push({
@@ -342,12 +349,24 @@ export const getCanteenOrders = async (req, res) => {
         });
       }
     } else {
-      canteenId = req.user.canteen;
+      const assignedCanteenId = req.user.canteen ? req.user.canteen.toString() : '';
+      const requestedCanteenId = req.query.canteen || '';
+
+      canteenId = assignedCanteenId || requestedCanteenId || null;
+
       if (!canteenId) {
         return res.status(403).json({
           success: false,
           code: 'STAFF_CANTEEN_NOT_ASSIGNED',
           message: 'No canteen is assigned to this staff account. Ask admin to assign a canteen.',
+        });
+      }
+
+      if (assignedCanteenId && requestedCanteenId && assignedCanteenId !== requestedCanteenId) {
+        return res.status(403).json({
+          success: false,
+          code: 'STAFF_CANTEEN_MISMATCH',
+          message: 'You are not authorized for the selected canteen.',
         });
       }
     }
@@ -452,8 +471,16 @@ export const verifyPickup = async (req, res) => {
     }
 
     const isElevated = isElevatedOpsRole(req.user.role);
-    if (!isElevated && order.canteen.toString() !== req.user.canteen?.toString()) {
-      return res.status(403).json({ success: false, message: 'Not authorized for this canteen' });
+    const requestCanteenId = resolveRequestCanteenId(req);
+    const orderCanteenId = order.canteen.toString();
+
+    if (!isElevated) {
+      if (!requestCanteenId) {
+        return res.status(403).json({ success: false, message: 'Please select a canteen context before confirming delivery' });
+      }
+      if (requestCanteenId !== orderCanteenId) {
+        return res.status(403).json({ success: false, message: 'Not authorized for this canteen' });
+      }
     }
     if (order.pickupVerified) {
       return res.status(400).json({ success: false, message: 'Order already picked up' });
@@ -493,8 +520,16 @@ export const pickupByCode = async (req, res) => {
     if (!order) return res.status(404).json({ success: false, message: 'No order found with that code' });
 
     const isElevated = isElevatedOpsRole(req.user.role);
-    if (!isElevated && order.canteen.toString() !== req.user.canteen?.toString()) {
-      return res.status(403).json({ success: false, message: 'This order belongs to a different canteen' });
+    const requestCanteenId = resolveRequestCanteenId(req);
+    const orderCanteenId = order.canteen.toString();
+
+    if (!isElevated) {
+      if (!requestCanteenId) {
+        return res.status(403).json({ success: false, message: 'Please select a canteen context before confirming delivery' });
+      }
+      if (requestCanteenId !== orderCanteenId) {
+        return res.status(403).json({ success: false, message: 'This order belongs to a different canteen' });
+      }
     }
     if (order.status !== 'ready') {
       return res.status(400).json({ success: false, message: `Order is currently '${order.status}' — it must be 'ready' before pickup` });

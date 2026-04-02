@@ -9,10 +9,10 @@ import { protect, authorize } from '../middleware/auth.middleware.js';
 
 const router = express.Router();
 
-// Admin table management
-router.post('/', protect, authorize('superAdmin', 'admin'), createTable);
-router.put('/:id', protect, authorize('superAdmin', 'admin'), updateTable);
-router.delete('/:id', protect, authorize('superAdmin', 'admin'), deleteTable);
+// Table management
+router.post('/', protect, authorize('superAdmin', 'admin', 'canteenManager', 'canteenStaff'), createTable);
+router.put('/:id', protect, authorize('superAdmin', 'admin', 'canteenManager', 'canteenStaff'), updateTable);
+router.delete('/:id', protect, authorize('superAdmin', 'admin', 'canteenManager', 'canteenStaff'), deleteTable);
 
 // Public read access
 router.get('/canteen/:canteenId', getTablesByCanteen);

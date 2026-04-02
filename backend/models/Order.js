@@ -6,4 +6,4 @@ const orderSchema = new mongoose.Schema({
   date: { type: Date, default: Date.now }
 });
 
-export default mongoose.model('Order', orderSchema);
+export default mongoose.model('LegacyOrder', orderSchema);

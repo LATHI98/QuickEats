@@ -15,7 +15,6 @@ import {
   ChefHat,
   LayoutGrid,
   Ticket,
-  Box,
   Grid3x3,
   Calendar,
 } from 'lucide-react';
@@ -43,9 +42,10 @@ const managerNav = [
 
 const canteenStaffNav = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+  { label: 'Tables', path: '/admin/tables', icon: Grid3x3 },
+  { label: 'Reservations', path: '/admin/reservations', icon: Calendar },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
   { label: 'Meal Pass', path: '/admin/meal-pass', icon: Ticket },
-  { label: 'Stock Management', path: '/admin/stock', icon: Box },
   { label: 'Menu Management', path: '/admin/menu', icon: UtensilsCrossed },
 ];
 
@@ -79,6 +79,7 @@ const AdminLayout = () => {
   const { user, logout, selectedCanteenName } = useAuth();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const showCanteenSelector = ['canteenStaff', 'canteenManager'].includes(user?.role);
 
   const config = roleConfig[user?.role] || roleConfig.canteenManager;
   const navItems = config.nav;
@@ -168,7 +169,7 @@ const AdminLayout = () => {
                     active={location.pathname === '/admin/canteens'}
                   />
                 )}
-                {['superAdmin', 'admin', 'canteenManager'].includes(user?.role) && (
+                {['superAdmin', 'admin', 'canteenManager', 'canteenStaff'].includes(user?.role) && (
                   <>
                     <MenuLink
                       to="/admin/tables"
@@ -197,14 +198,6 @@ const AdminLayout = () => {
                   active={location.pathname === '/admin/staff'}
                   badge={user?.role === 'canteenStaff' ? 'You' : undefined}
                 />
-                {user?.role === 'canteenStaff' && (
-                  <MenuLink
-                    to="/admin/stock"
-                    icon={Box}
-                    label="Stock Manager"
-                    active={location.pathname === '/admin/stock'}
-                  />
-                )}
               </nav>
             </div>
 
@@ -262,13 +255,15 @@ const AdminLayout = () => {
               <HeaderIconButton icon={Bell} dot color="text-gray-400" />
             </div>
 
-            <Link
-              to="/admin/select-canteen"
-              className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 text-orange-700 text-xs font-['Gilroy_Heavy'] hover:bg-orange-100 transition-colors"
-            >
-              <Store size={14} />
-              {selectedCanteenName ? `Switch: ${selectedCanteenName}` : 'Select Canteen'}
-            </Link>
+            {showCanteenSelector && (
+              <Link
+                to="/admin/select-canteen"
+                className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 text-orange-700 text-xs font-['Gilroy_Heavy'] hover:bg-orange-100 transition-colors"
+              >
+                <Store size={14} />
+                {selectedCanteenName ? `Switch: ${selectedCanteenName}` : 'Select Canteen'}
+              </Link>
+            )}
 
             {/* Profile Pic */}
             <div className="w-11 h-11 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:border-orange-200 transition-all">

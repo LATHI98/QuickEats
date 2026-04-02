@@ -8,6 +8,7 @@ const initialForm = {
   name: '',
   owner: '',
   email: '',
+  canteenPassword: '',
   ratings: 0,
   photo: '',
   description: '',
@@ -46,6 +47,9 @@ const AdminCanteensPage = () => {
     if (!form.email.trim() || !/^.+@gmail\.com$/.test(form.email.trim())) {
       return 'Email must be a valid @gmail.com address';
     }
+    if (!isEditing && !form.canteenPassword.trim()) {
+      return 'Canteen password is required';
+    }
     if (form.ratings < 0 || form.ratings > 5) {
       return 'Ratings must be between 0 and 5';
     }
@@ -70,11 +74,16 @@ const AdminCanteensPage = () => {
         name: form.name.trim(),
         owner: form.owner.trim(),
         email: form.email.trim().toLowerCase(),
+        canteenPassword: form.canteenPassword.trim(),
         ratings: Number(form.ratings),
         photo: form.photo.trim(),
         description: form.description.trim(),
         openHours: form.openHours.trim(),
       };
+
+      if (isEditing && !payload.canteenPassword) {
+        delete payload.canteenPassword;
+      }
 
       if (isEditing) {
         await api.put(`/api/canteens/${form.id}`, payload);
@@ -98,6 +107,7 @@ const AdminCanteensPage = () => {
       name: canteen.name || '',
       owner: canteen.owner || '',
       email: canteen.email || '',
+      canteenPassword: '',
       ratings: canteen.ratings || 0,
       photo: canteen.photo || '',
       description: canteen.description || '',
@@ -132,7 +142,7 @@ const AdminCanteensPage = () => {
     <div className="max-w-7xl mx-auto py-10 px-4 space-y-8">
       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">Canteens Management</h1>
+          <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">Canteen Management</h1>
           <p className="text-sm text-gray-500">Admin can add/update/delete canteens that students can view.</p>
         </div>
         <div className="inline-flex items-center gap-2 text-sm text-gray-500">
@@ -177,6 +187,17 @@ const AdminCanteensPage = () => {
             className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-orange-400"
             placeholder="example@gmail.com"
             required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Canteen Password</label>
+          <input
+            value={form.canteenPassword}
+            onChange={(e) => setForm((s) => ({ ...s, canteenPassword: e.target.value }))}
+            type="password"
+            className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-orange-400"
+            placeholder={isEditing ? 'Leave blank to keep current password' : 'Set canteen access password'}
           />
         </div>
 
@@ -253,16 +274,18 @@ const AdminCanteensPage = () => {
                 <th className="px-3 py-2">Photo</th>
                 <th className="px-3 py-2">Name</th>
                 <th className="px-3 py-2">Owner</th>
-                <th className="px-3 py-2">Email</th>                <th className="px-3 py-2">Open Hours</th>                <th className="px-3 py-2">Rating</th>
+                <th className="px-3 py-2">Email</th>
+                <th className="px-3 py-2">Open Hours</th>
+                <th className="px-3 py-2">Rating</th>
                 <th className="px-3 py-2">Description</th>
                 <th className="px-3 py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan="7" className="px-3 py-4">Loading...</td></tr>
+                <tr><td colSpan="8" className="px-3 py-4">Loading...</td></tr>
               ) : canteens.length === 0 ? (
-                <tr><td colSpan="7" className="px-3 py-4">No canteens found.</td></tr>
+                <tr><td colSpan="8" className="px-3 py-4">No canteens found.</td></tr>
               ) : (
                 canteens.map((canteen) => (
                   <tr key={canteen._id} className="border-b border-gray-100 hover:bg-gray-50 transition-all">

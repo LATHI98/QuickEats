@@ -31,6 +31,7 @@ export const canteenAPI = {
   getAll: () => api.get('/api/canteens'),
   getById: (id) => api.get(`/api/canteens/${id}`),
   getMenu: (id, params) => api.get(`/api/canteens/${id}/menu`, { params }),
+  verifyPassword: (id, canteenPassword) => api.post(`/api/canteens/${id}/verify-password`, { canteenPassword }),
 };
 
 // ── Cart ─────────────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ export const orderAPI = {
   getCanteenOrders: (params) => api.get('/api/orders/canteen', { params }),
   updateOrderStatus: (orderId, status, reason = '') => api.patch(`/api/orders/${orderId}/status`, { status, reason }),
   verifyPickup: (orderId, payload) => api.post(`/api/orders/${orderId}/pickup-verify`, payload),
-  pickupByCode: (pickupCode, qrValidated = true) => api.post('/api/orders/pickup-by-code', { pickupCode, qrValidated }),
+  pickupByCode: (pickupCode, qrValidated = true, canteenId = '') => api.post('/api/orders/pickup-by-code', { pickupCode, qrValidated, canteenId }),
 };
 
 // ── Payment ───────────────────────────────────────────────────────────────────

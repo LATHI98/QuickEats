@@ -46,6 +46,11 @@ const canteenSchema = new mongoose.Schema({
     trim: true,
     default: '',
   },
+  accessPasswordHash: {
+    type: String,
+    select: false,
+    default: '',
+  },
 }, {
   timestamps: true,
 });

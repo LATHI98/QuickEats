@@ -1,22 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import api from '../../services/api';
 import {
   Store,
-  MapPin,
-  Clock,
   Star,
-  ArrowUpRight,
-  UtensilsCrossed
 } from 'lucide-react';
-import { canteenAPI } from '../../services/api';
-import { toast } from 'react-toastify';
 
 
-const CanteenCard = ({ canteen }) => (
+const CanteenCard = ({ canteen, onOpenMenu }) => (
   <motion.div
     whileHover={{ y: -8 }}
-    onClick={onClick}
+    onClick={onOpenMenu}
     className="bg-white rounded-[40px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-2xl hover:shadow-orange-100/50 transition-all group cursor-pointer"
   >
     <div className="relative h-64 overflow-hidden">
@@ -36,7 +31,7 @@ const CanteenCard = ({ canteen }) => (
           <Star size={14} className="text-orange-500 fill-orange-500" />
           <span className="text-sm font-['Gilroy_Bold'] text-gray-900">{(canteen.ratings ?? 0).toFixed(1)}</span>
         </div>
-      )}
+      </div>
     </div>
 
     <div className="p-8">
@@ -52,13 +47,22 @@ const CanteenCard = ({ canteen }) => (
       <p className="text-sm text-gray-600 line-clamp-3 mb-2">{canteen.description || 'No description available.'}</p>
       <p className="text-sm text-gray-400 mb-5">Contact: {canteen.email || 'No email set'}</p>
 
-      <button className="w-full bg-gray-900 hover:bg-orange-600 text-white py-3 rounded-[24px] font-['Gilroy_Bold'] transition-all">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenMenu();
+        }}
+        className="w-full bg-gray-900 hover:bg-orange-600 text-white py-3 rounded-[24px] font-['Gilroy_Bold'] transition-all"
+      >
         View Menu
-      </button>    </div>
+      </button>
+    </div>
   </motion.div>
 );
 
 const CanteensPage = () => {
+  const navigate = useNavigate();
   const [canteens, setCanteens] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -97,7 +101,11 @@ const CanteensPage = () => {
       ) : (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {canteens.map((canteen) => (
-            <CanteenCard key={canteen._id} canteen={canteen} />
+            <CanteenCard
+              key={canteen._id}
+              canteen={canteen}
+              onOpenMenu={() => navigate(`/dashboard/canteens/${canteen._id}/menu`)}
+            />
           ))}
         </div>
       )}

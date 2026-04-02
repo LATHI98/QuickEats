@@ -1,286 +1,448 @@
-import React, { useEffect, useState } from 'react';
-import { ShoppingBag, Plus, Minus, UtensilsCrossed, CheckCircle2, XCircle, ChevronDown, Coffee, Sun, Moon, Sunrise } from 'lucide-react';
-import api from '../../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ShoppingBag, X, Clock, Hash, CheckCircle, ChefHat, Package, XCircle, CreditCard, RefreshCw, RotateCcw, QrCode, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { orderAPI, cartAPI } from '../../services/api';
 import { toast } from 'react-toastify';
+import { motion, AnimatePresence } from 'framer-motion';
 
-const CATEGORIES = [
-  { key: 'all',        label: 'All Items',  icon: UtensilsCrossed, color: 'text-gray-500',   bg: 'bg-gray-50'    },
-  { key: 'breakfast',  label: 'Breakfast',  icon: Sunrise,         color: 'text-yellow-600', bg: 'bg-yellow-50'  },
-  { key: 'lunch',      label: 'Lunch',      icon: Sun,             color: 'text-orange-600', bg: 'bg-orange-50'  },
-  { key: 'dinner',     label: 'Dinner',     icon: Moon,            color: 'text-indigo-600', bg: 'bg-indigo-50'  },
-  { key: 'beverages',  label: 'Beverages',  icon: Coffee,          color: 'text-green-600',  bg: 'bg-green-50'   },
+const STATUS_CONFIG = {
+  pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
+  preparing: { label: 'Preparing', color: 'bg-blue-100 text-blue-700', icon: ChefHat },
+  ready: { label: 'Ready', color: 'bg-green-100 text-green-700', icon: Package },
+  completed: { label: 'Completed', color: 'bg-gray-100 text-gray-600', icon: CheckCircle },
+  cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-500', icon: XCircle },
+};
+
+const PAYMENT_STATUS = {
+  unpaid: { label: 'Unpaid', color: 'text-red-500', dotColor: 'bg-red-400' },
+  pending_verification: { label: 'Awaiting Verification', color: 'text-amber-600', dotColor: 'bg-amber-400' },
+  verified: { label: 'Verified', color: 'text-green-600', dotColor: 'bg-green-500' },
+  rejected: { label: 'Rejected', color: 'text-red-500', dotColor: 'bg-red-500' },
+};
+
+const StatusBadge = ({ status }) => {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  const Icon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest ${cfg.color}`}>
+      <Icon size={12} /> {cfg.label}
+    </span>
+  );
+};
+
+// ─── Confirm Cancel Modal ─────────────────────────────────────────────────────
+
+const ConfirmCancelModal = ({ order, submitting, onClose, onConfirm }) => {
+  if (!order) return null;
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="text-center mb-5">
+          <div className="w-14 h-14 bg-red-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <AlertCircle size={28} className="text-red-500" />
+          </div>
+          <h3 className="text-lg font-['Gilroy_Heavy'] text-gray-900">Cancel This Order?</h3>
+          <p className="text-sm text-gray-500 mt-1">Order <strong>#{order.queueNumber}</strong> will be cancelled and cannot be undone.</p>
+        </div>
+
+        {/* Order items summary */}
+        <div className="bg-gray-50 rounded-xl p-3 mb-5">
+          {order.items?.map((item, i) => (
+            <p key={i} className="text-xs text-gray-600 mb-0.5">{item.name} × {item.quantity}</p>
+          ))}
+          <p className="text-sm font-['Gilroy_Heavy'] text-gray-900 mt-2 pt-2 border-t border-gray-200">
+            Total: LKR {order.totalPrice?.toLocaleString()}
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="py-3 rounded-xl border border-gray-200 text-gray-600 font-['Gilroy_Heavy'] text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+          >
+            Keep Order
+          </button>
+          <button
+            onClick={() => onConfirm(order._id)}
+            disabled={submitting}
+            className="py-3 rounded-xl bg-red-500 hover:bg-red-600 text-white font-['Gilroy_Heavy'] text-sm transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              <>
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Cancelling...
+              </>
+            ) : (
+              <>
+                <XCircle size={14} />
+                Cancel Order
+              </>
+            )}
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// ─── Order Detail Modal ───────────────────────────────────────────────────────
+
+const OrderDetailModal = ({ order, onClose, onCancel, onPayNow, onReorder, reorderingId }) => {
+  if (!order) return null;
+  const paymentCfg = PAYMENT_STATUS[order.payment?.status] || PAYMENT_STATUS.unpaid;
+  const canCancel = order.status === 'pending' && order.payment?.status === 'unpaid';
+  const isReady = order.status === 'ready';
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="bg-white rounded-[40px] max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl relative"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 flex items-center justify-between p-8 border-b border-gray-50">
+          <div>
+            <h2 className="text-2xl font-['Gilroy_Heavy'] text-gray-900">Order #{order.queueNumber}</h2>
+            <p className="text-xs text-gray-400 mt-1 font-['Gilroy_Medium']">{new Date(order.createdAt).toLocaleString()}</p>
+          </div>
+          <button onClick={onClose} className="p-3 hover:bg-gray-100 rounded-2xl transition-colors">
+            <X size={20} className="text-gray-400" />
+          </button>
+        </div>
+
+        <div className="p-8 space-y-8">
+          {/* Status */}
+          <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl">
+            <span className="text-sm font-['Gilroy_Heavy'] text-gray-500">Current Status</span>
+            <StatusBadge status={order.status} />
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-orange-50 rounded-3xl p-6 text-center">
+              <Hash size={20} className="text-orange-400 mx-auto mb-2" />
+              <p className="text-3xl font-['Gilroy_Heavy'] text-orange-600">{order.queueNumber}</p>
+              <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-widest mt-1">Token ID</p>
+            </div>
+            <div className="bg-orange-50 rounded-3xl p-6 text-center">
+              <Clock size={20} className="text-orange-400 mx-auto mb-2" />
+              <p className="text-lg font-['Gilroy_Heavy'] text-orange-600">
+                {new Date(order.estimatedPickupTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+              <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-widest mt-1">Pickup Time</p>
+            </div>
+          </div>
+
+          {/* Pickup Code & QR — shown when order is ready */}
+          {isReady && order.pickupCode && (
+            <div className="rounded-3xl bg-indigo-50 border border-indigo-100 p-5 text-center">
+              <p className="text-[10px] uppercase tracking-widest text-indigo-400 font-['Gilroy_Heavy'] mb-2">Your Pickup Code</p>
+              <p className="text-4xl tracking-[0.25em] font-['Gilroy_Heavy'] text-indigo-700 mb-3">{order.pickupCode}</p>
+              {order.qrCodeData && (
+                <img
+                  src={order.qrCodeData}
+                  alt="Pickup QR Code"
+                  className="w-36 h-36 mx-auto rounded-xl mb-2"
+                />
+              )}
+              <p className="text-xs text-indigo-500 leading-relaxed mt-2">
+                Show this code or QR to canteen staff when picking up your order.
+              </p>
+            </div>
+          )}
+
+          {isReady && !order.pickupCode && (
+            <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-start gap-2">
+              <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-xs text-amber-700">
+                Pickup code not yet generated. Please check again in a moment or contact canteen staff.
+              </p>
+            </div>
+          )}
+
+          {/* Items */}
+          <div>
+            <h3 className="text-sm font-['Gilroy_Heavy'] text-gray-900 uppercase tracking-widest mb-4">Cart Summary</h3>
+            <div className="space-y-4 bg-gray-50/50 p-6 rounded-3xl">
+              {order.items?.map((item, i) => (
+                <div key={i} className="flex justify-between items-center text-sm font-['Gilroy_Medium']">
+                  <span className="text-gray-600">{item.name} <span className="text-orange-500 font-['Gilroy_Heavy'] ml-1">×{item.quantity}</span></span>
+                  <span className="text-gray-900">LKR {(item.unitPrice * item.quantity).toLocaleString()}</span>
+                </div>
+              ))}
+              <div className="flex justify-between items-center pt-4 border-t border-gray-200">
+                <span className="font-['Gilroy_Heavy'] text-gray-900">Total Bill</span>
+                <span className="text-xl font-['Gilroy_Heavy'] text-orange-600">LKR {order.totalPrice?.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="space-y-3 pt-4">
+            <button
+              onClick={() => onReorder(order)}
+              disabled={reorderingId === order._id}
+              className="w-full h-16 flex items-center justify-center gap-3 bg-gray-900 text-white rounded-2xl font-['Gilroy_Heavy'] transition-all hover:bg-orange-600 active:scale-95 disabled:opacity-50"
+            >
+              {reorderingId === order._id ? (
+                <RefreshCw size={20} className="animate-spin" />
+              ) : (
+                <>
+                  <RotateCcw size={20} />
+                  <span>One-Tap Reorder</span>
+                </>
+              )}
+            </button>
+
+            {order.status !== 'cancelled' &&
+              (order.payment?.status === 'unpaid' || order.payment?.status === 'rejected') && (
+                <button
+                  onClick={() => onPayNow(order._id)}
+                  className="w-full h-16 flex items-center justify-center gap-3 bg-orange-500 text-white rounded-2xl font-['Gilroy_Heavy'] hover:bg-orange-600 transition-all shadow-xl shadow-orange-100"
+                >
+                  <CreditCard size={20} />
+                  {order.payment?.status === 'rejected' ? 'Fix Payment' : 'Pay Now'}
+                </button>
+              )}
+
+            {canCancel && (
+              <button
+                onClick={() => onCancel(order)}
+                className="w-full py-4 text-red-400 text-xs font-['Gilroy_Heavy'] hover:text-red-500 transition-colors uppercase tracking-widest"
+              >
+                Cancel Order
+              </button>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const FILTERS = [
+  { value: '', label: 'All Orders' },
+  { value: 'pending', label: 'Queued' },
+  { value: 'preparing', label: 'Preparing' },
+  { value: 'ready', label: 'Ready' },
+  { value: 'completed', label: 'Past' },
 ];
 
 const OrdersPage = () => {
-  const [foods, setFoods] = useState([]);
+  const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
-  const [loadingFoods, setLoadingFoods] = useState(true);
-  const [loadingOrders, setLoadingOrders] = useState(true);
-  const [quantities, setQuantities] = useState({});
-  const [placing, setPlacing] = useState(null);
-  const [tab, setTab] = useState('menu');
-  const [category, setCategory] = useState('all');
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [reorderingId, setReorderingId] = useState(null);
+  const [cancelOrder, setCancelOrder] = useState(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
 
-  const activeCategory = CATEGORIES.find(c => c.key === category);
-  const ActiveIcon = activeCategory.icon;
-
-  const fetchFoods = async () => {
+  const fetchOrders = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
     try {
-      setLoadingFoods(true);
-      const { data } = await api.get('/api/food');
-      setFoods(data.filter(f => f.available));
+      const params = {};
+      if (statusFilter) params.status = statusFilter;
+      const res = await orderAPI.getMyOrders(params);
+      setOrders(res.data.data || []);
     } catch {
-      toast.error('Could not load menu');
+      if (!silent) toast.error('Failed to load orders');
     } finally {
-      setLoadingFoods(false);
+      setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, [statusFilter]);
 
-  const fetchOrders = async () => {
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+
+  const handleReorder = async (order) => {
+    setReorderingId(order._id);
     try {
-      setLoadingOrders(true);
-      const { data } = await api.get('/api/order');
-      setOrders(data);
-    } catch {
-      toast.error('Could not load orders');
-    } finally {
-      setLoadingOrders(false);
-    }
-  };
-
-  useEffect(() => { fetchFoods(); fetchOrders(); }, []);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    const handler = (e) => { if (!e.target.closest('#category-dropdown')) setDropdownOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const filteredFoods = category === 'all'
-    ? foods
-    : foods.filter(f => f.category?.toLowerCase() === category);
-
-  const setQty = (id, val) => setQuantities(p => ({ ...p, [id]: Math.max(1, val) }));
-
-  const placeOrder = async (food) => {
-    const qty = quantities[food._id] || 1;
-    if (qty > food.stock) { toast.error('Not enough stock'); return; }
-    setPlacing(food._id);
-    try {
-      await api.post('/api/order', { foodId: food._id, quantity: qty });
-      toast.success(`Ordered ${qty}x ${food.name}!`);
-      setQuantities(p => ({ ...p, [food._id]: 1 }));
-      await fetchFoods();
-      await fetchOrders();
+      // Add all items from the past order to cart
+      const promises = order.items.map(item =>
+        cartAPI.addItem(item.menuItem, item.quantity)
+      );
+      await Promise.all(promises);
+      toast.success('Successfully added items to cart! 🛒');
+      navigate('/dashboard/cart');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Order failed');
+      toast.error('Could not reorder all items. Some may be unavailable.');
     } finally {
-      setPlacing(null);
+      setReorderingId(null);
     }
   };
+
+  const handlePayNow = (orderId) => {
+    navigate(`/dashboard/payment/${orderId}`);
+  };
+
+  // Opens styled cancel modal instead of window.confirm()
+  const handleCancelRequest = (order) => {
+    setCancelOrder(order);
+  };
+
+  const handleConfirmCancel = async (orderId) => {
+    setCancelSubmitting(true);
+    try {
+      await orderAPI.cancelOrder(orderId);
+      toast.success('Order cancelled successfully');
+      setCancelOrder(null);
+      setSelectedOrder(null);
+      fetchOrders(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Cannot cancel this order');
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">My Menu</h1>
-        <p className="text-gray-400 font-['Gilroy_Medium'] mt-1">Browse available food and place orders.</p>
+    <div className="max-w-4xl mx-auto py-12 px-6">
+      <div className="flex items-center justify-between mb-10">
+        <div>
+          <h1 className="text-4xl font-['Gilroy_Heavy'] text-gray-900 tracking-tight">Order History</h1>
+          <p className="text-gray-400 text-sm mt-1 font-['Gilroy_Medium']">Manage and repeat your favorites</p>
+        </div>
+        <button
+          onClick={() => fetchOrders(true)}
+          className={`p-3 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-all ${refreshing ? 'animate-spin' : ''}`}
+        >
+          <RefreshCw size={20} className="text-gray-500" />
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2">
-        {[{ key: 'menu', label: 'Order Food' }, { key: 'history', label: 'Order History' }].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-6 py-3 rounded-2xl font-['Gilroy_Bold'] text-sm transition-all ${
-              tab === t.key ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
-            }`}>
-            {t.label}
+      <div className="flex gap-2 overflow-x-auto pb-6 -mx-2 px-2 no-scrollbar">
+        {FILTERS.map(f => (
+          <button
+            key={f.value}
+            onClick={() => setStatusFilter(f.value)}
+            className={`whitespace-nowrap px-6 py-2.5 rounded-2xl text-xs font-['Gilroy_Heavy'] uppercase tracking-widest transition-all ${statusFilter === f.value
+              ? 'bg-orange-500 text-white shadow-lg shadow-orange-100'
+              : 'bg-white border border-gray-100 text-gray-400 hover:border-gray-300'
+              }`}
+          >
+            {f.label}
           </button>
         ))}
       </div>
 
-      {/* Order Food Tab */}
-      {tab === 'menu' && (
-        <>
-          {/* Category Dropdown */}
-          <div className="flex items-center gap-4">
-            <div id="category-dropdown" className="relative">
-              <button
-                onClick={() => setDropdownOpen(o => !o)}
-                className="flex items-center gap-3 bg-white border-2 border-gray-100 hover:border-orange-300 px-5 py-3 rounded-2xl font-['Gilroy_Bold'] text-sm text-gray-700 transition-all shadow-sm min-w-[180px] justify-between"
-              >
-                <span className="flex items-center gap-2">
-                  <span className={`w-7 h-7 rounded-xl flex items-center justify-center ${activeCategory.bg}`}>
-                    <ActiveIcon size={14} className={activeCategory.color} />
-                  </span>
-                  {activeCategory.label}
-                </span>
-                <ChevronDown size={16} className={`text-gray-400 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
-              </button>
-
-              {dropdownOpen && (
-                <div className="absolute top-full mt-2 left-0 bg-white rounded-2xl border border-gray-100 shadow-2xl shadow-gray-200/60 overflow-hidden z-30 min-w-[200px]">
-                  {CATEGORIES.map(cat => (
-                    <button
-                      key={cat.key}
-                      onClick={() => { setCategory(cat.key); setDropdownOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-5 py-3.5 text-sm font-['Gilroy_Bold'] transition-colors hover:bg-gray-50 ${
-                        category === cat.key ? 'text-orange-600 bg-orange-50/60' : 'text-gray-700'
-                      }`}
-                    >
-                      {(() => { const CatIcon = cat.icon; return (
-                      <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${cat.bg}`}>
-                        <CatIcon size={15} className={cat.color} />
-                      </span>
-                      ); })()}
-                      {cat.label}
-                      {category === cat.key && (
-                        <span className="ml-auto w-2 h-2 bg-orange-500 rounded-full" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <span className="text-sm font-['Gilroy_Medium'] text-gray-400">
-              {filteredFoods.length} item{filteredFoods.length !== 1 ? 's' : ''} available
-            </span>
+      {orders.length === 0 ? (
+        <div className="text-center py-24 bg-gray-50 rounded-[40px]">
+          <div className="w-20 h-20 bg-white shadow-sm rounded-[30px] flex items-center justify-center mx-auto mb-6 text-orange-400">
+            <ShoppingBag size={36} strokeWidth={1.5} />
           </div>
+          <p className="text-gray-400 font-['Gilroy_Heavy'] text-lg">No orders found</p>
+          <p className="text-gray-400 text-sm mt-1 font-['Gilroy_Medium']">Your culinary journey starts with your first order!</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {orders.map((order, index) => {
+            const paymentCfg = PAYMENT_STATUS[order.payment?.status] || PAYMENT_STATUS.unpaid;
+            return (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                key={order._id}
+                onClick={() => setSelectedOrder(order)}
+                className="bg-white border border-gray-100 rounded-[32px] p-6 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group"
+              >
+                <div className="flex justify-between items-start mb-6">
+                  <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500 group-hover:bg-orange-500 group-hover:text-white transition-colors">
+                    <ShoppingBag size={20} />
+                  </div>
+                  <StatusBadge status={order.status} />
+                </div>
 
-          {loadingFoods ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="w-8 h-8 border-4 border-gray-100 border-t-orange-500 rounded-full animate-spin" />
-            </div>
-          ) : filteredFoods.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-300">
-              <ActiveIcon size={48} className="opacity-30" />
-              <p className="mt-4 font-['Gilroy_Bold'] text-gray-400">
-                No {activeCategory.label.toLowerCase()} available right now.
-              </p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredFoods.map(food => {
-                const qty = quantities[food._id] || 1;
-                const catInfo = CATEGORIES.find(c => c.key === food.category?.toLowerCase()) || CATEGORIES[0];
-                const CatInfoIcon = catInfo.icon;
-                const recentlyRestocked = food.restockedAt &&
-                  (new Date() - new Date(food.restockedAt)) < 24 * 60 * 60 * 1000;
-                return (
-                  <div key={food._id} className="bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl hover:shadow-orange-50 transition-all overflow-hidden group">
-                    {/* Top colored banner */}
-                    <div className={`h-2 ${
-                      food.category?.toLowerCase() === 'breakfast' ? 'bg-gradient-to-r from-yellow-400 to-yellow-500' :
-                      food.category?.toLowerCase() === 'lunch'     ? 'bg-gradient-to-r from-orange-400 to-orange-600' :
-                      food.category?.toLowerCase() === 'dinner'    ? 'bg-gradient-to-r from-indigo-400 to-indigo-600' :
-                      food.category?.toLowerCase() === 'beverages' ? 'bg-gradient-to-r from-green-400 to-green-600' :
-                      'bg-gradient-to-r from-orange-400 to-orange-600'
-                    }`} />
-                    <div className="p-6 space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <h3 className="font-['Gilroy_Bold'] text-gray-900 text-lg">{food.name}</h3>
-                          <div className="flex items-center flex-wrap gap-1.5">
-                            <span className={`inline-flex items-center gap-1 text-xs font-['Gilroy_Bold'] px-2 py-0.5 rounded-full capitalize ${catInfo.bg} ${catInfo.color}`}>
-                              <CatInfoIcon size={10} />
-                              {food.category}
-                            </span>
-                            {recentlyRestocked && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-['Gilroy_Bold'] px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100">
-                                ✦ Restocked
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-2xl font-['Gilroy_Heavy'] text-orange-600">LKR {Number(food.price).toFixed(2)}</p>
-                      </div>
-                      <div className="flex items-center text-xs text-gray-400 font-['Gilroy_Medium']">
-                        <span className="flex items-center gap-1">
-                          {food.available
-                            ? <><CheckCircle2 size={13} className="text-green-500" />
-                                <span className={recentlyRestocked ? 'text-green-600 font-["Gilroy_Bold"]' : ''}>
-                                  {food.stock} left{recentlyRestocked ? ' (freshly stocked)' : ''}
-                                </span>
-                              </>
-                            : <><XCircle size={13} className="text-red-400" /> Out of stock</>}
-                        </span>
-                      </div>
-                      {/* Quantity + Order */}
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-2 bg-gray-50 rounded-2xl px-3 py-2">
-                          <button onClick={() => setQty(food._id, qty - 1)} className="w-7 h-7 flex items-center justify-center rounded-xl hover:bg-white text-gray-400 hover:text-orange-600 transition-colors">
-                            <Minus size={14} />
-                          </button>
-                          <span className="w-8 text-center font-['Gilroy_Bold'] text-gray-900">{qty}</span>
-                          <button onClick={() => setQty(food._id, qty + 1)} className="w-7 h-7 flex items-center justify-center rounded-xl hover:bg-white text-gray-400 hover:text-orange-600 transition-colors">
-                            <Plus size={14} />
-                          </button>
-                        </div>
-                        <button
-                          onClick={() => placeOrder(food)}
-                          disabled={placing === food._id || food.stock < 1}
-                          className="flex-1 bg-orange-600 text-white py-2.5 rounded-2xl font-['Gilroy_Bold'] text-sm hover:bg-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                          {placing === food._id ? 'Ordering...' : 'Order Now'}
-                        </button>
-                      </div>
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-['Gilroy_Heavy'] text-gray-900">Queue #{order.queueNumber}</h3>
+                    <p className="text-xs text-gray-400 font-['Gilroy_Medium'] mt-0.5">
+                      {order.items?.length} Items · LKR {order.totalPrice?.toLocaleString()}
+                    </p>
+                  </div>
+
+                  {/* Pickup code badge for ready orders */}
+                  {order.status === 'ready' && order.pickupCode && (
+                    <div className="flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-xl px-3 py-2">
+                      <QrCode size={14} className="text-indigo-400" />
+                      <span className="text-xs font-['Gilroy_Heavy'] text-indigo-700 tracking-widest">{order.pickupCode}</span>
+                      <span className="text-[9px] text-indigo-400 ml-auto">Show at counter</span>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-50">
+                    <div className="flex items-center gap-2">
+                      {/* Distinct dot colors per payment status */}
+                      <div className={`w-2 h-2 rounded-full ${paymentCfg.dotColor}`} />
+                      <span className={`text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest ${paymentCfg.color}`}>
+                        {paymentCfg.label}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-widest">Ordered</p>
+                      <p className="text-xs font-['Gilroy_Heavy'] text-gray-700">{new Date(order.createdAt).toLocaleDateString()}</p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleReorder(order);
+                    }}
+                    disabled={reorderingId === order._id}
+                    className="w-full py-3 bg-gray-50 group-hover:bg-orange-50 rounded-xl text-gray-400 group-hover:text-orange-600 font-['Gilroy_Heavy'] text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all mt-2"
+                  >
+                    {reorderingId === order._id ? (
+                      <RefreshCw size={12} className="animate-spin" />
+                    ) : (
+                      <>
+                        <RotateCcw size={12} />
+                        Reorder Fast
+                      </>
+                    )}
+                  </button>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
       )}
 
-      {/* Order History Tab */}
-      {tab === 'history' && (
-        loadingOrders ? (
-          <div className="flex items-center justify-center h-64">
-            <div className="w-8 h-8 border-4 border-gray-100 border-t-orange-500 rounded-full animate-spin" />
-          </div>
-        ) : orders.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-64 text-gray-300">
-            <ShoppingBag size={48} />
-            <p className="mt-4 font-['Gilroy_Bold'] text-gray-400">No orders placed yet.</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-50 bg-gray-50/50">
-                  {['#', 'Food Item', 'Category', 'Unit Price', 'Qty', 'Total', 'Date'].map(h => (
-                    <th key={h} className="px-6 py-4 text-left text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {[...orders].reverse().map((order, idx) => {
-                  const food = order.foodId;
-                  const total = (food?.price || 0) * order.quantity;
-                  return (
-                    <tr key={order._id} className="border-b border-gray-50 last:border-0 hover:bg-orange-50/20 transition-colors">
-                      <td className="px-6 py-4 text-gray-400 font-['Gilroy_Medium']">{idx + 1}</td>
-                      <td className="px-6 py-4 font-['Gilroy_Bold'] text-gray-900">{food?.name || '—'}</td>
-                      <td className="px-6 py-4">
-                        <span className="px-3 py-1 bg-orange-50 text-orange-600 rounded-full text-xs font-['Gilroy_Bold']">{food?.category || '—'}</span>
-                      </td>
-                      <td className="px-6 py-4 font-['Gilroy_Medium'] text-gray-700">LKR {(food?.price || 0).toFixed(2)}</td>
-                      <td className="px-6 py-4 font-['Gilroy_Bold'] text-gray-900">{order.quantity}</td>
-                      <td className="px-6 py-4 font-['Gilroy_Bold'] text-orange-600">LKR {total.toFixed(2)}</td>
-                      <td className="px-6 py-4 font-['Gilroy_Medium'] text-gray-400 text-xs">
-                        {new Date(order.date).toLocaleString('en-MY', { dateStyle: 'medium', timeStyle: 'short' })}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )
+      {selectedOrder && (
+        <OrderDetailModal
+          order={selectedOrder}
+          reorderingId={reorderingId}
+          onClose={() => setSelectedOrder(null)}
+          onPayNow={handlePayNow}
+          onCancel={handleCancelRequest}
+          onReorder={handleReorder}
+        />
       )}
+
+      {/* Styled cancel confirmation modal */}
+      <ConfirmCancelModal
+        order={cancelOrder}
+        submitting={cancelSubmitting}
+        onClose={() => setCancelOrder(null)}
+        onConfirm={handleConfirmCancel}
+      />
     </div>
   );
 };

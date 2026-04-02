@@ -1,4 +1,6 @@
 import Canteen from '../models/Canteen.model.js';
+import MenuItem from '../models/MenuItem.model.js';
+import bcrypt from 'bcryptjs';
 
 const buildCanteenFromBody = (body) => ({
   name: body.name?.trim(),
@@ -8,7 +10,17 @@ const buildCanteenFromBody = (body) => ({
   photo: body.photo?.trim() ?? '',
   description: body.description?.trim() ?? '',
   openHours: body.openHours?.trim() ?? '',
+  canteenPassword: body.canteenPassword?.trim() ?? '',
 });
+
+const stripPasswordHash = (canteenDoc) => {
+  if (!canteenDoc) return canteenDoc;
+  const plain = canteenDoc.toObject ? canteenDoc.toObject() : { ...canteenDoc };
+  delete plain.accessPasswordHash;
+  return plain;
+};
+
+const hashPassword = async (password) => bcrypt.hash(password, 12);
 
 export const createCanteen = async (req, res) => {
   try {
@@ -26,8 +38,15 @@ export const createCanteen = async (req, res) => {
       return res.status(400).json({ message: 'Email must end with @gmail.com' });
     }
 
-    const canteen = await Canteen.create(payload);
-    return res.status(201).json(canteen);
+    if (!payload.canteenPassword) {
+      return res.status(400).json({ message: 'Canteen password is required' });
+    }
+
+    const canteen = await Canteen.create({
+      ...payload,
+      accessPasswordHash: await hashPassword(payload.canteenPassword),
+    });
+    return res.status(201).json(stripPasswordHash(canteen));
   } catch (err) {
     console.error('createCanteen error:', err);
     return res.status(500).json({ message: 'Could not create canteen', error: err.message });
@@ -48,10 +67,120 @@ export const getCanteenById = async (req, res) => {
   try {
     const canteen = await Canteen.findById(req.params.id);
     if (!canteen) return res.status(404).json({ message: 'Canteen not found' });
-    return res.json(canteen);
+    return res.json(stripPasswordHash(canteen));
   } catch (err) {
     console.error('getCanteenById error:', err);
     return res.status(500).json({ message: 'Could not fetch canteen', error: err.message });
+  }
+};
+
+export const verifyCanteenPassword = async (req, res) => {
+  try {
+    const { canteenPassword } = req.body;
+    if (!canteenPassword) {
+      return res.status(400).json({ message: 'Canteen password is required' });
+    }
+
+    const canteen = await Canteen.findById(req.params.id).select('+accessPasswordHash');
+    if (!canteen) return res.status(404).json({ message: 'Canteen not found' });
+
+    if (!canteen.accessPasswordHash) {
+      return res.status(400).json({ message: 'Canteen password is not configured' });
+    }
+
+    const isMatch = await bcrypt.compare(canteenPassword, canteen.accessPasswordHash);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid canteen password' });
+    }
+
+    return res.json({ success: true, data: stripPasswordHash(canteen) });
+  } catch (err) {
+    console.error('verifyCanteenPassword error:', err);
+    return res.status(500).json({ message: 'Could not verify canteen password', error: err.message });
+  }
+};
+
+export const getCanteenMenu = async (req, res) => {
+  try {
+    const canteen = await Canteen.findById(req.params.id);
+    if (!canteen) return res.status(404).json({ message: 'Canteen not found' });
+
+    const menuItems = await MenuItem.find({ canteen: req.params.id })
+      .sort({ createdAt: -1 })
+      .populate('canteen', 'name');
+
+    return res.json({
+      success: true,
+      data: menuItems,
+    });
+  } catch (err) {
+    console.error('getCanteenMenu error:', err);
+    return res.status(500).json({ message: 'Could not fetch canteen menu', error: err.message });
+  }
+};
+
+const buildMenuItemFromBody = (body) => ({
+  name: body.name?.trim(),
+  category: body.category?.trim() ?? '',
+  price: Number(body.price),
+  canteen: body.canteen || undefined,
+  description: body.description?.trim() ?? '',
+  isAvailable: body.isAvailable === undefined ? true : body.isAvailable === true || body.isAvailable === 'true',
+  image: body.image?.trim() ?? '',
+});
+
+export const createCanteenMenuItem = async (req, res) => {
+  try {
+    const canteen = await Canteen.findById(req.params.id);
+    if (!canteen) return res.status(404).json({ message: 'Canteen not found' });
+
+    const payload = buildMenuItemFromBody({ ...req.body, canteen: req.params.id });
+    if (!payload.name) return res.status(400).json({ message: 'Item name is required' });
+    if (!Number.isFinite(payload.price) || payload.price < 0) return res.status(400).json({ message: 'Item price must be a valid number' });
+
+    const menuItem = await MenuItem.create(payload);
+    return res.status(201).json({ success: true, data: menuItem });
+  } catch (err) {
+    console.error('createCanteenMenuItem error:', err);
+    return res.status(500).json({ message: 'Could not create menu item', error: err.message });
+  }
+};
+
+export const updateCanteenMenuItem = async (req, res) => {
+  try {
+    const canteen = await Canteen.findById(req.params.id);
+    if (!canteen) return res.status(404).json({ message: 'Canteen not found' });
+
+    const existing = await MenuItem.findOne({ _id: req.params.menuItemId, canteen: req.params.id });
+    if (!existing) return res.status(404).json({ message: 'Menu item not found' });
+
+    const payload = buildMenuItemFromBody({ ...req.body, canteen: req.params.id });
+    if (payload.name !== undefined && !payload.name) return res.status(400).json({ message: 'Item name is required' });
+    if (payload.price !== undefined && !Number.isFinite(payload.price)) return res.status(400).json({ message: 'Item price must be a valid number' });
+
+    if (payload.name) existing.name = payload.name;
+    if (payload.category !== undefined) existing.category = payload.category;
+    if (Number.isFinite(payload.price)) existing.price = payload.price;
+    if (payload.description !== undefined) existing.description = payload.description;
+    if (req.body.isAvailable !== undefined) existing.isAvailable = payload.isAvailable;
+    if (payload.image !== undefined) existing.image = payload.image;
+
+    await existing.save();
+    return res.json({ success: true, data: existing });
+  } catch (err) {
+    console.error('updateCanteenMenuItem error:', err);
+    return res.status(500).json({ message: 'Could not update menu item', error: err.message });
+  }
+};
+
+export const deleteCanteenMenuItem = async (req, res) => {
+  try {
+    const deleted = await MenuItem.findOneAndDelete({ _id: req.params.menuItemId, canteen: req.params.id });
+    if (!deleted) return res.status(404).json({ message: 'Menu item not found' });
+    return res.json({ success: true, message: 'Menu item deleted' });
+  } catch (err) {
+    console.error('deleteCanteenMenuItem error:', err);
+    return res.status(500).json({ message: 'Could not delete menu item', error: err.message });
   }
 };
 
@@ -69,12 +198,23 @@ export const updateCanteen = async (req, res) => {
       return res.status(400).json({ message: 'Email must end with @gmail.com' });
     }
 
-    const canteen = await Canteen.findByIdAndUpdate(req.params.id, payload, {
-      new: true,
-      runValidators: true,
-    });
+    const canteen = await Canteen.findById(req.params.id).select('+accessPasswordHash');
     if (!canteen) return res.status(404).json({ message: 'Canteen not found' });
-    return res.json(canteen);
+
+    if (payload.name) canteen.name = payload.name;
+    if (payload.owner) canteen.owner = payload.owner;
+    if (payload.email) canteen.email = payload.email;
+    if (Number.isFinite(payload.ratings)) canteen.ratings = payload.ratings;
+    if (payload.photo !== undefined) canteen.photo = payload.photo;
+    if (payload.description !== undefined) canteen.description = payload.description;
+    if (payload.openHours !== undefined) canteen.openHours = payload.openHours;
+
+    if (payload.canteenPassword) {
+      canteen.accessPasswordHash = await hashPassword(payload.canteenPassword);
+    }
+
+    await canteen.save();
+    return res.json(stripPasswordHash(canteen));
   } catch (err) {
     console.error('updateCanteen error:', err);
     return res.status(500).json({ message: 'Could not update canteen', error: err.message });

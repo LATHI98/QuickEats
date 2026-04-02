@@ -14,12 +14,18 @@ import {
   Shield,
   ChefHat,
   LayoutGrid,
+  Ticket,
+  Box,
+  Grid3x3,
+  Calendar,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const superAdminNav = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'Canteens', path: '/admin/canteens', icon: Store },
+  { label: 'Tables', path: '/admin/tables', icon: Grid3x3 },
+  { label: 'Reservations', path: '/admin/reservations', icon: Calendar },
   { label: 'Menu Items', path: '/admin/menu', icon: UtensilsCrossed },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
   { label: 'Users', path: '/admin/users', icon: Users },
@@ -29,8 +35,18 @@ const superAdminNav = [
 const managerNav = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'My Canteen', path: '/admin/canteens', icon: Store },
+  { label: 'Tables', path: '/admin/tables', icon: Grid3x3 },
+  { label: 'Reservations', path: '/admin/reservations', icon: Calendar },
   { label: 'Menu', path: '/admin/menu', icon: UtensilsCrossed },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
+];
+
+const canteenStaffNav = [
+  { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+  { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
+  { label: 'Meal Pass', path: '/admin/meal-pass', icon: Ticket },
+  { label: 'Stock Management', path: '/admin/stock', icon: Box },
+  { label: 'Menu Management', path: '/admin/menu', icon: UtensilsCrossed },
 ];
 
 const roleConfig = {
@@ -43,6 +59,11 @@ const roleConfig = {
     label: 'Canteen Manager',
     icon: ChefHat,
     nav: managerNav,
+  },
+  canteenStaff: {
+    label: 'Canteen Staff',
+    icon: ChefHat,
+    nav: canteenStaffNav,
   },
 };
 
@@ -110,30 +131,59 @@ const AdminLayout = () => {
                 <MenuLink
                   to="/admin/orders"
                   icon={ShoppingBag}
-                  label="All Orders"
+                  label="Orders"
                   active={location.pathname === '/admin/orders'}
                 />
+                {user?.role === 'canteenStaff' && (
+                  <MenuLink
+                    to="/admin/meal-pass"
+                    icon={Ticket}
+                    label="Meal Pass"
+                    active={location.pathname === '/admin/meal-pass'}
+                    badge="Staff"
+                  />
+                )}
                 {user?.role === 'superAdmin' && (
                   <MenuLink
                     to="/admin/users"
                     icon={Users}
-                    label="User Management"
+                    label="User Control"
                     active={location.pathname === '/admin/users'}
                   />
                 )}
               </nav>
             </div>
 
-            {/* Section: MANAGEMENT */}
+            {/* Section: MANAGEMENT / OPERATIONS */}
             <div>
-              <p className="px-4 text-[10px] font-['Gilroy_Bold'] text-gray-300 uppercase tracking-[0.2em] mb-4">Management</p>
+              <p className="px-4 text-[10px] font-['Gilroy_Bold'] text-gray-300 uppercase tracking-[0.2em] mb-4">
+                {user?.role === 'canteenStaff' ? 'Operations' : 'Management'}
+              </p>
               <nav className="space-y-1">
-                <MenuLink
-                  to="/admin/canteens"
-                  icon={Store}
-                  label={user?.role === 'superAdmin' ? 'Canteens' : 'My Canteen'}
-                  active={location.pathname === '/admin/canteens'}
-                />
+                {user?.role !== 'canteenStaff' && (
+                  <MenuLink
+                    to="/admin/canteens"
+                    icon={Store}
+                    label={user?.role === 'superAdmin' ? 'Canteens' : 'My Canteen'}
+                    active={location.pathname === '/admin/canteens'}
+                  />
+                )}
+                {['superAdmin', 'admin', 'canteenManager'].includes(user?.role) && (
+                  <>
+                    <MenuLink
+                      to="/admin/tables"
+                      icon={Grid3x3}
+                      label="Tables Manager"
+                      active={location.pathname === '/admin/tables'}
+                    />
+                    <MenuLink
+                      to="/admin/reservations"
+                      icon={Calendar}
+                      label="Reservations"
+                      active={location.pathname === '/admin/reservations'}
+                    />
+                  </>
+                )}
                 <MenuLink
                   to="/admin/menu"
                   icon={UtensilsCrossed}
@@ -147,6 +197,14 @@ const AdminLayout = () => {
                   active={location.pathname === '/admin/staff'}
                   badge={user?.role === 'canteenStaff' ? 'You' : undefined}
                 />
+                {user?.role === 'canteenStaff' && (
+                  <MenuLink
+                    to="/admin/stock"
+                    icon={Box}
+                    label="Stock Manager"
+                    active={location.pathname === '/admin/stock'}
+                  />
+                )}
               </nav>
             </div>
 

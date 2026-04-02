@@ -14,6 +14,9 @@ dotenv.config({ path: join(__dirname, '.env') });
 
 import authRoutes from './routes/auth.routes.js';
 import User from './models/User.model.js';
+import canteenRoutes from './routes/canteen.routes.js';
+import tableRoutes from './routes/table.routes.js';
+import reservationRoutes from './routes/reservation.routes.js';
 
 const app = express();
 
@@ -80,6 +83,9 @@ app.use('/api/food', foodRoutes);
 app.use('/api/order', orderRoutes);
 app.use('/api/review', reviewRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/canteens', canteenRoutes);
+app.use('/api/tables', tableRoutes);
+app.use('/api/reservations', reservationRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

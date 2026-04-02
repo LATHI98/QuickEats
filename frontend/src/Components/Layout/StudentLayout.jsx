@@ -51,7 +51,9 @@ const StudentLayout = () => {
             </div>
             <div className="min-w-0">
               <p className="text-sm font-['Gilroy_Bold'] text-gray-900 truncate">{user?.name || 'User'}</p>
-              <p className="text-[10px] text-gray-400 font-['Gilroy_Bold'] uppercase tracking-widest mt-0.5">Premium Student</p>
+              <p className="text-[10px] text-gray-400 font-['Gilroy_Bold'] uppercase tracking-widest mt-0.5">
+                {user?.role === 'universityStaff' ? 'University Staff' : 'Premium Student'}
+              </p>
             </div>
           </div>
         </div>

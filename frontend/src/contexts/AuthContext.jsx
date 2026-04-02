@@ -50,6 +50,8 @@ export const AuthProvider = ({ children }) => {
     // Route based on role
     if (loggedInUser.role === 'student' || loggedInUser.role === 'universityStaff') {
       navigate('/dashboard');
+    } else if (loggedInUser.role === 'admin' || loggedInUser.role === 'superAdmin') {
+      navigate('/admin/dashboard');
     } else {
       navigate('/admin/select-canteen');
     }

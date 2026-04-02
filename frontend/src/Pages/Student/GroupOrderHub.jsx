@@ -66,8 +66,13 @@ const GroupOrderHub = () => {
     const fetchCanteens = async () => {
         try {
             const res = await canteenAPI.getAll();
-            setCanteens(res.data.data);
-            if (res.data.data.length > 0) setSelectedCanteen(res.data.data[0]._id);
+            const allCanteens = Array.isArray(res.data)
+                ? res.data
+                : Array.isArray(res.data?.data)
+                    ? res.data.data
+                    : [];
+            setCanteens(allCanteens);
+            if (allCanteens.length > 0) setSelectedCanteen(allCanteens[0]._id);
         } catch (err) {
             toast.error('Failed to load canteens');
         }

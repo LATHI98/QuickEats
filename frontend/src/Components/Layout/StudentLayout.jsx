@@ -4,9 +4,9 @@ import { motion } from 'framer-motion';
 import {
   Home,
   Utensils,
-  ShoppingCart,
   ClipboardList,
   User,
+  Users,
   Settings,
   LogOut,
   Bell,
@@ -66,7 +66,7 @@ const StudentLayout = () => {
               <p className="px-4 text-[10px] font-['Gilroy_Bold'] text-gray-300 uppercase tracking-[0.2em] mb-4">Main</p>
               <nav className="space-y-1">
                 <MenuLink to="/dashboard" icon={Home} label="Dashboard" active={location.pathname === '/dashboard'} />
-                <MenuLink to="/dashboard/orders" icon={ClipboardList} label="My Menu" active={location.pathname === '/dashboard/orders'} />
+                <MenuLink to="/dashboard/orders" icon={ClipboardList} label="My Order" active={location.pathname === '/dashboard/orders'} />
                 <MenuLink to="/dashboard/canteens" icon={Utensils} label="Canteens" active={location.pathname === '/dashboard/canteens'} />
                 <MenuLink to="/dashboard/group-order" icon={Users} label="Group Order" active={location.pathname === '/dashboard/group-order'} badge="New" />
               </nav>
@@ -130,7 +130,6 @@ const StudentLayout = () => {
           <div className="flex items-center space-x-6">
             {/* Minimal Actions */}
             <div className="flex items-center space-x-1">
-              <HeaderIconButton icon={ShoppingCart} color="text-gray-400" />
               <HeaderIconButton icon={Bell} dot color="text-gray-400" />
             </div>
 

@@ -19,6 +19,9 @@ const LoginPage = () => {
     if (['student', 'universityStaff'].includes(user.role)) {
       return <Navigate to="/dashboard" replace />;
     }
+    if (['admin', 'superAdmin'].includes(user.role)) {
+      return <Navigate to="/admin/dashboard" replace />;
+    }
     return <Navigate to={selectedCanteenId ? '/admin/dashboard' : '/admin/select-canteen'} replace />;
   }
 

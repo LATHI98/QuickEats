@@ -19,9 +19,9 @@ router.put('/:id/cancel', protect, authorize('student'), cancelReservation);
 // Public info
 router.get('/occupied-seats', getOccupiedSeats);
 
-// Admin access
-router.get('/admin/all', protect, authorize('superAdmin', 'admin'), getAllReservations);
-router.get('/admin/canteen/:canteenId', protect, authorize('superAdmin', 'admin'), getReservationsByCanteen);
-router.delete('/:id', protect, authorize('superAdmin', 'admin'), cancelReservation);
+// Admin/staff access
+router.get('/admin/all', protect, authorize('superAdmin', 'admin', 'canteenManager', 'canteenStaff'), getAllReservations);
+router.get('/admin/canteen/:canteenId', protect, authorize('superAdmin', 'admin', 'canteenManager', 'canteenStaff'), getReservationsByCanteen);
+router.delete('/:id', protect, authorize('superAdmin', 'admin', 'canteenManager', 'canteenStaff'), cancelReservation);
 
 export default router;

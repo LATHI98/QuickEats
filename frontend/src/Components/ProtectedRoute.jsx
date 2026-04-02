@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const ProtectedRoute = ({ allowedRoles, requireCanteenSelection = false }) => {
   const { user, loading, selectedCanteenId } = useAuth();
+  const needsCanteenSelection = ['canteenStaff', 'canteenManager'].includes(user?.role);
 
   if (loading) {
     return (
@@ -21,10 +22,11 @@ const ProtectedRoute = ({ allowedRoles, requireCanteenSelection = false }) => {
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     // Redirect to their correct dashboard, not back to login
     if (user.role === 'student' || user.role === 'universityStaff') return <Navigate to="/dashboard" replace />;
-    return <Navigate to="/admin/select-canteen" replace />;
+    if (user.role === 'admin' || user.role === 'superAdmin') return <Navigate to="/admin/dashboard" replace />;
+    return <Navigate to="/login" replace />;
   }
 
-  if (requireCanteenSelection && !selectedCanteenId) {
+  if (requireCanteenSelection && needsCanteenSelection && !selectedCanteenId) {
     return <Navigate to="/admin/select-canteen" replace />;
   }
 

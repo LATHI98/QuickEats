@@ -31,7 +31,12 @@ const CanteenMenuPage = () => {
           queueAPI.getRecommendedSlots(canteenId).catch(() => ({ data: { data: [] } })),
         ]);
         setCanteen(canteenRes.data.data);
-        setMenuItems(menuRes.data.data || []);
+        const menuList = Array.isArray(menuRes.data)
+          ? menuRes.data
+          : Array.isArray(menuRes.data?.data)
+            ? menuRes.data.data
+            : [];
+        setMenuItems(menuList);
         if (queueRes.data.data) {
           setQueueStatus(queueRes.data.data);
         }
@@ -61,6 +66,11 @@ const CanteenMenuPage = () => {
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
 
   const handleAdd = useCallback(async (item) => {
+    if (item.isAvailable === false) {
+      toast.warn('This item is currently unavailable');
+      return;
+    }
+
     const current = cart[item._id] || 0;
     const newQty = current + 1;
     setAddingId(item._id);
@@ -73,7 +83,25 @@ const CanteenMenuPage = () => {
       }
       setCart(prev => ({ ...prev, [item._id]: newQty }));
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to add item');
+      const message = err?.response?.data?.message || 'Failed to add item';
+
+      if (message.includes('another canteen')) {
+        const shouldClear = window.confirm('Your cart contains items from another canteen. Clear that cart and add this item?');
+        if (shouldClear) {
+          try {
+            await cartAPI.clearCart();
+            await cartAPI.addItem(item._id, 1);
+            setCart({ [item._id]: 1 });
+            toast.success(`${item.name} added to cart`);
+            return;
+          } catch (retryErr) {
+            toast.error(retryErr?.response?.data?.message || 'Could not clear cart and add item');
+            return;
+          }
+        }
+      }
+
+      toast.error(message);
     } finally {
       setAddingId(null);
     }
@@ -187,26 +215,40 @@ const CanteenMenuPage = () => {
             const qty = cart[item._id] || 0;
             const isAdding = addingId === item._id;
             return (
-              <div key={item._id} className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex-1 min-w-0 pr-4">
-                  <div className="flex items-center gap-2">
-                    <p className="font-['Gilroy_Heavy'] text-gray-900 truncate">{item.name}</p>
-                    {qty > 0 && <CheckCircle size={14} className="text-orange-500 shrink-0" />}
+              <div key={item._id} className="bg-white border border-gray-100 rounded-2xl p-4 flex gap-4 shadow-sm hover:shadow-md transition-shadow">
+                {/* Image */}
+                {item.image ? (
+                  <div className="w-20 h-20 shrink-0">
+                    <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded-xl" />
                   </div>
-                  {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>}
-                  {item.category && (
-                    <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-[10px] font-medium">
-                      {item.category}
-                    </span>
-                  )}
+                ) : (
+                  <div className="w-20 h-20 shrink-0 bg-gray-100 rounded-xl flex items-center justify-center">
+                    <UtensilsCrossed size={24} className="text-gray-300" />
+                  </div>
+                )}
+
+                {/* Content */}
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="font-['Gilroy_Heavy'] text-gray-900 truncate">{item.name}</p>
+                      {qty > 0 && <CheckCircle size={14} className="text-orange-500 shrink-0" />}
+                    </div>
+                    {item.description && <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{item.description}</p>}
+                    {item.category && (
+                      <span className="inline-block mt-1 px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-[10px] font-medium">
+                        {item.category}
+                      </span>
+                    )}
+                  </div>
                   <p className="font-['Gilroy_Heavy'] text-orange-600 mt-1 text-sm">LKR {item.price?.toLocaleString()}</p>
                 </div>
 
                 {qty === 0 ? (
                   <button
                     onClick={() => handleAdd(item)}
-                    disabled={isAdding}
-                    className="w-9 h-9 rounded-xl bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center transition-colors disabled:opacity-50 shrink-0"
+                    disabled={isAdding || item.isAvailable === false}
+                    className="w-9 h-9 rounded-xl bg-orange-500 hover:bg-orange-600 text-white flex items-center justify-center transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
                   >
                     {isAdding ? (
                       <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />

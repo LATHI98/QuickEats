@@ -15,12 +15,16 @@ import {
   ChefHat,
   Ticket,
   Box,
+  Grid3x3,
+  Calendar,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 const superAdminNav = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'Canteens', path: '/admin/canteens', icon: Store },
+  { label: 'Tables', path: '/admin/tables', icon: Grid3x3 },
+  { label: 'Reservations', path: '/admin/reservations', icon: Calendar },
   { label: 'Menu Items', path: '/admin/menu', icon: UtensilsCrossed },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
   { label: 'Users', path: '/admin/users', icon: Users },
@@ -30,6 +34,8 @@ const superAdminNav = [
 const managerNav = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'My Canteen', path: '/admin/canteens', icon: Store },
+  { label: 'Tables', path: '/admin/tables', icon: Grid3x3 },
+  { label: 'Reservations', path: '/admin/reservations', icon: Calendar },
   { label: 'Menu', path: '/admin/menu', icon: UtensilsCrossed },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
 ];
@@ -160,6 +166,22 @@ const AdminLayout = () => {
                     label={user?.role === 'superAdmin' ? 'Canteens' : 'My Canteen'}
                     active={location.pathname === '/admin/canteens'}
                   />
+                )}
+                {['superAdmin', 'admin', 'canteenManager'].includes(user?.role) && (
+                  <>
+                    <MenuLink
+                      to="/admin/tables"
+                      icon={Grid3x3}
+                      label="Tables Manager"
+                      active={location.pathname === '/admin/tables'}
+                    />
+                    <MenuLink
+                      to="/admin/reservations"
+                      icon={Calendar}
+                      label="Reservations"
+                      active={location.pathname === '/admin/reservations'}
+                    />
+                  </>
                 )}
                 <MenuLink
                   to="/admin/menu"

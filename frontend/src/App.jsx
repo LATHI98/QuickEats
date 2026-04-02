@@ -20,6 +20,8 @@ import AdminMenu from './Pages/Admin/MenuPage';
 import AdminOrders from './Pages/Admin/OrdersPage';
 import AdminUsers from './Pages/Admin/UsersPage';
 import AdminSettings from './Pages/Admin/SettingsPage';
+import AdminReservations from './Pages/Admin/ReservationsPage';
+import TablesManagement from './Pages/Admin/TablesPage';
 
 // Canteen Staff pages
 import CanteenStaffDashboard from './Pages/CanteenStaff/DashboardPage';
@@ -71,8 +73,10 @@ function App() {
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboardSelector />} />
             <Route path="canteens" element={<AdminCanteens />} />
+            <Route path="tables" element={<TablesManagement />} />
             <Route path="menu" element={<AdminMenu />} />
             <Route path="orders" element={<AdminOrders />} />
+            <Route path="reservations" element={<AdminReservations />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="stock" element={<StockPage />} />

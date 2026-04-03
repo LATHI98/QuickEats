@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ShoppingBag, LayoutList, BarChart2, RefreshCw, CheckCircle, ChefHat, Package, XCircle, Banknote, QrCode, ChevronDown, Wallet, TrendingUp, Clock, AlertCircle, ChevronRight, Users, CreditCard, X } from 'lucide-react';
 import { orderAPI, paymentAPI, queueAPI, canteenAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
@@ -729,6 +730,7 @@ const OrderCard = ({ order, onStatusChange, onVerifyCash, onRejectCash, onVerify
       onClick={() => onViewDetails(order)}
       className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-lg hover:border-orange-200 transition-all"
     >
+      <div className="h-1.5 rounded-full bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 mb-3" />
       {/* Top row */}
       <div className="flex items-start justify-between mb-2">
         <div>
@@ -974,17 +976,17 @@ const QueueBoard = ({ canteenIdProp, isAdmin }) => {
   const totalActive = queueData?.totalActive || 0;
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
 
       {/* Admin-only: Canteen Picker */}
       {isAdmin && (
-        <div className="flex items-center gap-3 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm">
+        <div className="flex items-center gap-3 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 to-white px-4 py-3 shadow-sm">
           <BarChart2 size={16} className="text-orange-500" />
           <label className="text-sm font-extrabold text-gray-700 whitespace-nowrap">Viewing Canteen:</label>
           <select
             value={canteenId}
             onChange={e => setCanteenId(e.target.value)}
-            className="flex-1 border-0 bg-transparent text-sm text-gray-600 focus:outline-none focus:ring-0 font-medium cursor-pointer"
+            className="flex-1 border-0 bg-transparent text-sm text-gray-700 focus:outline-none focus:ring-0 font-extrabold cursor-pointer"
           >
             {canteens.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
           </select>
@@ -1000,20 +1002,21 @@ const QueueBoard = ({ canteenIdProp, isAdmin }) => {
       ) : (
         <>
           {/* Now Serving Hero Card */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+          <div className="relative overflow-hidden rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-5 shadow-sm">
+            <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-orange-100/70 blur-3xl" />
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               {/* Now serving display */}
               <div className="flex items-center gap-6">
                 <div>
-                  <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Now Serving</p>
-                  <p className="text-6xl font-extrabold text-orange-600 leading-none">
+                  <p className="text-[10px] font-extrabold text-orange-500 uppercase tracking-widest mb-1">Now Serving</p>
+                  <p className="text-6xl font-extrabold text-orange-600 leading-none drop-shadow-sm">
                     {queueData?.nowServing ? `#${queueData.nowServing}` : '—'}
                   </p>
                 </div>
                 {queueData?.nextQueueNumber && (
-                  <div className="border-l pl-6">
+                  <div className="border-l border-orange-100 pl-6">
                     <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Up Next</p>
-                    <p className="text-3xl font-extrabold text-gray-400">#{queueData.nextQueueNumber}</p>
+                    <p className="text-3xl font-extrabold text-gray-600">#{queueData.nextQueueNumber}</p>
                   </div>
                 )}
               </div>
@@ -1023,7 +1026,7 @@ const QueueBoard = ({ canteenIdProp, isAdmin }) => {
                 <button
                   onClick={handleCallNext}
                   disabled={calling || totalActive === 0}
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl font-extrabold text-sm transition-colors"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl font-extrabold text-sm transition-colors shadow-lg shadow-orange-200"
                 >
                   {calling ? (
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -1046,7 +1049,7 @@ const QueueBoard = ({ canteenIdProp, isAdmin }) => {
             </div>
 
             {/* Auto-refresh indicator */}
-            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-gray-50">
+            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-orange-100/70">
               <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
               <p className="text-xs text-gray-400">Auto-refreshing in <span className="font-extrabold text-gray-600">{countdown}s</span></p>
               <button onClick={() => fetchQueue(false)} className="ml-auto text-xs text-orange-500 hover:underline font-extrabold">Refresh now</button>
@@ -1054,14 +1057,15 @@ const QueueBoard = ({ canteenIdProp, isAdmin }) => {
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {activeStatuses.map(s => {
               const cfg = STATUS_CONFIG[s];
               const count = (grouped[s] || []).length;
               return (
-                <div key={s} className={`rounded-2xl border p-3 text-center ${cfg.color}`}>
-                  <p className="text-2xl font-extrabold">{count}</p>
-                  <p className="text-xs font-extrabold opacity-75 mt-0.5">{cfg.label}</p>
+                <div key={s} className="rounded-2xl border border-gray-100 bg-white p-4 text-center shadow-sm">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">{cfg.label}</p>
+                  <p className="mt-1 text-3xl font-extrabold text-gray-900">{count}</p>
+                  <p className="text-xs text-gray-500 mt-1">orders in this stage</p>
                 </div>
               );
             })}
@@ -1078,15 +1082,27 @@ const QueueBoard = ({ canteenIdProp, isAdmin }) => {
                   <span className={`px-3 py-1 rounded-full text-xs font-extrabold ${cfg.color}`}>{cfg.label}</span>
                   <span className="text-xs text-gray-400">{list.length} order{list.length !== 1 ? 's' : ''}</span>
                 </div>
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {list.map(o => (
-                    <div key={o._id} className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${cfg.color} bg-white`}>
-                      <span className="text-xl font-extrabold">#{o.queueNumber}</span>
-                      <div className="min-w-0">
-                        <p className="text-sm font-extrabold text-gray-900 truncate">{o.student?.name || 'Student'}</p>
-                        <p className="text-xs text-gray-400">{new Date(o.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {list.map((o, index) => (
+                    <motion.div
+                      key={o._id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.22, delay: Math.min(index * 0.04, 0.2) }}
+                      className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-lg font-extrabold text-gray-900">#{o.queueNumber}</p>
+                          <p className="text-xs text-gray-400">{new Date(o.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${cfg.color}`}>{cfg.label}</span>
                       </div>
-                    </div>
+                      <div className="mt-3 min-w-0">
+                        <p className="text-sm font-extrabold text-gray-900 truncate">{o.student?.name || 'Student'}</p>
+                        <p className="text-xs text-gray-500 mt-1">{(o.items?.length || 0)} item(s)</p>
+                      </div>
+                    </motion.div>
                   ))}
                 </div>
               </div>
@@ -1104,7 +1120,7 @@ const QueueBoard = ({ canteenIdProp, isAdmin }) => {
 
           {/* Time Slots Capacity */}
           {slots.length > 0 && (
-            <div>
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
               <p className="text-sm font-extrabold text-gray-700 mb-3">Upcoming Pickup Slots</p>
               <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
                 {slots.slice(0, 12).map((slot, i) => {
@@ -1220,19 +1236,19 @@ const BillingBoard = ({ canteenId }) => {
     <div className="space-y-6">
 
       {/* Controls: Date Picker + Refresh */}
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-end gap-4 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 via-white to-amber-50 px-4 py-3">
         <div>
           <label className="block text-xs text-gray-400 mb-1">Date</label>
           <input
             type="date"
             value={date}
             onChange={e => setDate(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+            className="border border-orange-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
           />
         </div>
         <button
           onClick={() => fetchBilling(true)}
-          className={`mt-5 p-2 rounded-full hover:bg-gray-100 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+          className={`p-2.5 rounded-xl bg-white border border-orange-100 hover:bg-orange-50 transition-colors ${refreshing ? 'animate-spin' : ''}`}
         >
           <RefreshCw size={16} className="text-gray-500" />
         </button>
@@ -1275,12 +1291,12 @@ const BillingBoard = ({ canteenId }) => {
       </div>
 
       {/* Payment Status Filter */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
         {PAY_FILTERS.map(f => (
           <button
             key={f.value}
             onClick={() => setPayFilter(f.value)}
-            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${payFilter === f.value ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            className={`px-4 py-1.5 rounded-full text-sm font-extrabold transition-colors ${payFilter === f.value ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
               }`}
           >
             {f.label}
@@ -1292,7 +1308,7 @@ const BillingBoard = ({ canteenId }) => {
       {filtered.length === 0 ? (
         <div className="text-center py-16 text-gray-400 text-sm">No orders matching this filter.</div>
       ) : (
-        <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm">
+        <div className="bg-white border border-gray-100 rounded-2xl overflow-auto shadow-sm">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 text-left text-xs font-extrabold text-gray-400 uppercase tracking-wider">
@@ -1726,24 +1742,66 @@ const AdminOrdersPage = () => {
     }
   };
 
+  const pendingCount = orders.filter((order) => order.status === 'pending').length;
+  const preparingCount = orders.filter((order) => order.status === 'preparing').length;
+  const readyCount = orders.filter((order) => order.status === 'ready').length;
+  const pendingVerificationCount = orders.filter((order) => order.payment?.status === 'pending_verification').length;
+  const verifiedPaymentsCount = orders.filter((order) => order.payment?.status === 'verified').length;
+  const visibleRevenue = orders.reduce((sum, order) => sum + Number(order.totalPrice || 0), 0);
+
   return (
-    <div className="max-w-5xl mx-auto py-8 px-4">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-3xl font-extrabold text-gray-900">Orders Management</h1>
-          <p className="text-gray-400 text-sm mt-1">
-            {isAdmin ? 'Select a canteen to view and manage orders' : 'Manage incoming orders and queue'}
-          </p>
+    <div className="max-w-6xl mx-auto py-8 px-4">
+      <div className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 px-6 py-6 mb-6 shadow-sm">
+        <div className="absolute -top-20 -right-16 w-56 h-56 rounded-full bg-orange-100/70 blur-3xl" />
+        <div className="absolute -bottom-20 -left-16 w-56 h-56 rounded-full bg-amber-100/70 blur-3xl" />
+
+        <div className="relative flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-900">Orders Management</h1>
+            <p className="text-gray-500 text-sm mt-1">
+              {isAdmin ? 'Select a canteen to view and manage orders' : 'Track, verify, and deliver orders in real time'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Visible</p>
+              <p className="text-lg font-extrabold text-gray-900">{orders.length}</p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Pending</p>
+              <p className="text-lg font-extrabold text-amber-600">{pendingCount}</p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Preparing</p>
+              <p className="text-lg font-extrabold text-blue-600">{preparingCount}</p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Ready</p>
+              <p className="text-lg font-extrabold text-green-600">{readyCount}</p>
+            </div>
+            {isAdmin && (
+              <>
+                <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Awaiting Pay</p>
+                  <p className="text-lg font-extrabold text-yellow-600">{pendingVerificationCount}</p>
+                </div>
+                <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Paid</p>
+                  <p className="text-lg font-extrabold text-emerald-700">{verifiedPaymentsCount}</p>
+                </div>
+              </>
+            )}
+            {tab === 'orders' && canteenId && (
+              <button
+                onClick={() => fetchOrders(true)}
+                className={`p-2.5 rounded-xl border border-orange-100 bg-white hover:bg-orange-50 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+              >
+                <RefreshCw size={18} className="text-gray-500" />
+              </button>
+            )}
+          </div>
         </div>
-        {tab === 'orders' && canteenId && (
-          <button
-            onClick={() => fetchOrders(true)}
-            className={`p-2 rounded-full hover:bg-gray-100 transition-colors ${refreshing ? 'animate-spin' : ''}`}
-          >
-            <RefreshCw size={18} className="text-gray-500" />
-          </button>
-        )}
       </div>
 
       {/* Canteen Selector - Show prominently for Admin */}
@@ -1790,6 +1848,12 @@ const AdminOrdersPage = () => {
                     ))}
                   </select>
                 </div>
+                {!!localCanteenId && (
+                  <div className="hidden lg:block rounded-xl border border-orange-100 bg-white px-4 py-3 min-w-[170px] text-right">
+                    <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Visible Revenue</p>
+                    <p className="text-base font-extrabold text-orange-700">LKR {visibleRevenue.toLocaleString()}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1812,37 +1876,69 @@ const AdminOrdersPage = () => {
       {/* Only show tabs and content if canteen is selected or if not admin */}
       {(canteenId || !isAdmin) && (
         <>
+          {isAdmin && (
+            <div className="mb-4 rounded-2xl border border-orange-100 bg-white px-4 py-3 shadow-sm flex flex-wrap items-center gap-2">
+              <span className="text-[11px] uppercase tracking-wider text-gray-400 font-extrabold">Admin order tools</span>
+              <button onClick={() => setTab('orders')} className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-orange-50 text-orange-700 hover:bg-orange-100">Order Flow</button>
+              <button onClick={() => setTab('billing')} className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Billing View</button>
+              <button onClick={() => setTab('queue')} className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-700 hover:bg-indigo-100">Queue Board</button>
+            </div>
+          )}
+
           {/* Tabs */}
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit">
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit border border-gray-200 shadow-sm">
             <button
               onClick={() => setTab('orders')}
-          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'orders' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'orders' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           <LayoutList size={14} /> Orders
         </button>
         <button
           onClick={() => setTab('billing')}
-          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'billing' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'billing' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           <Wallet size={14} /> Billing
         </button>
         <button
           onClick={() => setTab('queue')}
-          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-colors ${tab === 'queue' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'queue' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           <BarChart2 size={14} /> Queue Board
         </button>
       </div>
 
-      {tab === 'queue' ? (
-        <QueueBoard canteenIdProp={canteenId} isAdmin={false} />
-      ) : tab === 'billing' ? (
-        <BillingBoard canteenId={canteenId} />
-      ) : (
-        <>
+      <AnimatePresence mode="wait" initial={false}>
+        {tab === 'queue' ? (
+          <motion.div
+            key="queue-tab"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
+            <QueueBoard canteenIdProp={canteenId} isAdmin={false} />
+          </motion.div>
+        ) : tab === 'billing' ? (
+          <motion.div
+            key="billing-tab"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
+            <BillingBoard canteenId={canteenId} />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="orders-tab"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
           {!canteenId && (
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               Select a canteen to enable order management
@@ -1850,7 +1946,8 @@ const AdminOrdersPage = () => {
           )}
 
           {/* Pickup Code Entry Bar */}
-          <div className="bg-indigo-50 border border-indigo-200 rounded-2xl px-4 py-3 mb-5">
+          <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-sky-50 px-4 py-3 mb-5 shadow-sm">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-indigo-100/70 blur-2xl" />
             <form onSubmit={(e) => { e.preventDefault(); handlePickupByCode(); }} className="flex items-center gap-3">
               <QrCode size={18} className="text-indigo-400 shrink-0" />
               <div className="flex-1 min-w-0">
@@ -1874,7 +1971,7 @@ const AdminOrdersPage = () => {
               <button
                 type="button"
                 onClick={() => setQrScannerOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-xl text-xs font-extrabold transition-colors whitespace-nowrap"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-xl text-xs font-extrabold transition-colors whitespace-nowrap border border-indigo-200"
               >
                 <QrCode size={13} /> Scan QR
               </button>
@@ -1894,12 +1991,12 @@ const AdminOrdersPage = () => {
           </div>
 
           {/* Status filters */}
-          <div className="flex gap-2 mb-5 flex-wrap">
+          <div className="flex gap-2 mb-5 flex-wrap rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
             {[{ value: '', label: 'All' }, ...ORDER_STATUSES.map(s => ({ value: s, label: STATUS_CONFIG[s].label }))].map(f => (
               <button
                 key={f.value}
                 onClick={() => setStatusFilter(f.value)}
-                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${statusFilter === f.value
+                className={`px-4 py-1.5 rounded-full text-sm font-extrabold transition-colors ${statusFilter === f.value
                   ? 'bg-orange-500 text-white'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
@@ -1921,24 +2018,31 @@ const AdminOrdersPage = () => {
               <p className="text-gray-400 font-medium">No orders found</p>
             </div>
           ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {orders.map(order => (
-                <OrderCard
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {orders.map((order, index) => (
+                <motion.div
                   key={order._id}
-                  order={order}
-                  onStatusChange={handleStatusChange}
-                  onVerifyCash={handleOpenVerifyCash}
-                  onRejectCash={handleRejectCash}
-                  onVerifyPickup={handleOpenPickupVerify}
-                  canManagePayments={canManagePayments}
-                  userRole={user?.role}
-                  onViewDetails={setSelectedOrder}
-                />
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.24, delay: Math.min(index * 0.04, 0.24) }}
+                >
+                  <OrderCard
+                    order={order}
+                    onStatusChange={handleStatusChange}
+                    onVerifyCash={handleOpenVerifyCash}
+                    onRejectCash={handleRejectCash}
+                    onVerifyPickup={handleOpenPickupVerify}
+                    canManagePayments={canManagePayments}
+                    userRole={user?.role}
+                    onViewDetails={setSelectedOrder}
+                  />
+                </motion.div>
               ))}
             </div>
           )}
-        </>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {qrScannerOpen && (
         <QRScannerModal

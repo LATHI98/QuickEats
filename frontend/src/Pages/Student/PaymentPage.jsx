@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { CreditCard, Banknote, CheckCircle, ArrowLeft, Lock, AlertCircle, Info, RefreshCw } from 'lucide-react';
+import { CreditCard, Banknote, CheckCircle, ArrowLeft, Lock, AlertCircle, Info, RefreshCw, Sparkles } from 'lucide-react';
 import { orderAPI, paymentAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
@@ -498,13 +498,13 @@ const PaymentPage = () => {
   };
 
   if (alreadyPaid) return (
-    <div className="max-w-md mx-auto py-8 px-4">
+    <div className="max-w-3xl mx-auto py-8 px-4 md:px-6">
       <AlreadyPaidScreen order={order} navigate={navigate} />
     </div>
   );
 
   if (success) return (
-    <div className="max-w-md mx-auto py-8 px-4">
+    <div className="max-w-3xl mx-auto py-8 px-4 md:px-6">
       <SuccessScreen
         method={success}
         navigate={navigate}
@@ -520,17 +520,34 @@ const PaymentPage = () => {
   );
 
   return (
-    <div className="max-w-md mx-auto py-8 px-4">
+    <div className="max-w-3xl mx-auto py-8 px-4 md:px-6">
       {/* Back */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
+        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-6 transition-colors"
       >
         <ArrowLeft size={16} /> Back
       </button>
 
-      <h1 className="text-3xl font-extrabold text-gray-900 mb-1">Payment</h1>
-      <p className="text-gray-400 text-sm mb-6">Choose how you'd like to pay for order #{order?.queueNumber}</p>
+      <div className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6 md:p-7 mb-6 shadow-sm">
+        <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-orange-100/70 blur-3xl" />
+        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-amber-100/70 blur-3xl" />
+
+        <div className="relative flex items-start justify-between gap-3">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-orange-100 bg-white/80 text-[10px] font-extrabold uppercase tracking-wider text-orange-700">
+              <Sparkles size={12} /> Secure Checkout
+            </div>
+            <h1 className="text-3xl font-extrabold text-gray-900 mt-3">Payment</h1>
+            <p className="text-gray-500 text-sm mt-1">Choose how you'd like to pay for order #{order?.queueNumber}</p>
+          </div>
+
+          <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-right">
+            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Payable Total</p>
+            <p className="text-xl font-extrabold text-orange-700">LKR {order?.totalPrice?.toLocaleString()}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Status/rejection message */}
       {statusMessage && (
@@ -548,7 +565,7 @@ const PaymentPage = () => {
       )}
 
       {/* Order summary card */}
-      <div className="bg-orange-50 rounded-2xl p-4 mb-6">
+      <div className="bg-white border border-gray-100 rounded-2xl p-4 mb-6 shadow-sm">
         <p className="text-xs text-gray-500 mb-2 font-medium">Order Summary</p>
         {order?.items?.map((item, i) => (
           <div key={i} className="flex justify-between text-sm mb-1">
@@ -556,7 +573,7 @@ const PaymentPage = () => {
             <span className="text-gray-700">LKR {(item.unitPrice * item.quantity).toLocaleString()}</span>
           </div>
         ))}
-        <div className="flex justify-between text-sm font-extrabold mt-2 pt-2 border-t border-orange-100">
+        <div className="flex justify-between text-sm font-extrabold mt-2 pt-2 border-t border-gray-100">
           <span>Total</span>
           <span className="text-orange-600">LKR {order?.totalPrice?.toLocaleString()}</span>
         </div>
@@ -591,35 +608,39 @@ const PaymentPage = () => {
           Payment cannot be submitted while order payment status is <span className="font-extrabold">{paymentStatus}</span>.
         </div>
       ) : tab === 'cash' ? (
-        <CashForm
-          orderId={orderId}
-          amount={order?.totalPrice}
-          onSuccess={(response) => {
-            const payment = response?.data?.data?.payment || {};
-            const code = payment?.cashVerificationCode || '';
-            setCashVerificationCode(code);
-            setCashCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || null);
-            setSuccess('cash');
-          }}
-        />
+        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+          <CashForm
+            orderId={orderId}
+            amount={order?.totalPrice}
+            onSuccess={(response) => {
+              const payment = response?.data?.data?.payment || {};
+              const code = payment?.cashVerificationCode || '';
+              setCashVerificationCode(code);
+              setCashCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || null);
+              setSuccess('cash');
+            }}
+          />
+        </div>
       ) : (
         isStripeConfigured && stripePromise ? (
-          <Elements stripe={stripePromise}>
-            <CardForm
-              orderId={orderId}
-              amount={order?.totalPrice}
-              onSuccess={async () => {
-                try {
-                  const verified = await waitForPaymentVerification();
-                  setSuccess(verified ? 'card' : 'card_pending');
-                  if (!verified) toast.info('Payment is submitted. Waiting for final confirmation from server.');
-                } catch {
-                  setSuccess('card_pending');
-                  toast.info('Payment is submitted. Waiting for final confirmation from server.');
-                }
-              }}
-            />
-          </Elements>
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <Elements stripe={stripePromise}>
+              <CardForm
+                orderId={orderId}
+                amount={order?.totalPrice}
+                onSuccess={async () => {
+                  try {
+                    const verified = await waitForPaymentVerification();
+                    setSuccess(verified ? 'card' : 'card_pending');
+                    if (!verified) toast.info('Payment is submitted. Waiting for final confirmation from server.');
+                  } catch {
+                    setSuccess('card_pending');
+                    toast.info('Payment is submitted. Waiting for final confirmation from server.');
+                  }
+                }}
+              />
+            </Elements>
+          </div>
         ) : (
           <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
             Card payment is unavailable. Please use cash payment for this order.

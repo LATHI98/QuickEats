@@ -2,15 +2,27 @@ import Canteen from '../models/Canteen.model.js';
 import MenuItem from '../models/MenuItem.model.js';
 import bcrypt from 'bcryptjs';
 
+const normalizeOptionalString = (value, { lowerCase = false } = {}) => {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  return lowerCase ? trimmed.toLowerCase() : trimmed;
+};
+
+const normalizeOptionalNumber = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 const buildCanteenFromBody = (body) => ({
-  name: body.name?.trim(),
-  owner: body.owner?.trim(),
-  email: body.email?.trim().toLowerCase(),
-  ratings: Number(body.ratings ?? 0),
-  photo: body.photo?.trim() ?? '',
-  description: body.description?.trim() ?? '',
-  openHours: body.openHours?.trim() ?? '',
-  canteenPassword: body.canteenPassword?.trim() ?? '',
+  name: normalizeOptionalString(body.name),
+  owner: normalizeOptionalString(body.owner),
+  email: normalizeOptionalString(body.email, { lowerCase: true }),
+  ratings: normalizeOptionalNumber(body.ratings),
+  photo: normalizeOptionalString(body.photo),
+  description: normalizeOptionalString(body.description),
+  openHours: normalizeOptionalString(body.openHours),
+  canteenPassword: normalizeOptionalString(body.canteenPassword),
 });
 
 const stripPasswordHash = (canteenDoc) => {
@@ -43,7 +55,13 @@ export const createCanteen = async (req, res) => {
     }
 
     const canteen = await Canteen.create({
-      ...payload,
+      name: payload.name,
+      owner: payload.owner,
+      email: payload.email,
+      ratings: Number.isFinite(payload.ratings) ? payload.ratings : 0,
+      photo: payload.photo ?? '',
+      description: payload.description ?? '',
+      openHours: payload.openHours ?? '',
       accessPasswordHash: await hashPassword(payload.canteenPassword),
     });
     return res.status(201).json(stripPasswordHash(canteen));

@@ -313,13 +313,49 @@ const OrdersPage = () => {
     </div>
   );
 
+  const activeCount = orders.filter((o) => ['pending', 'preparing', 'ready'].includes(o.status)).length;
+  const completedCount = orders.filter((o) => o.status === 'completed').length;
+  const totalSpent = orders
+    .filter((o) => o.payment?.status === 'verified')
+    .reduce((sum, o) => sum + Number(o.totalPrice || 0), 0);
+
   return (
-    <div className="max-w-4xl mx-auto py-12 px-6">
-      <div className="flex items-center justify-between mb-10">
-        <div>
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Order History</h1>
-          <p className="text-gray-400 text-sm mt-1 font-medium">Manage and repeat your favorites</p>
+    <div className="max-w-6xl mx-auto py-10 px-4 md:px-6">
+      <div className="relative overflow-hidden rounded-[30px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6 md:p-7 mb-8 shadow-sm">
+        <div className="absolute -top-20 -right-16 h-56 w-56 rounded-full bg-orange-100/70 blur-3xl" />
+        <div className="absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-amber-100/70 blur-3xl" />
+
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Order History</h1>
+            <p className="text-gray-500 text-sm mt-1 font-medium">Track every order, payment, and pickup in one place.</p>
+          </div>
+          <button
+            onClick={() => fetchOrders(true)}
+            className={`p-3 rounded-2xl bg-white border border-orange-100 hover:bg-orange-50 transition-all ${refreshing ? 'animate-spin' : ''}`}
+          >
+            <RefreshCw size={20} className="text-gray-500" />
+          </button>
         </div>
+
+        <div className="relative grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5">
+          <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3">
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">Active Orders</p>
+            <p className="text-2xl font-extrabold text-orange-700 mt-1">{activeCount}</p>
+          </div>
+          <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3">
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">Completed</p>
+            <p className="text-2xl font-extrabold text-gray-900 mt-1">{completedCount}</p>
+          </div>
+          <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3">
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">Total Verified Spend</p>
+            <p className="text-2xl font-extrabold text-emerald-700 mt-1">LKR {totalSpent.toLocaleString()}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between mb-6">
+        <div className="text-xs font-extrabold uppercase tracking-widest text-gray-400">Filter by status</div>
         <button
           onClick={() => fetchOrders(true)}
           className={`p-3 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-all ${refreshing ? 'animate-spin' : ''}`}
@@ -335,7 +371,7 @@ const OrdersPage = () => {
             onClick={() => setStatusFilter(f.value)}
             className={`whitespace-nowrap px-6 py-2.5 rounded-2xl text-xs font-extrabold uppercase tracking-widest transition-all ${statusFilter === f.value
               ? 'bg-orange-500 text-white shadow-lg shadow-orange-100'
-              : 'bg-white border border-gray-100 text-gray-400 hover:border-gray-300'
+              : 'bg-white border border-gray-100 text-gray-500 hover:border-gray-300'
               }`}
           >
             {f.label}
@@ -344,7 +380,7 @@ const OrdersPage = () => {
       </div>
 
       {orders.length === 0 ? (
-        <div className="text-center py-24 bg-gray-50 rounded-[40px]">
+        <div className="text-center py-24 bg-white border border-gray-100 rounded-[40px]">
           <div className="w-20 h-20 bg-white shadow-sm rounded-[30px] flex items-center justify-center mx-auto mb-6 text-orange-400">
             <ShoppingBag size={36} strokeWidth={1.5} />
           </div>
@@ -378,6 +414,10 @@ const OrdersPage = () => {
                       {order.items?.length} Items · LKR {order.totalPrice?.toLocaleString()}
                     </p>
                   </div>
+
+                  <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">
+                    {new Date(order.createdAt).toLocaleDateString()}
+                  </p>
 
                   {/* Pickup code badge for ready orders */}
                   {order.status === 'ready' && order.pickupCode && (

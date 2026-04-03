@@ -357,12 +357,41 @@ const AdminDashboard = () => {
         <div className="rounded-[36px] border border-gray-100 bg-white p-6 shadow-sm md:p-8">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Recent activity</p>
-              <h2 className="mt-2 text-2xl font-extrabold text-gray-900">Current snapshot</h2>
+              <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Order command center</p>
+              <h2 className="mt-2 text-2xl font-extrabold text-gray-900">Live order operations</h2>
             </div>
             <button type="button" onClick={() => navigate('/admin/orders')} className="text-sm font-bold text-orange-600">
-              View orders
+              Open orders hub
             </button>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 via-white to-amber-50 p-4">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => navigate('/admin/orders')}
+                className="rounded-xl border border-orange-100 bg-white px-4 py-3 text-left hover:bg-orange-50 transition-colors"
+              >
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">Orders</p>
+                <p className="text-sm font-extrabold text-gray-900 mt-1">Track live order flow</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/orders')}
+                className="rounded-xl border border-emerald-100 bg-white px-4 py-3 text-left hover:bg-emerald-50 transition-colors"
+              >
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">Billing</p>
+                <p className="text-sm font-extrabold text-gray-900 mt-1">Review payment state</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/orders')}
+                className="rounded-xl border border-indigo-100 bg-white px-4 py-3 text-left hover:bg-indigo-50 transition-colors"
+              >
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">Queue Board</p>
+                <p className="text-sm font-extrabold text-gray-900 mt-1">Manage serving sequence</p>
+              </button>
+            </div>
           </div>
 
           <div className="mt-6 space-y-4">

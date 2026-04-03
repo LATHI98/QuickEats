@@ -9,8 +9,8 @@ import {
 } from 'lucide-react';
 import mealPassService from '../../services/mealPassService';
 import purchasedPassService from '../../services/purchasedPassService';
-import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
+import config from '../../config/config';
 
 
 
@@ -266,7 +266,7 @@ const MealPassPage = () => {
               <div className="relative h-48 group-hover:shadow-[inset_0_0_60px_rgba(0,0,0,0.05)] transition-all duration-500 overflow-hidden">
 
                   <img 
-                   src={item.image ? (item.image.startsWith('http') ? item.image : `http://localhost:5000${item.image}`) : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
+                   src={item.image ? (item.image.startsWith('http') ? item.image : `${config.API_URL}${item.image}`) : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'} 
                    alt={item.name} 
                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                  />
@@ -512,3 +512,4 @@ const MealPassPage = () => {
 };
 
 export default MealPassPage;
+

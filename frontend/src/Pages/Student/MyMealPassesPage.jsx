@@ -78,7 +78,7 @@ const MyMealPassesPage = () => {
           </p>
           <button 
             onClick={() => navigate('/dashboard/meal-pass')} 
-            className="bg-orange-500 hover:bg-orange-600 text-white px-10 py-4 rounded-2xl font-['Gilroy_Bold'] tracking-tight transition-all shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 active:scale-95"
+            className="bg-orange-500 hover:bg-orange-600 text-white px-10 py-4 rounded-2xl font-bold tracking-tight transition-all shadow-lg shadow-orange-500/20 hover:shadow-orange-500/40 active:scale-95"
           >
             Browse Food Menu
           </button>

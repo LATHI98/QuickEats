@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -62,6 +62,8 @@ const shiftChecklist = [
     'Check meal-pass and pickup codes before rush hour.',
 ];
 
+const DASHBOARD_POLL_INTERVAL_MS = 5000;
+
 const StatCard = ({ icon: Icon, label, value, note, tone }) => (
     <div className={`rounded-[28px] border border-white/70 bg-white/85 p-5 shadow-lg shadow-black/5 backdrop-blur ${tone || ''}`}>
         <div className="flex items-start justify-between gap-4">
@@ -80,7 +82,8 @@ const StatCard = ({ icon: Icon, label, value, note, tone }) => (
 const CanteenStaffDashboard = () => {
     const navigate = useNavigate();
     const { user, selectedCanteenId, selectedCanteenName } = useAuth();
-    const activeCanteenId = selectedCanteenId || user?.canteen || '';
+    const assignedCanteenId = typeof user?.canteen === 'object' ? user?.canteen?._id : user?.canteen;
+    const activeCanteenId = selectedCanteenId || assignedCanteenId || '';
     const [canteen, setCanteen] = useState(null);
     const [orders, setOrders] = useState([]);
     const [tables, setTables] = useState([]);
@@ -89,35 +92,56 @@ const CanteenStaffDashboard = () => {
     const [now, setNow] = useState(new Date());
     const [heroIndex, setHeroIndex] = useState(0);
 
-    useEffect(() => {
-        const loadDashboard = async () => {
-            if (!activeCanteenId) {
-                setLoading(false);
-                return;
-            }
+    const fetchDashboard = useCallback(async (silent = false) => {
+        if (!activeCanteenId) {
+            setLoading(false);
+            return;
+        }
 
-            try {
-                setLoading(true);
-                const [canteenRes, ordersRes, tablesRes, reservationsRes] = await Promise.all([
-                    api.get(`/api/canteens/${activeCanteenId}`),
-                    api.get('/api/orders/canteen', { params: { canteen: activeCanteenId } }),
-                    api.get(`/api/tables/canteen/${activeCanteenId}`),
-                    api.get(`/api/reservations/admin/canteen/${activeCanteenId}`),
-                ]);
+        try {
+            if (!silent) setLoading(true);
+            const [canteenRes, ordersRes, tablesRes, reservationsRes] = await Promise.all([
+                api.get(`/api/canteens/${activeCanteenId}`),
+                api.get('/api/orders/canteen', { params: { canteen: activeCanteenId } }),
+                api.get(`/api/tables/canteen/${activeCanteenId}`),
+                api.get(`/api/reservations/admin/canteen/${activeCanteenId}`),
+            ]);
 
-                setCanteen(canteenRes.data);
-                setOrders(normalizeList(ordersRes.data));
-                setTables(normalizeList(tablesRes.data));
-                setReservations(normalizeList(reservationsRes.data));
-            } catch (err) {
+            setCanteen(canteenRes.data);
+            setOrders(normalizeList(ordersRes.data));
+            setTables(normalizeList(tablesRes.data));
+            setReservations(normalizeList(reservationsRes.data));
+        } catch (err) {
+            if (!silent) {
                 console.error('Failed to load staff dashboard', err);
-            } finally {
-                setLoading(false);
             }
+        } finally {
+            if (!silent) setLoading(false);
+        }
+    }, [activeCanteenId]);
+
+    useEffect(() => {
+        fetchDashboard();
+    }, [fetchDashboard]);
+
+    useEffect(() => {
+        if (!activeCanteenId) return;
+
+        const handleWindowFocus = () => fetchDashboard(true);
+        const handleVisibilityChange = () => {
+            if (!document.hidden) fetchDashboard(true);
         };
 
-        loadDashboard();
-    }, [activeCanteenId]);
+        const interval = setInterval(() => fetchDashboard(true), DASHBOARD_POLL_INTERVAL_MS);
+        window.addEventListener('focus', handleWindowFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', handleWindowFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [activeCanteenId, fetchDashboard]);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 60000);

@@ -13,6 +13,7 @@ import {
 import {
   createStripeIntent,
   submitCashPayment,
+  regenerateCashVerificationCode,
   getPaymentStatus,
   verifyPayment,
   rejectPayment,
@@ -39,6 +40,7 @@ router.post('/:orderId/payment/stripe/create-intent', protect, authorize('studen
 
 // ── Payment: Cash ─────────────────────────────────────────────────────────────
 router.post('/:orderId/payment/cash', protect, authorize('student'), submitCashPayment);
+router.post('/:orderId/payment/cash/regenerate', protect, authorize('student'), regenerateCashVerificationCode);
 router.patch('/:orderId/payment/verify', protect, authorize('canteenStaff', 'canteenManager'), verifyPayment);
 router.patch('/:orderId/payment/reject', protect, authorize('canteenStaff', 'canteenManager'), rejectPayment);
 

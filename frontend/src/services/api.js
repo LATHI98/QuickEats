@@ -59,6 +59,7 @@ export const orderAPI = {
 // ── Payment ───────────────────────────────────────────────────────────────────
 export const paymentAPI = {
   submitCash: (orderId) => api.post(`/api/orders/${orderId}/payment/cash`),
+  regenerateCashCode: (orderId) => api.post(`/api/orders/${orderId}/payment/cash/regenerate`),
   createStripeIntent: (orderId) => api.post(`/api/orders/${orderId}/payment/stripe/create-intent`),
   getPaymentStatus: (orderId) => api.get(`/api/orders/${orderId}/payment`),
   verifyPayment: (orderId, payload) => api.patch(`/api/orders/${orderId}/payment/verify`, payload),

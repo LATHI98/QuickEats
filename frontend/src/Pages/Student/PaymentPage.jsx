@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { CreditCard, Banknote, CheckCircle, ArrowLeft, Lock, AlertCircle, Info } from 'lucide-react';
+import { CreditCard, Banknote, CheckCircle, ArrowLeft, Lock, AlertCircle, Info, RefreshCw } from 'lucide-react';
 import { orderAPI, paymentAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
@@ -234,7 +234,17 @@ const CashForm = ({ orderId, amount, onSuccess }) => {
 
 // ─── Success Screen ───────────────────────────────────────────────────────────
 
-const SuccessScreen = ({ method, navigate, verificationCode, checkingStatus, onCheckStatus, instantPickup }) => (
+const SuccessScreen = ({
+  method,
+  navigate,
+  verificationCode,
+  checkingStatus,
+  onCheckStatus,
+  instantPickup,
+  onRegenerateCode,
+  regeneratingCode,
+  refreshRemaining,
+}) => (
   <div className="text-center py-10">
     <div className="w-20 h-20 bg-green-50 rounded-[30px] flex items-center justify-center mx-auto mb-5 text-green-500">
       <CheckCircle size={40} />
@@ -265,6 +275,26 @@ const SuccessScreen = ({ method, navigate, verificationCode, checkingStatus, onC
         <p className="text-xs text-orange-600 mt-3 leading-relaxed">
           Show this 6-digit code to canteen staff to verify your cash payment. Do not share it with others.
         </p>
+
+        <div className="mt-4 rounded-xl border border-orange-200 bg-white px-3 py-3 text-left">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold mb-2">Quick access</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-gray-500">
+              {refreshRemaining > 0
+                ? `New code available in ${refreshRemaining}s`
+                : 'Need a fresh code? Generate a new one now.'}
+            </p>
+            <button
+              type="button"
+              onClick={onRegenerateCode}
+              disabled={regeneratingCode || refreshRemaining > 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-extrabold transition-colors"
+            >
+              {regeneratingCode ? <RefreshCw size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              Get New Code
+            </button>
+          </div>
+        </div>
       </div>
     )}
 
@@ -333,10 +363,29 @@ const PaymentPage = () => {
   const [success, setSuccess] = useState(null); // 'card' | 'card_pending' | 'cash'
   const [alreadyPaid, setAlreadyPaid] = useState(false);
   const [cashVerificationCode, setCashVerificationCode] = useState('');
+  const [cashCodeIssuedAt, setCashCodeIssuedAt] = useState(null);
+  const [refreshRemaining, setRefreshRemaining] = useState(0);
+  const [regeneratingCode, setRegeneratingCode] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const paymentStatus = order?.payment?.status || 'unpaid';
   const isPayableState = ['unpaid', 'rejected'].includes(paymentStatus);
+
+  const updateRefreshCountdown = (issuedAtValue) => {
+    if (!issuedAtValue) {
+      setRefreshRemaining(0);
+      return;
+    }
+
+    const issuedAtMs = new Date(issuedAtValue).getTime();
+    if (Number.isNaN(issuedAtMs)) {
+      setRefreshRemaining(0);
+      return;
+    }
+
+    const remainingMs = Math.max(0, 30000 - (Date.now() - issuedAtMs));
+    setRefreshRemaining(Math.ceil(remainingMs / 1000));
+  };
 
   const waitForPaymentVerification = async () => {
     for (let i = 0; i < 8; i++) {
@@ -362,6 +411,7 @@ const PaymentPage = () => {
         }
         if (ps === 'pending_verification') {
           setCashVerificationCode(o.payment?.cashVerificationCode || '');
+          setCashCodeIssuedAt(o.payment?.cashVerificationCodeIssuedAt || null);
           setSuccess(o.payment?.method === 'stripe' ? 'card_pending' : 'cash');
           return;
         }
@@ -380,6 +430,20 @@ const PaymentPage = () => {
     };
     fetch();
   }, [orderId, navigate]);
+
+  useEffect(() => {
+    if (!cashCodeIssuedAt || success !== 'cash') {
+      setRefreshRemaining(0);
+      return;
+    }
+
+    updateRefreshCountdown(cashCodeIssuedAt);
+    const timer = setInterval(() => {
+      updateRefreshCountdown(cashCodeIssuedAt);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cashCodeIssuedAt, success]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -401,12 +465,35 @@ const PaymentPage = () => {
         setAlreadyPaid(false);
       } else {
         setCashVerificationCode(payment?.cashVerificationCode || cashVerificationCode);
+        setCashCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || cashCodeIssuedAt);
         toast.info('Payment is still pending verification by staff.');
       }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to check payment status');
     } finally {
       setCheckingStatus(false);
+    }
+  };
+
+  const handleRegenerateCashCode = async () => {
+    setRegeneratingCode(true);
+    try {
+      const res = await paymentAPI.regenerateCashCode(orderId);
+      const payment = res.data?.data?.payment;
+      if (payment?.cashVerificationCode) {
+        setCashVerificationCode(payment.cashVerificationCode);
+      }
+      setCashCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || new Date().toISOString());
+      setSuccess('cash');
+      toast.success('New verification code generated. Share this latest code with staff.');
+    } catch (err) {
+      const remaining = err?.response?.data?.data?.remainingSeconds;
+      if (typeof remaining === 'number' && remaining > 0) {
+        setRefreshRemaining(remaining);
+      }
+      toast.error(err?.response?.data?.message || 'Could not regenerate verification code');
+    } finally {
+      setRegeneratingCode(false);
     }
   };
 
@@ -425,6 +512,9 @@ const PaymentPage = () => {
         checkingStatus={checkingStatus}
         onCheckStatus={checkVerificationStatus}
         instantPickup={!!order?.instantPickupRequested}
+        onRegenerateCode={handleRegenerateCashCode}
+        regeneratingCode={regeneratingCode}
+        refreshRemaining={refreshRemaining}
       />
     </div>
   );
@@ -505,8 +595,10 @@ const PaymentPage = () => {
           orderId={orderId}
           amount={order?.totalPrice}
           onSuccess={(response) => {
-            const code = response?.data?.data?.payment?.cashVerificationCode || '';
+            const payment = response?.data?.data?.payment || {};
+            const code = payment?.cashVerificationCode || '';
             setCashVerificationCode(code);
+            setCashCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || null);
             setSuccess('cash');
           }}
         />

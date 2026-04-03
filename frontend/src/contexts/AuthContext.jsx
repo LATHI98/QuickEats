@@ -6,6 +6,8 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [selectedCanteenId, setSelectedCanteenId] = useState(localStorage.getItem('selectedCanteenId') || '');
+  const [selectedCanteenName, setSelectedCanteenName] = useState(localStorage.getItem('selectedCanteenName') || '');
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -17,10 +19,13 @@ export const AuthProvider = ({ children }) => {
         try {
           const res = await api.get('/api/auth/me');
           setUser(res.data.user);
-        } catch {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          setUser(null);
+        } catch (err) {
+          // Keep session on transient network/server errors; clear only on auth errors.
+          if (err.response?.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+          }
         }
       }
       setLoading(false);
@@ -36,11 +41,19 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(loggedInUser));
     setUser(loggedInUser);
 
+    // Clear stale canteen context from previous sessions/users.
+    localStorage.removeItem('selectedCanteenId');
+    localStorage.removeItem('selectedCanteenName');
+    setSelectedCanteenId('');
+    setSelectedCanteenName('');
+
     // Route based on role
     if (loggedInUser.role === 'student' || loggedInUser.role === 'universityStaff') {
       navigate('/dashboard');
+    } else if (loggedInUser.role === 'admin' || loggedInUser.role === 'superAdmin') {
+      navigate('/admin/dashboard');
     } else {
-      navigate('/admin');
+      navigate('/admin/select-canteen');
     }
 
     return loggedInUser;
@@ -49,8 +62,30 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('selectedCanteenId');
+    localStorage.removeItem('selectedCanteenName');
     setUser(null);
+    setSelectedCanteenId('');
+    setSelectedCanteenName('');
     navigate('/login');
+  };
+
+  const setSelectedCanteen = (canteen) => {
+    const id = canteen?._id || '';
+    const name = canteen?.name || '';
+    setSelectedCanteenId(id);
+    setSelectedCanteenName(name);
+    if (id) localStorage.setItem('selectedCanteenId', id);
+    else localStorage.removeItem('selectedCanteenId');
+    if (name) localStorage.setItem('selectedCanteenName', name);
+    else localStorage.removeItem('selectedCanteenName');
+  };
+
+  const clearSelectedCanteen = () => {
+    setSelectedCanteenId('');
+    setSelectedCanteenName('');
+    localStorage.removeItem('selectedCanteenId');
+    localStorage.removeItem('selectedCanteenName');
   };
 
   const isStudent = () => user?.role === 'student';
@@ -72,7 +107,19 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, login, logout, updateProfile, deleteAccount, isStudent, isManager, isSuperAdmin }}
+      value={{
+        user,
+        loading,
+        login,
+        logout,
+        updateProfile, deleteAccount, isStudent,
+        isManager,
+        isSuperAdmin,
+        selectedCanteenId,
+        selectedCanteenName,
+        setSelectedCanteen,
+        clearSelectedCanteen,
+      }}
     >
       {children}
     </AuthContext.Provider>

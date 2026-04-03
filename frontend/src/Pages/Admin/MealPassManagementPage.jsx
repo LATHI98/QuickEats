@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import mealPassService from '../../services/mealPassService';
+import config from '../../config/config';
+import { useAuth } from '../../contexts/AuthContext';
 
 const CATEGORIES = [
   { id: 'breakfast', name: 'Breakfast' },
@@ -16,6 +18,7 @@ const CATEGORIES = [
 ];
 
 const AdminMealPassPage = () => {
+  const { selectedCanteenName } = useAuth();
   const [mealPasses, setMealPasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -65,7 +68,7 @@ const AdminMealPassPage = () => {
         tags: pass.tags.join(', '),
         image: null,
       });
-      setImagePreview(pass.image ? (pass.image.startsWith('http') ? pass.image : `http://localhost:5000${pass.image}`) : null);
+      setImagePreview(pass.image ? (pass.image.startsWith('http') ? pass.image : `${config.API_URL}${pass.image}`) : null);
     } else {
       setEditingPass(null);
       setFormData({
@@ -73,7 +76,7 @@ const AdminMealPassPage = () => {
         price: '',
         discount: '',
         description: '',
-        canteen: '',
+        canteen: selectedCanteenName || '',
         category: 'lunch',
         tags: '',
         image: null,
@@ -165,7 +168,7 @@ const AdminMealPassPage = () => {
     <div className="max-w-7xl mx-auto space-y-8 pb-12 px-4 md:px-0">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
-          <h1 className="text-3xl font-['Gilroy_Bold'] text-orange-600 tracking-tight">
+          <h1 className="text-3xl font-bold text-orange-600 tracking-tight">
             Meal Pass Management
           </h1>
 
@@ -173,7 +176,7 @@ const AdminMealPassPage = () => {
 
         <button
           onClick={() => handleOpenModal()}
-          className="flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 py-4 rounded-2xl font-['Gilroy_Bold'] hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-95 group"
+          className="flex items-center justify-center gap-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white px-8 py-4 rounded-2xl font-bold hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-95 group"
         >
           <div className="bg-white/20 p-1.5 rounded-lg group-hover:rotate-90 transition-transform duration-500">
             <Plus size={18} strokeWidth={3} />
@@ -190,7 +193,7 @@ const AdminMealPassPage = () => {
           placeholder="Search by meal name or canteen..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full bg-white border border-gray-100 rounded-[20px] py-4 pl-14 pr-6 outline-none focus:border-orange-200 focus:ring-4 focus:ring-orange-500/5 transition-all text-gray-700 font-['Gilroy_Medium'] shadow-sm"
+          className="w-full bg-white border border-gray-100 rounded-[20px] py-4 pl-14 pr-6 outline-none focus:border-orange-200 focus:ring-4 focus:ring-orange-500/5 transition-all text-gray-700 font-medium shadow-sm"
         />
       </div>
 
@@ -198,7 +201,7 @@ const AdminMealPassPage = () => {
       <div className="flex items-center gap-3 overflow-x-auto pb-4 scrollbar-hide">
         <button
           onClick={() => setSelectedCategory('all')}
-          className={`px-6 py-2.5 rounded-full text-xs font-['Gilroy_Bold'] tracking-widest uppercase transition-all shrink-0 border ${selectedCategory === 'all'
+          className={`px-6 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase transition-all shrink-0 border ${selectedCategory === 'all'
               ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/20'
               : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200 hover:text-orange-500'
             }`}
@@ -209,7 +212,7 @@ const AdminMealPassPage = () => {
           <button
             key={cat.id}
             onClick={() => setSelectedCategory(cat.id)}
-            className={`px-6 py-2.5 rounded-full text-xs font-['Gilroy_Bold'] tracking-widest uppercase transition-all shrink-0 border ${selectedCategory === cat.id
+            className={`px-6 py-2.5 rounded-full text-xs font-bold tracking-widest uppercase transition-all shrink-0 border ${selectedCategory === cat.id
                 ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-500/20'
                 : 'bg-white text-gray-400 border-gray-100 hover:border-orange-200 hover:text-orange-500'
               }`}
@@ -237,7 +240,7 @@ const AdminMealPassPage = () => {
             >
               <div className="relative h-48 overflow-hidden rounded-t-[24px] bg-white group-hover:shadow-[inset_0_0_60px_rgba(0,0,0,0.05)] transition-all duration-500">
                 <img
-                  src={pass.image ? (pass.image.startsWith('http') ? pass.image : `http://localhost:5000${pass.image}`) : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'}
+                  src={pass.image ? (pass.image.startsWith('http') ? pass.image : `${config.API_URL}${pass.image}`) : 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c'}
                   alt={pass.name}
                   className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                 />
@@ -257,7 +260,7 @@ const AdminMealPassPage = () => {
                   </button>
                 </div>
                 <div className="absolute top-4 left-4">
-                  <span className="bg-white/95 backdrop-blur-md px-4 py-1.5 rounded-full text-[11px] font-['Gilroy_Bold'] tracking-widest text-orange-600 uppercase shadow-sm">
+                  <span className="bg-white/95 backdrop-blur-md px-4 py-1.5 rounded-full text-[11px] font-bold tracking-widest text-orange-600 uppercase shadow-sm">
                     {pass.category}
                   </span>
                 </div>
@@ -265,22 +268,22 @@ const AdminMealPassPage = () => {
 
               <div className="p-6 flex-1 flex flex-col">
                 <div className="flex justify-between items-start mb-1.5 gap-2">
-                  <h3 className="text-lg font-['Gilroy_Bold'] text-gray-900 group-hover:text-orange-600 transition-colors line-clamp-1">{pass.name}</h3>
-                  <span className="text-base font-['Gilroy_Heavy'] text-gray-900">{pass.price}</span>
+                  <h3 className="text-lg font-bold text-gray-900 group-hover:text-orange-600 transition-colors line-clamp-1">{pass.name}</h3>
+                  <span className="text-base font-extrabold text-gray-900">{pass.price}</span>
                 </div>
 
-                <div className="flex items-center gap-1.5 text-orange-500 text-xs font-['Gilroy_Bold'] mb-3">
+                <div className="flex items-center gap-1.5 text-orange-500 text-xs font-bold mb-3">
                   <MapPin size={14} />
                   <span>{pass.canteen}</span>
                 </div>
 
-                <p className="text-gray-400 text-xs font-['Gilroy_Medium'] line-clamp-2 mb-4">
+                <p className="text-gray-400 text-xs font-medium line-clamp-2 mb-4">
                   {pass.description || 'No description provided.'}
                 </p>
 
                 <div className="mt-auto flex flex-wrap gap-1.5">
                   {pass.tags && pass.tags.map(tag => (
-                    <span key={tag} className="bg-gray-50 text-gray-400 px-2 py-0.5 rounded-full text-[9px] font-['Gilroy_Bold'] uppercase tracking-wider">
+                    <span key={tag} className="bg-gray-50 text-gray-400 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
                       {tag}
                     </span>
                   ))}
@@ -295,8 +298,8 @@ const AdminMealPassPage = () => {
           <div className="w-20 h-20 bg-gray-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-gray-300">
             <Ticket size={32} />
           </div>
-          <h3 className="text-xl font-['Gilroy_Bold'] text-gray-900 mb-2">No Meal Passes Found</h3>
-          <p className="text-gray-400 font-['Gilroy_Medium'] max-w-sm mx-auto mb-8">
+          <h3 className="text-xl font-bold text-gray-900 mb-2">No Meal Passes Found</h3>
+          <p className="text-gray-400 font-medium max-w-sm mx-auto mb-8">
             {searchQuery ? "No results match your search." : "Start by creating your first meal pass offering."}
           </p>
         </div>
@@ -321,10 +324,10 @@ const AdminMealPassPage = () => {
             >
               <div className="bg-orange-50 p-8 border-b border-orange-100 flex justify-between items-center">
                 <div>
-                  <h2 className="text-2xl font-['Gilroy_Bold'] text-gray-900">
+                  <h2 className="text-2xl font-bold text-gray-900">
                     {editingPass ? 'Edit Meal Pass' : 'Add New Meal Pass'}
                   </h2>
-                  <p className="text-sm font-['Gilroy_Medium'] text-gray-500 mt-1">
+                  <p className="text-sm font-medium text-gray-500 mt-1">
                     Configure the meal pass availability and details.
                   </p>
                 </div>
@@ -336,14 +339,14 @@ const AdminMealPassPage = () => {
               <form onSubmit={handleSubmit} className="p-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[70vh] overflow-y-auto">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Meal Name *</label>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Meal Name *</label>
                     <div className="relative">
                       <Ticket size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
                         required
                         type="text"
                         placeholder="e.g. Chicken Rice"
-                        className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
+                        className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-medium text-gray-700"
                         value={formData.name}
                         onChange={e => setFormData({ ...formData, name: e.target.value })}
                       />
@@ -352,27 +355,27 @@ const AdminMealPassPage = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Price *</label>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Price *</label>
                       <div className="relative">
                         <DollarSign size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                           required
                           type="text"
                           placeholder="Rs. 650"
-                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
+                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-medium text-gray-700"
                           value={formData.price}
                           onChange={e => setFormData({ ...formData, price: e.target.value })}
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Discount Label</label>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Discount Label</label>
                       <div className="relative">
                         <Tag size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                           type="text"
                           placeholder="100% Free"
-                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
+                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-medium text-gray-700"
                           value={formData.discount}
                           onChange={e => setFormData({ ...formData, discount: e.target.value })}
                         />
@@ -381,14 +384,14 @@ const AdminMealPassPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Canteen Location *</label>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Canteen Location *</label>
                     <div className="relative">
                       <MapPin size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <input
                         required
                         type="text"
                         placeholder="e.g. Main Canteen"
-                        className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
+                        className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-medium text-gray-700"
                         value={formData.canteen}
                         onChange={e => setFormData({ ...formData, canteen: e.target.value })}
                       />
@@ -398,11 +401,11 @@ const AdminMealPassPage = () => {
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Category *</label>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Category *</label>
                     <div className="relative">
                       <Layers size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                       <select
-                        className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700 appearance-none"
+                        className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-medium text-gray-700 appearance-none"
                         value={formData.category}
                         onChange={e => setFormData({ ...formData, category: e.target.value })}
                       >
@@ -414,7 +417,7 @@ const AdminMealPassPage = () => {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Upload Image</label>
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Upload Image</label>
                     <div
                       onClick={() => fileInputRef.current?.click()}
                       className="border-2 border-dashed border-gray-100 rounded-3xl p-6 flex flex-col items-center justify-center gap-3 hover:border-orange-200 hover:bg-orange-50/30 transition-all cursor-pointer group group-active:scale-[0.98]"
@@ -432,7 +435,7 @@ const AdminMealPassPage = () => {
                             <Upload size={20} />
                           </div>
                           <div className="text-center">
-                            <p className="text-[10px] font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest">Drop here or Click</p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Drop here or Click</p>
                           </div>
                         </>
                       )}
@@ -450,26 +453,26 @@ const AdminMealPassPage = () => {
                 <div className="md:col-span-2">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                      <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Tags (Comma Separated)</label>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Tags (Comma Separated)</label>
                       <div className="relative">
                         <Hash size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                         <input
                           type="text"
                           placeholder="Spicy, Popular, Veg"
-                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700"
+                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3.5 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-medium text-gray-700"
                           value={formData.tags}
                           onChange={e => setFormData({ ...formData, tags: e.target.value })}
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest mb-2">Description</label>
+                      <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Description</label>
                       <div className="relative">
                         <Info size={18} className="absolute left-4 top-3 text-gray-400" />
                         <textarea
                           placeholder="Enter meal details (optional)..."
                           rows="2"
-                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-['Gilroy_Medium'] text-gray-700 resize-none"
+                          className="w-full bg-gray-50 border border-transparent rounded-2xl py-3 pl-12 pr-4 outline-none focus:bg-white focus:border-orange-200 transition-all font-medium text-gray-700 resize-none"
                           value={formData.description}
                           onChange={e => setFormData({ ...formData, description: e.target.value })}
                         />
@@ -481,7 +484,7 @@ const AdminMealPassPage = () => {
                 <div className="md:col-span-2 pt-4 flex justify-end">
                   <button
                     type="submit"
-                    className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-10 py-4 rounded-2xl font-['Gilroy_Bold'] text-base hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/20 active:scale-[0.98] flex items-center justify-center gap-3"
+                    className="bg-gradient-to-r from-orange-500 to-orange-600 text-white px-10 py-4 rounded-2xl font-bold text-base hover:from-orange-600 hover:to-orange-700 transition-all shadow-lg shadow-orange-500/20 active:scale-[0.98] flex items-center justify-center gap-3"
                   >
                     <Save size={18} strokeWidth={2.5} />
                     <span>{editingPass ? 'Update Meal Pass' : 'Add Meal Pass'}</span>

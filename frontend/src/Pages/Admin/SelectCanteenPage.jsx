@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Store, CheckCircle2, ArrowRight, Lock, Search, Sparkles, Shield, ChevronRight, Clock3, MapPin, Star, LogOut } from 'lucide-react';
 import { toast } from 'react-toastify';
@@ -20,6 +20,7 @@ const getGreeting = (hour) => {
 
 const SelectCanteenPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, selectedCanteenId, setSelectedCanteen, logout } = useAuth();
   const [canteens, setCanteens] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -106,7 +107,9 @@ const SelectCanteenPage = () => {
     try {
       await canteenAPI.verifyPassword(pickedCanteen._id, canteenPassword.trim());
       setSelectedCanteen(pickedCanteen);
-      navigate('/admin/dashboard', { replace: true });
+      // Navigate to the intended destination or dashboard if not specified
+      const destination = location.state?.from || '/admin/dashboard';
+      navigate(destination, { replace: true });
     } catch (err) {
       toast.error(err.response?.data?.message || 'Invalid canteen password');
     }

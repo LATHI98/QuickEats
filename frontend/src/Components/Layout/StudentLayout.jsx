@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -18,15 +18,65 @@ import {
   MessageSquare,
   Ticket,
   CalendarCheck,
-  Salad
+  Salad,
+  WalletCards,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { cartAPI } from '../../services/api';
 
 const StudentLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [cartMeta, setCartMeta] = useState({ count: 0, total: 0 });
   const location = useLocation();
   const { user, logout } = useAuth();
+
+  const shouldShowFloatingCart = useMemo(() => !location.pathname.startsWith('/dashboard/cart'), [location.pathname]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const updateCartMeta = async () => {
+      try {
+        const res = await cartAPI.getCart();
+        const cartData = res?.data?.data || {};
+
+        const groups = Array.isArray(cartData.groups)
+          ? cartData.groups
+          : (Array.isArray(cartData.items)
+            ? [{ items: cartData.items, totalPrice: cartData.totalPrice || 0 }]
+            : []);
+
+        const count = groups.reduce((sum, group) => sum + (group.items || []).reduce((s, item) => s + Number(item.quantity || 0), 0), 0);
+        const total = groups.reduce((sum, group) => sum + Number(group.totalPrice || 0), 0);
+
+        if (mounted) {
+          setCartMeta({ count, total });
+        }
+      } catch {
+        if (mounted) {
+          setCartMeta({ count: 0, total: 0 });
+        }
+      }
+    };
+
+    const onFocus = () => updateCartMeta();
+    const onVisibility = () => {
+      if (!document.hidden) updateCartMeta();
+    };
+
+    updateCartMeta();
+    const interval = setInterval(updateCartMeta, 5000);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [location.pathname]);
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] flex font-['Gilroy_Medium']">
@@ -197,6 +247,33 @@ const StudentLayout = () => {
           <Outlet />
         </div>
       </main>
+
+      {shouldShowFloatingCart && (
+        <Link
+          to="/dashboard/cart"
+          className="fixed right-5 bottom-5 z-50 group"
+          aria-label="Open cart"
+        >
+          <div className="rounded-2xl border border-orange-200 bg-white shadow-xl shadow-orange-100/70 px-4 py-3 min-w-[140px] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-600 text-white flex items-center justify-center relative">
+                <WalletCards className="w-5 h-5" />
+                {cartMeta.count > 0 && (
+                  <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-gray-900 text-white text-[10px] font-['Gilroy_Heavy'] flex items-center justify-center">
+                    {cartMeta.count}
+                  </span>
+                )}
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-gray-400 font-['Gilroy_Heavy']">My Cart</p>
+                <p className="text-sm font-['Gilroy_Heavy'] text-gray-900">
+                  {cartMeta.count > 0 ? `LKR ${cartMeta.total.toLocaleString()}` : 'No items'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </Link>
+      )}
     </div>
   );
 };

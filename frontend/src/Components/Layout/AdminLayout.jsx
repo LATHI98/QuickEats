@@ -352,6 +352,7 @@ const AdminLayout = () => {
 const MenuLink = ({ to, icon: Icon, label, active, badge }) => (
   <Link
     to={to}
+    state={to === '/admin/menu' ? { from: '/admin/menu' } : undefined}
     className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group relative ${active
       ? 'bg-orange-50/70 text-gray-900'
       : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ShoppingBag, X, Clock, Hash, CheckCircle, ChefHat, Package, XCircle, CreditCard, RefreshCw, RotateCcw, QrCode, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { orderAPI, cartAPI } from '../../services/api';
+import { orderAPI, cartAPI, canteenAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 import { motion, AnimatePresence } from 'framer-motion';
+import { reorderOrderToCart } from '../../utils/reorder';
 
 const STATUS_CONFIG = {
   pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
@@ -268,12 +269,12 @@ const OrdersPage = () => {
   const handleReorder = async (order) => {
     setReorderingId(order._id);
     try {
-      // Add all items from the past order to cart
-      const promises = order.items.map(item =>
-        cartAPI.addItem(item.menuItem, item.quantity)
-      );
-      await Promise.all(promises);
-      toast.success('Successfully added items to cart! 🛒');
+      const result = await reorderOrderToCart({ order, cartAPI, canteenAPI });
+      if (result.skippedItems.length > 0) {
+        toast.warn(`Added ${result.addedCount} item(s). Skipped unavailable items: ${result.skippedItems.join(', ')}`);
+      } else {
+        toast.success('Successfully added items to cart! 🛒');
+      }
       navigate('/dashboard/cart');
     } catch (err) {
       toast.error('Could not reorder all items. Some may be unavailable.');

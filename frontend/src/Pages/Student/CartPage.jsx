@@ -7,6 +7,8 @@ import { toast } from 'react-toastify';
 const CartPage = () => {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
+  const [cartGroups, setCartGroups] = useState([]);
+  const [selectedCanteenId, setSelectedCanteenId] = useState('');
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
@@ -42,20 +44,31 @@ const CartPage = () => {
       if (activeSession && isCreator && activeSession.paymentMode === 'pay_together') {
         const mergedRes = await groupSessionAPI.getMergedCart(activeSession._id);
         currentCart = mergedRes.data?.data || { items: [], totalPrice: 0 };
+        currentCart.canteen = activeSession.canteen;
       } else {
         currentCart = cartRes.data?.data || { items: [], totalPrice: 0 };
       }
 
-      setCart(currentCart);
+      const groupsFromApi = Array.isArray(currentCart?.groups)
+        ? currentCart.groups
+        : (currentCart?.items?.length ? [{
+          canteen: currentCart.canteen || null,
+          items: currentCart.items,
+          totalPrice: currentCart.totalPrice || 0,
+        }] : []);
 
-      // Fetch recommended slots if we have a canteen
-      if (currentCart?.canteen?._id) {
-        const slotsRes = await queueAPI.getRecommendedSlots(currentCart.canteen._id).catch(() => ({ data: { data: [] } }));
-        setRecommendedSlots(slotsRes.data.data);
-        if (slotsRes.data.data?.length > 0) {
-          setSelectedSlot(slotsRes.data.data[1].time); // Default to Optimized
-        }
-      }
+      setCartGroups(groupsFromApi);
+
+      const selectedStillExists = groupsFromApi.some((g) => (g.canteen?._id || g.canteen) === selectedCanteenId);
+      const nextSelectedCanteenId = selectedStillExists
+        ? selectedCanteenId
+        : (groupsFromApi[0]?.canteen?._id || groupsFromApi[0]?.canteen || '');
+
+      setSelectedCanteenId(nextSelectedCanteenId || '');
+
+      const activeGroup = groupsFromApi.find((g) => (g.canteen?._id || g.canteen) === (nextSelectedCanteenId || '')) || groupsFromApi[0] || null;
+      setCart(activeGroup);
+
       if (activeSession && isCreator && activeSession.paymentMode === 'pay_separately') {
         const statusRes = await groupSessionAPI.getMemberStatus(activeSession._id).catch(() => ({ data: { data: [] } }));
         setMemberStatuses(statusRes.data.data || []);
@@ -65,7 +78,7 @@ const CartPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedCanteenId]);
 
   useEffect(() => { 
     fetchData(); 
@@ -77,6 +90,43 @@ const CartPage = () => {
 
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!cartGroups.length) {
+      setCart(null);
+      return;
+    }
+
+    const activeGroup = cartGroups.find((g) => (g.canteen?._id || g.canteen) === selectedCanteenId) || cartGroups[0];
+    setCart(activeGroup || null);
+  }, [cartGroups, selectedCanteenId]);
+
+  useEffect(() => {
+    const loadSlotsForSelectedCanteen = async () => {
+      if (!cart?.canteen) {
+        setRecommendedSlots([]);
+        setSelectedSlot(null);
+        return;
+      }
+
+      const canteenId = cart.canteen._id || cart.canteen;
+      const slotsRes = await queueAPI.getRecommendedSlots(canteenId).catch(() => ({ data: { data: [] } }));
+      const slots = slotsRes.data?.data || [];
+      setRecommendedSlots(slots);
+
+      if (!slots.length) {
+        setSelectedSlot(null);
+        return;
+      }
+
+      const stillValid = slots.some((slot) => slot.time === selectedSlot);
+      if (!stillValid) {
+        setSelectedSlot(slots[1]?.time || slots[0]?.time || null);
+      }
+    };
+
+    loadSlotsForSelectedCanteen();
+  }, [cart?.canteen, selectedSlot]);
 
   const handleUpdate = async (menuItemId, newQty) => {
     setUpdatingId(menuItemId);
@@ -213,6 +263,31 @@ const CartPage = () => {
         </div>
       ) : (
         <>
+          {cartGroups.length > 1 && (
+            <div className="mb-5 rounded-2xl border border-orange-100 bg-orange-50 p-3">
+              <p className="text-[11px] uppercase tracking-wider text-orange-500 font-extrabold mb-2">Canteens in your cart</p>
+              <div className="flex flex-wrap gap-2">
+                {cartGroups.map((group) => {
+                  const groupCanteenId = group.canteen?._id || group.canteen;
+                  const isActive = groupCanteenId === selectedCanteenId;
+                  return (
+                    <button
+                      key={groupCanteenId || group.canteen?.name || 'unknown-canteen'}
+                      type="button"
+                      onClick={() => setSelectedCanteenId(groupCanteenId || '')}
+                      className={`px-3 py-2 rounded-xl text-xs font-extrabold transition-colors ${isActive
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-white border border-orange-100 text-orange-700 hover:bg-orange-100'
+                        }`}
+                    >
+                      {(group.canteen?.name || 'Canteen')} · {group.items.length} item{group.items.length !== 1 ? 's' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Canteen name */}
           {cart?.canteen?.name && (
             <div className="flex items-center gap-2 mb-4 text-sm text-gray-500">

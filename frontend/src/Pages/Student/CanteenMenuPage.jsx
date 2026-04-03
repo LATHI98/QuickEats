@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, ShoppingCart, Plus, Minus, Search, UtensilsCrossed, CheckCircle, Star } from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Plus, Minus, Search, UtensilsCrossed, CheckCircle, Star, AlertCircle } from 'lucide-react';
 import { canteenAPI, cartAPI, queueAPI } from '../../services/api';
 import ReviewModal from '../../Components/ReviewModal';
 import { toast } from 'react-toastify';
@@ -20,6 +20,8 @@ const CanteenMenuPage = () => {
   const [recommendedSlots, setRecommendedSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '' });
+  const [crossCanteenPrompt, setCrossCanteenPrompt] = useState({ isOpen: false, item: null });
+  const [switchingCart, setSwitchingCart] = useState(false);
 
   // Fetch canteen info + menu + recommendations
   useEffect(() => {
@@ -86,21 +88,11 @@ const CanteenMenuPage = () => {
       setCart(prev => ({ ...prev, [item._id]: newQty }));
     } catch (err) {
       const message = err?.response?.data?.message || 'Failed to add item';
+      const code = err?.response?.data?.code;
 
-      if (message.includes('another canteen')) {
-        const shouldClear = window.confirm('Your cart contains items from another canteen. Clear that cart and add this item?');
-        if (shouldClear) {
-          try {
-            await cartAPI.clearCart();
-            await cartAPI.addItem(item._id, 1);
-            setCart({ [item._id]: 1 });
-            toast.success(`${item.name} added to cart`);
-            return;
-          } catch (retryErr) {
-            toast.error(retryErr?.response?.data?.message || 'Could not clear cart and add item');
-            return;
-          }
-        }
+      if (code === 'CROSS_CANTEEN_CART_CONFLICT' || message.includes('another canteen')) {
+        setCrossCanteenPrompt({ isOpen: true, item });
+        return;
       }
 
       toast.error(message);
@@ -108,6 +100,27 @@ const CanteenMenuPage = () => {
       setAddingId(null);
     }
   }, [cart]);
+
+  const handleConfirmSwitchCart = async () => {
+    const pendingItem = crossCanteenPrompt.item;
+    if (!pendingItem) {
+      setCrossCanteenPrompt({ isOpen: false, item: null });
+      return;
+    }
+
+    setSwitchingCart(true);
+    try {
+      await cartAPI.clearCart();
+      await cartAPI.addItem(pendingItem._id, 1);
+      setCart({ [pendingItem._id]: 1 });
+      toast.success(`${pendingItem.name} added to your new cart`);
+      setCrossCanteenPrompt({ isOpen: false, item: null });
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Could not switch cart and add this item');
+    } finally {
+      setSwitchingCart(false);
+    }
+  };
 
   const handleRemove = useCallback(async (item) => {
     const current = cart[item._id] || 0;
@@ -310,6 +323,60 @@ const CanteenMenuPage = () => {
         targetName={reviewModal.targetName}
         type="food"
       />
+
+      {crossCanteenPrompt.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="mt-0.5 w-10 h-10 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center">
+                <AlertCircle size={18} />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-gray-900">You already have items from another canteen</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  If you continue, we will start a new cart for <span className="font-extrabold text-gray-700">{canteen?.name || 'this canteen'}</span> and remove the current cart items.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 mb-5">
+              <p className="text-xs uppercase tracking-widest text-orange-500 font-extrabold">Selected item</p>
+              <p className="mt-1 text-sm font-extrabold text-gray-900">{crossCanteenPrompt.item?.name}</p>
+              <p className="text-xs text-gray-500 mt-1">Choose how you want to continue with your orders.</p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={handleConfirmSwitchCart}
+                disabled={switchingCart}
+                className="w-full rounded-xl bg-orange-600 hover:bg-orange-700 disabled:opacity-60 text-white py-3 text-sm font-extrabold transition-colors"
+              >
+                {switchingCart ? 'Switching cart...' : 'Yes, start a new order for this canteen'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setCrossCanteenPrompt({ isOpen: false, item: null });
+                  navigate('/dashboard/cart');
+                }}
+                className="w-full rounded-xl border border-gray-200 hover:bg-gray-50 text-gray-700 py-3 text-sm font-extrabold transition-colors"
+              >
+                Keep current cart and view it
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setCrossCanteenPrompt({ isOpen: false, item: null })}
+                className="w-full rounded-xl text-gray-500 hover:text-gray-700 py-2 text-xs font-extrabold uppercase tracking-wider transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

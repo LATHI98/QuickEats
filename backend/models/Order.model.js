@@ -21,6 +21,7 @@ const paymentSchema = new mongoose.Schema(
     stripePaymentIntentId: { type: String, default: null },
     stripeClientSecret: { type: String, default: null },
     cashVerificationCode: { type: String, default: null },
+    cashVerificationCodeIssuedAt: { type: Date, default: null },
     cashReceivedAmount: { type: Number, default: null },
     cashChangeAmount: { type: Number, default: null },
     verificationCodeUsed: { type: String, default: null },

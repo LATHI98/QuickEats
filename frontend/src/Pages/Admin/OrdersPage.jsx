@@ -219,7 +219,7 @@ const OrderDetailModal = ({ order, onClose, onStatusChange, onVerifyCash, onReje
   );
 };
 
-const CashVerificationModal = ({ order, form, errors, submitting, onChange, onClose, onSubmit }) => {
+const CashVerificationModal = ({ order, form, errors, submitting, onChange, onClose, onSubmit, latestCode, latestCodeIssuedAt, refreshingCode, onRefreshCode }) => {
   if (!order) return null;
 
   const amountRaw = String(form.amountReceived || '').trim();
@@ -272,6 +272,26 @@ const CashVerificationModal = ({ order, form, errors, submitting, onChange, onCl
         </div>
 
         <div className="space-y-4">
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2.5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-indigo-500 font-extrabold">Latest active code</p>
+              <p className="text-base font-extrabold text-indigo-700 tracking-[0.2em]">{latestCode || '------'}</p>
+              <p className="text-[10px] text-indigo-400 mt-0.5">
+                {latestCodeIssuedAt
+                  ? `Updated ${new Date(latestCodeIssuedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                  : 'Waiting for student cash code'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onRefreshCode}
+              disabled={refreshingCode}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-extrabold"
+            >
+              {refreshingCode ? 'Syncing...' : 'Sync Latest'}
+            </button>
+          </div>
+
           {/* Amount field */}
           <div>
             <label className="block text-xs uppercase tracking-widest text-gray-500 font-extrabold mb-2">Amount Received (LKR)</label>
@@ -1150,6 +1170,24 @@ const BillingBoard = ({ canteenId }) => {
   }, [date, canteenId]);
 
   useEffect(() => { fetchBilling(); }, [fetchBilling]);
+  useEffect(() => {
+    if (!canteenId) return;
+
+    const handleWindowFocus = () => fetchBilling(true);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) fetchBilling(true);
+    };
+
+    const interval = setInterval(() => fetchBilling(true), ORDER_POLL_INTERVAL_MS);
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [canteenId, fetchBilling]);
 
   // Derived stats
   const stats = allOrders.reduce((acc, o) => {
@@ -1263,6 +1301,9 @@ const BillingBoard = ({ canteenId }) => {
                 <th className="px-4 py-3">Items</th>
                 <th className="px-4 py-3">Order Status</th>
                 <th className="px-4 py-3">Payment</th>
+                <th className="px-4 py-3">Payment Verified By</th>
+                <th className="px-4 py-3">Pickup</th>
+                <th className="px-4 py-3">Latest Activity</th>
                 <th className="px-4 py-3 text-right">Amount</th>
               </tr>
             </thead>
@@ -1271,6 +1312,13 @@ const BillingBoard = ({ canteenId }) => {
                 const ps = order.payment?.status || 'unpaid';
                 const pCfg = PAYMENT_STATUS[ps] || PAYMENT_STATUS.unpaid;
                 const sCfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+                const verifier = order.payment?.verifiedBy;
+                const pickupLabel = order.pickupVerified
+                  ? `Verified ${order.pickupVerifiedAt ? new Date(order.pickupVerifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`.trim()
+                  : 'Pending';
+                const latestActivity = Array.isArray(order.activityLogs) && order.activityLogs.length > 0
+                  ? [...order.activityLogs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]
+                  : null;
                 return (
                   <tr key={order._id} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-4 py-3 font-extrabold text-gray-700">#{order.queueNumber}</td>
@@ -1285,6 +1333,31 @@ const BillingBoard = ({ canteenId }) => {
                     <td className="px-4 py-3">
                       <PayBadge ps={ps} label={pCfg.label} />
                     </td>
+                    <td className="px-4 py-3">
+                      {verifier ? (
+                        <div>
+                          <p className="font-extrabold text-gray-800 leading-tight">{verifier.name || verifier.email || 'Staff'}</p>
+                          <p className="text-xs text-gray-400">{order.payment?.verifiedAt ? new Date(order.payment.verifiedAt).toLocaleString() : ''}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-gray-400">Not verified</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${order.pickupVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {pickupLabel}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {latestActivity ? (
+                        <div>
+                          <p className="text-xs font-extrabold uppercase tracking-wide text-gray-600">{String(latestActivity.action || 'updated').replaceAll('_', ' ')}</p>
+                          <p className="text-xs text-gray-400">{latestActivity.createdAt ? new Date(latestActivity.createdAt).toLocaleString() : ''}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-gray-400">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right font-extrabold text-orange-600">LKR {order.totalPrice?.toLocaleString()}</td>
                   </tr>
                 );
@@ -1292,7 +1365,7 @@ const BillingBoard = ({ canteenId }) => {
             </tbody>
             <tfoot>
               <tr className="bg-gray-50 border-t border-gray-100">
-                <td colSpan={5} className="px-4 py-3 text-xs font-extrabold text-gray-500 uppercase">Total Shown</td>
+                <td colSpan={8} className="px-4 py-3 text-xs font-extrabold text-gray-500 uppercase">Total Shown</td>
                 <td className="px-4 py-3 text-right font-extrabold text-gray-900">
                   LKR {filtered.reduce((s, o) => s + (o.totalPrice || 0), 0).toLocaleString()}
                 </td>
@@ -1348,6 +1421,9 @@ const AdminOrdersPage = () => {
   const [verificationForm, setVerificationForm] = useState({ amountReceived: '', verificationCode: '' });
   const [verificationErrors, setVerificationErrors] = useState({});
   const [verificationSubmitting, setVerificationSubmitting] = useState(false);
+  const [latestVerificationCode, setLatestVerificationCode] = useState('');
+  const [latestVerificationCodeIssuedAt, setLatestVerificationCodeIssuedAt] = useState(null);
+  const [verificationCodeRefreshing, setVerificationCodeRefreshing] = useState(false);
   const [pickupOrder, setPickupOrder] = useState(null);
   const [pickupForm, setPickupForm] = useState({ pickupCode: '' });
   const [pickupErrors, setPickupErrors] = useState({});
@@ -1360,6 +1436,17 @@ const AdminOrdersPage = () => {
   const [adminCancelSubmitting, setAdminCancelSubmitting] = useState(false);
   const [codeInputTouched, setCodeInputTouched] = useState(false);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
+
+  // Keep canteen context in sync after auth/session restore to avoid empty staff fetches.
+  useEffect(() => {
+    const nextCanteenId = isAdmin
+      ? (selectedCanteenId || localCanteenId || '')
+      : (assignedCanteenId || selectedCanteenId || '');
+
+    if (nextCanteenId !== localCanteenId) {
+      setLocalCanteenId(nextCanteenId);
+    }
+  }, [isAdmin, assignedCanteenId, selectedCanteenId, localCanteenId]);
 
   // Load canteens for admin only - trigger on mount
   useEffect(() => {
@@ -1467,6 +1554,22 @@ const AdminOrdersPage = () => {
     }
   };
 
+  const syncLatestCashCode = async (orderId) => {
+    if (!orderId) return;
+    setVerificationCodeRefreshing(true);
+    try {
+      const statusRes = await paymentAPI.getPaymentStatus(orderId);
+      const payment = statusRes.data?.data || {};
+      setLatestVerificationCode(payment?.cashVerificationCode || '');
+      setLatestVerificationCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || null);
+    } catch {
+      setLatestVerificationCode('');
+      setLatestVerificationCodeIssuedAt(null);
+    } finally {
+      setVerificationCodeRefreshing(false);
+    }
+  };
+
   const handleOpenVerifyCash = (order) => {
     setVerificationOrder(order);
     setVerificationForm({
@@ -1474,6 +1577,9 @@ const AdminOrdersPage = () => {
       verificationCode: '',
     });
     setVerificationErrors({});
+    setLatestVerificationCode('');
+    setLatestVerificationCodeIssuedAt(null);
+    syncLatestCashCode(order?._id);
   };
 
   const handleVerificationInputChange = (field, value) => {
@@ -1534,8 +1640,17 @@ const AdminOrdersPage = () => {
       const change = Math.max(0, amountReceived - (verificationOrder.totalPrice || 0));
       toast.success(`Cash payment verified${change > 0 ? ` · Change LKR ${change.toLocaleString()}` : ''}`);
       setVerificationOrder(null);
+      setLatestVerificationCode('');
+      setLatestVerificationCodeIssuedAt(null);
       fetchOrders(true);
     } catch (err) {
+      if (err?.response?.data?.code === 'PAYMENT_VERIFICATION_CODE_MISMATCH') {
+        setVerificationErrors((prev) => ({
+          ...prev,
+          verificationCode: 'Code mismatch. Ask the student for the latest regenerated code.',
+        }));
+        await syncLatestCashCode(verificationOrder._id);
+      }
       toast.error(err.response?.data?.message || 'Verification failed');
     } finally {
       setVerificationSubmitting(false);
@@ -1849,8 +1964,16 @@ const AdminOrdersPage = () => {
         form={verificationForm}
         errors={verificationErrors}
         submitting={verificationSubmitting}
+        latestCode={latestVerificationCode}
+        latestCodeIssuedAt={latestVerificationCodeIssuedAt}
+        refreshingCode={verificationCodeRefreshing}
+        onRefreshCode={() => syncLatestCashCode(verificationOrder?._id)}
         onChange={handleVerificationInputChange}
-        onClose={() => setVerificationOrder(null)}
+        onClose={() => {
+          setVerificationOrder(null);
+          setLatestVerificationCode('');
+          setLatestVerificationCodeIssuedAt(null);
+        }}
         onSubmit={handleConfirmVerifyCash}
       />
 

@@ -80,14 +80,15 @@ export const archiveAndResetBudget = async (req, res) => {
     });
     await history.save();
 
-    // 5. Clear current expenses for this user
+    // 5. Clear current expenses for this user (Optionally we keep them in DB but mark them as reset, but here we delete them)
     await Expense.deleteMany({ userId });
 
-    // 6. Reset budget amount to 0
+    // 6. Reset budget amount to 0 and record reset time
     budget.amount = 0;
+    budget.lastResetAt = new Date();
     await budget.save();
 
-    res.status(200).json({ message: 'Budget archived and reset successfully', history });
+    res.status(200).json({ message: 'Budget cycle archived successfully', history });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

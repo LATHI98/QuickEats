@@ -71,7 +71,7 @@ const MealBudgetPage = () => {
       if (day < 1 || day > totalDays) return null;
       const dateStr = new Date(year, month, day).toDateString();
       const dayExpenses = manualExpenses.filter(e => new Date(e.date).toDateString() === dateStr);
-      const dayPasses = myPasses.filter(p => new Date(p.purchaseDate).toDateString() === dateStr);
+      const dayPasses = myPasses.filter(p => new Date(p.issuedAt || p.createdAt).toDateString() === dateStr);
       return { 
         day, 
         hasActivity: dayExpenses.length > 0 || dayPasses.length > 0,
@@ -81,8 +81,15 @@ const MealBudgetPage = () => {
   }, [currentDate, manualExpenses, myPasses]);
 
   const totals = useMemo(() => {
-    const totalSpent = myPasses.reduce((sum, p) => sum + (p.price || 0), 0) + 
-                       manualExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+    // Determine the start of this cycle
+    const lastResetDate = budget.lastResetAt ? new Date(budget.lastResetAt) : new Date(0);
+
+    // Filter data that belongs ONLY to the current cycle
+    const currentExpenses = manualExpenses.filter(e => new Date(e.date).getTime() > lastResetDate.getTime());
+    const currentPasses = myPasses.filter(p => new Date(p.issuedAt || p.createdAt).getTime() > lastResetDate.getTime());
+
+    const totalSpent = currentPasses.reduce((sum, p) => sum + (p.price || 0), 0) + 
+                       currentExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
     const balance = Math.max(0, budget.amount - totalSpent);
     const percentage = budget.amount > 0 ? (totalSpent / budget.amount) * 100 : 0;
 
@@ -105,17 +112,17 @@ const MealBudgetPage = () => {
     }));
 
     const processedCategories = categoryMapping.map(cat => {
-      let spent = manualExpenses
+      let spent = currentExpenses
         .filter(e => e.category === cat.id)
         .reduce((sum, e) => sum + (e.amount || 0), 0);
       if (cat.id === 'Canteen Passes') {
-        spent += myPasses.reduce((sum, p) => sum + (p.price || 0), 0);
+        spent += currentPasses.reduce((sum, p) => sum + (p.price || 0), 0);
       }
       return { ...cat, spent };
     });
 
     return { totalSpent, balance, percentage, categories: processedCategories };
-  }, [myPasses, manualExpenses, budget]);
+  }, [myPasses, manualExpenses, budget, categoryTargets]);
 
   const handleSaveBudget = async (e) => {
     e.preventDefault();

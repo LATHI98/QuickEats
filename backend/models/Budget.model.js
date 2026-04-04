@@ -20,6 +20,10 @@ const budgetSchema = new mongoose.Schema({
   currency: {
     type: String,
     default: 'RS'
+  },
+  lastResetAt: {
+    type: Date,
+    default: Date.now
   }
 }, { timestamps: true });
 

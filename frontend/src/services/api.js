@@ -120,4 +120,15 @@ export const eventCateringAPI = {
   updatePackage: (packageId, payload) => api.patch(`/api/event-catering/packages/${packageId}`, payload),
 };
 
+// ── Support / Help / Tickets ───────────────────────────────────────────────
+export const supportAPI = {
+  getHelpContent: (params = {}) => api.get('/api/support/help', { params }),
+  getTickets: (params = {}) => api.get('/api/support/tickets', { params }),
+  createTicket: (payload) => api.post('/api/support/tickets', payload),
+  getTicketById: (ticketId) => api.get(`/api/support/tickets/${ticketId}`),
+  addTicketMessage: (ticketId, payload) => api.post(`/api/support/tickets/${ticketId}/messages`, payload),
+  updateTicketStatus: (ticketId, payload) => api.patch(`/api/support/tickets/${ticketId}/status`, payload),
+  chatSupport: (payload) => api.post('/api/support/chat', payload),
+};
+
 export default api;

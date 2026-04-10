@@ -20,6 +20,7 @@ import {
   Grid3x3,
   Calendar,
   BriefcaseBusiness,
+  LifeBuoy,
 } from 'lucide-react';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -246,6 +247,12 @@ const AdminLayout = () => {
                   icon={Settings}
                   label="Settings"
                   active={location.pathname === '/admin/settings'}
+                />
+                <MenuLink
+                  to="/admin/help"
+                  icon={LifeBuoy}
+                  label="Help Center"
+                  active={location.pathname === '/admin/help'}
                 />
               </nav>
             </div>

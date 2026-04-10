@@ -21,6 +21,7 @@ import {
   Salad,
   WalletCards,
   BriefcaseBusiness,
+  LifeBuoy,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cartAPI } from '../../services/api';
@@ -151,6 +152,7 @@ const StudentLayout = () => {
               <nav className="space-y-1">
                 <MenuLink to="/dashboard/profile" icon={User} label="My Profile" active={location.pathname === '/dashboard/profile'} />
                 <MenuLink to="/dashboard/settings" icon={Settings} label="Settings" active={location.pathname === '/dashboard/settings'} />
+                <MenuLink to="/dashboard/help" icon={LifeBuoy} label="Help Center" active={location.pathname === '/dashboard/help'} />
               </nav>
             </div>
           </div>

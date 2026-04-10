@@ -69,3 +69,38 @@ export const sendCancellationEmail = async (email, order, reason = '') => {
         `,
     });
 };
+
+export const sendCateringStatusEmail = async ({ email, eventName, status, quoteTotal = null, canteenName = 'the canteen', note = '' }) => {
+    if (!email) return;
+
+    const subject = `QuickEats Catering Update: ${eventName} is now ${status}`;
+    const quoteLine = quoteTotal != null ? `<p><b>Latest Quote:</b> LKR ${Number(quoteTotal).toLocaleString()}</p>` : '';
+    const noteLine = note ? `<p><b>Note:</b> ${note}</p>` : '';
+
+    if (!process.env.EMAIL_USER) {
+        console.log('--- MOCK EMAIL ---');
+        console.log(`To: ${email}`);
+        console.log(`Subject: ${subject}`);
+        console.log(`Event: ${eventName}`);
+        console.log(`Status: ${status}`);
+        if (quoteTotal != null) console.log(`Quote: LKR ${Number(quoteTotal).toLocaleString()}`);
+        if (note) console.log(`Note: ${note}`);
+        console.log('------------------');
+        return;
+    }
+
+    await transporter.sendMail({
+        from: '"QuickEats" <noreply@quickeats.com>',
+        to: email,
+        subject,
+        html: `
+            <h3>Catering Request Update</h3>
+            <p>Your event <b>${eventName}</b> at <b>${canteenName}</b> has been updated.</p>
+            <p><b>Status:</b> ${status}</p>
+            ${quoteLine}
+            ${noteLine}
+            <p>Open QuickEats to view full request details.</p>
+            <p>Thank you,<br/>QuickEats Team</p>
+        `,
+    });
+};

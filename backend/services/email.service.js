@@ -104,3 +104,85 @@ export const sendCateringStatusEmail = async ({ email, eventName, status, quoteT
         `,
     });
 };
+
+export const sendSupportTicketCreatedEmail = async (email, ticket) => {
+    if (!email || !ticket) return;
+
+    const subject = `QuickEats Support Ticket Created: ${ticket.subject}`;
+
+    if (!process.env.EMAIL_USER) {
+        console.log('--- MOCK EMAIL ---');
+        console.log(`To: ${email}`);
+        console.log(`Subject: ${subject}`);
+        console.log(`Ticket: ${ticket._id}`);
+        console.log('------------------');
+        return;
+    }
+
+    await transporter.sendMail({
+        from: '"QuickEats" <noreply@quickeats.com>',
+        to: email,
+        subject,
+        html: `
+            <h3>Support Ticket Created</h3>
+            <p>Your ticket <b>${ticket.subject}</b> has been created.</p>
+            <p><b>Status:</b> ${ticket.status}</p>
+            <p><b>Category:</b> ${ticket.category}</p>
+            <p>We will update you in the app as soon as a support agent responds.</p>
+        `,
+    });
+};
+
+export const sendSupportTicketReplyEmail = async (email, ticket, replyText = '') => {
+    if (!email || !ticket) return;
+
+    const subject = `QuickEats Support Reply: ${ticket.subject}`;
+
+    if (!process.env.EMAIL_USER) {
+        console.log('--- MOCK EMAIL ---');
+        console.log(`To: ${email}`);
+        console.log(`Subject: ${subject}`);
+        console.log(`Reply: ${replyText}`);
+        console.log('------------------');
+        return;
+    }
+
+    await transporter.sendMail({
+        from: '"QuickEats" <noreply@quickeats.com>',
+        to: email,
+        subject,
+        html: `
+            <h3>Support Ticket Reply</h3>
+            <p>Your ticket <b>${ticket.subject}</b> has a new reply.</p>
+            ${replyText ? `<p><b>Reply:</b> ${replyText}</p>` : ''}
+            <p>Open QuickEats to continue the conversation.</p>
+        `,
+    });
+};
+
+export const sendSupportTicketResolvedEmail = async (ticket, actor = null) => {
+    const requesterEmail = ticket?.requester?.email || ticket?.requesterEmail || null;
+    if (!requesterEmail || !ticket) return;
+
+    const subject = `QuickEats Support Ticket Resolved: ${ticket.subject}`;
+
+    if (!process.env.EMAIL_USER) {
+        console.log('--- MOCK EMAIL ---');
+        console.log(`To: ${requesterEmail}`);
+        console.log(`Subject: ${subject}`);
+        console.log(`ResolvedBy: ${actor?.email || 'system'}`);
+        console.log('------------------');
+        return;
+    }
+
+    await transporter.sendMail({
+        from: '"QuickEats" <noreply@quickeats.com>',
+        to: requesterEmail,
+        subject,
+        html: `
+            <h3>Support Ticket Resolved</h3>
+            <p>Your ticket <b>${ticket.subject}</b> is now <b>${ticket.status}</b>.</p>
+            <p>If you still need help, reply in the app and we will reopen the conversation.</p>
+        `,
+    });
+};

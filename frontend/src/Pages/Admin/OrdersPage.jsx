@@ -1413,12 +1413,18 @@ const PayBadge = ({ ps, label }) => (
   <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${PAY_BADGE_STYLES[ps] || 'bg-gray-100 text-gray-500'}`}>{label}</span>
 );
 
+const resolveCanteenId = (canteen) => {
+  if (!canteen) return '';
+  if (typeof canteen === 'string') return canteen;
+  return canteen._id || canteen.id || '';
+};
+
 
 
 const AdminOrdersPage = () => {
   const { user, selectedCanteenId, selectedCanteenName } = useAuth();
-  const assignedCanteenId = typeof user?.canteen === 'object' ? user?.canteen?._id : user?.canteen;
-  const isAdmin = user?.role === 'admin';
+  const assignedCanteenId = resolveCanteenId(user?.canteen);
+  const isAdmin = ['admin', 'superAdmin'].includes(user?.role);
   const [localCanteenId, setLocalCanteenId] = useState(selectedCanteenId || assignedCanteenId || '');
   const [canteens, setCanteens] = useState([]);
   const canteenId = localCanteenId;
@@ -1488,15 +1494,15 @@ const AdminOrdersPage = () => {
     }
   }, [isAdmin]);
 
-  // Fetch orders when canteen is selected
+  // Fetch orders for admin even without canteen filter (all-canteen mode).
   useEffect(() => {
-    if (isAdmin && canteenId) {
+    if (isAdmin) {
       fetchOrders();
     }
   }, [canteenId, isAdmin]);
 
   const fetchOrders = useCallback(async (silent = false) => {
-    if (!canteenId) {
+    if (!canteenId && !isAdmin) {
       setOrders([]);
       setLoading(false);
       setRefreshing(false);
@@ -1506,17 +1512,28 @@ const AdminOrdersPage = () => {
     else setRefreshing(true);
     try {
       const params = {};
-      params.canteen = canteenId;
+      if (canteenId) params.canteen = canteenId;
       if (statusFilter) params.status = statusFilter;
       const res = await orderAPI.getCanteenOrders(params);
       setOrders(res.data.data || []);
     } catch (err) {
+      const code = err?.response?.data?.code;
+
+      // Auto-recover from stale/invalid canteen context for staff sessions.
+      if (!isAdmin && (code === 'STAFF_CANTEEN_MISMATCH' || code === 'STAFF_CANTEEN_NOT_ASSIGNED')) {
+        const fallbackAssigned = resolveCanteenId(user?.canteen);
+        if (fallbackAssigned && fallbackAssigned !== canteenId) {
+          setLocalCanteenId(fallbackAssigned);
+          return;
+        }
+      }
+
       if (!silent) toast.error(err.response?.data?.message || 'Failed to load orders');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [statusFilter, canteenId]);
+  }, [statusFilter, canteenId, isAdmin, user?.canteen]);
 
   useEffect(() => { if (tab === 'orders') fetchOrders(); }, [fetchOrders, tab]);
   useEffect(() => {
@@ -1547,7 +1564,7 @@ const AdminOrdersPage = () => {
         return;
     }
     try {
-      await orderAPI.updateOrderStatus(orderId, status);
+      await orderAPI.updateOrderStatus(orderId, status, '', canteenId);
       toast.success(`Order marked as ${status}`);
       fetchOrders(true);
     } catch (err) {
@@ -1559,7 +1576,7 @@ const AdminOrdersPage = () => {
     if (!adminCancelOrder) return;
     setAdminCancelSubmitting(true);
     try {
-        await orderAPI.updateOrderStatus(adminCancelOrder._id, 'cancelled', adminCancelReason);
+      await orderAPI.updateOrderStatus(adminCancelOrder._id, 'cancelled', adminCancelReason, canteenId);
         toast.success('Order cancelled and student notified.');
         setAdminCancelOrder(null);
         fetchOrders(true);
@@ -1759,7 +1776,7 @@ const AdminOrdersPage = () => {
           <div>
             <h1 className="text-3xl font-extrabold text-gray-900">Orders Management</h1>
             <p className="text-gray-500 text-sm mt-1">
-              {isAdmin ? 'Select a canteen to view and manage orders' : 'Track, verify, and deliver orders in real time'}
+              {isAdmin ? 'Track all confirmed orders, or filter by a specific canteen' : 'Track, verify, and deliver orders in real time'}
             </p>
           </div>
 
@@ -1792,7 +1809,7 @@ const AdminOrdersPage = () => {
                 </div>
               </>
             )}
-            {tab === 'orders' && canteenId && (
+            {tab === 'orders' && (
               <button
                 onClick={() => fetchOrders(true)}
                 className={`p-2.5 rounded-xl border border-orange-100 bg-white hover:bg-orange-50 transition-colors ${refreshing ? 'animate-spin' : ''}`}
@@ -1840,7 +1857,7 @@ const AdminOrdersPage = () => {
                     onChange={(e) => setLocalCanteenId(e.target.value)}
                     className="w-full bg-white border-2 border-orange-300 px-4 py-3 rounded-xl text-base text-gray-900 font-extrabold focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer hover:border-orange-400 transition-colors"
                   >
-                    <option value="">-- Select a canteen to continue --</option>
+                    <option value="">All canteens</option>
                     {canteens.map(c => (
                       <option key={c._id} value={c._id}>
                         {c.name}
@@ -1860,21 +1877,8 @@ const AdminOrdersPage = () => {
         </div>
       )}
 
-      {/* Message when no canteen is selected */}
-      {isAdmin && !canteenId && canteens.length > 0 && (
-        <div className="mb-8 bg-blue-50 border-2 border-blue-200 rounded-2xl px-6 py-6">
-          <div className="flex items-start gap-3">
-            <AlertCircle size={20} className="text-blue-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="font-extrabold text-blue-900">Start by Selecting a Canteen</p>
-              <p className="text-sm text-blue-700 mt-0.5">Choose a canteen from the dropdown above to view orders, billing data, and manage the queue in real-time.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Only show tabs and content if canteen is selected or if not admin */}
-      {(canteenId || !isAdmin) && (
+      {/* Show tabs/content for all users; admin can use all-canteen mode for order flow. */}
+      {(
         <>
           {isAdmin && (
             <div className="mb-4 rounded-2xl border border-orange-100 bg-white px-4 py-3 shadow-sm flex flex-wrap items-center gap-2">
@@ -1939,7 +1943,7 @@ const AdminOrdersPage = () => {
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.22 }}
           >
-          {!canteenId && (
+          {!canteenId && !isAdmin && (
             <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               Select a canteen to enable order management
             </div>

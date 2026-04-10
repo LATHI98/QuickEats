@@ -50,8 +50,8 @@ export const orderAPI = {
   getMyOrderById: (orderId) => api.get(`/api/orders/my/${orderId}`),
   cancelOrder: (orderId) => api.patch(`/api/orders/${orderId}/cancel`),
   // Staff
-  getCanteenOrders: (params) => api.get('/api/orders/canteen', { params }),
-  updateOrderStatus: (orderId, status, reason = '') => api.patch(`/api/orders/${orderId}/status`, { status, reason }),
+  getCanteenOrders: (params = {}) => api.get('/api/orders/canteen', { params: { ...params, _ts: Date.now() } }),
+  updateOrderStatus: (orderId, status, reason = '', canteenId = '') => api.patch(`/api/orders/${orderId}/status`, { status, reason, canteenId }),
   verifyPickup: (orderId, payload) => api.post(`/api/orders/${orderId}/pickup-verify`, payload),
   pickupByCode: (pickupCode, qrValidated = true, canteenId = '') => api.post('/api/orders/pickup-by-code', { pickupCode, qrValidated, canteenId }),
 };

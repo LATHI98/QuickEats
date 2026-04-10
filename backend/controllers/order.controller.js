@@ -474,12 +474,13 @@ export const getMyOrderById = async (req, res) => {
 export const getCanteenOrders = async (req, res) => {
   try {
     const isElevated = isElevatedOpsRole(req.user.role);
+    const isGlobalViewer = isAdminRole(req.user.role);
 
-    // Staff must use their assigned canteen; elevated roles must provide canteen context
+    // Staff must use their assigned canteen; admins can optionally view all canteens.
     let canteenId;
     if (isElevated) {
       canteenId = req.query.canteen || null;
-      if (!canteenId) {
+      if (!canteenId && !isGlobalViewer) {
         return res.status(400).json({
           success: false,
           code: 'CANTEEN_CONTEXT_REQUIRED',
@@ -490,6 +491,8 @@ export const getCanteenOrders = async (req, res) => {
       const assignedCanteenId = req.user.canteen ? req.user.canteen.toString() : '';
       const requestedCanteenId = req.query.canteen || '';
 
+      // For non-elevated staff, always lock listing to assigned canteen when available.
+      // This avoids stale UI context accidentally hiding newly placed orders.
       canteenId = assignedCanteenId || requestedCanteenId || null;
 
       if (!canteenId) {
@@ -500,12 +503,8 @@ export const getCanteenOrders = async (req, res) => {
         });
       }
 
-      if (assignedCanteenId && requestedCanteenId && assignedCanteenId !== requestedCanteenId) {
-        return res.status(403).json({
-          success: false,
-          code: 'STAFF_CANTEEN_MISMATCH',
-          message: 'You are not authorized for the selected canteen.',
-        });
+      if (assignedCanteenId) {
+        canteenId = assignedCanteenId;
       }
     }
 
@@ -537,7 +536,7 @@ export const getCanteenOrders = async (req, res) => {
 // PATCH /api/orders/:orderId/status  { status, reason }
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { status, reason } = req.body;
+    const { status, reason, canteenId: bodyCanteenId } = req.body;
     const validTransitions = {
       pending: ['preparing', 'cancelled'],
       preparing: ['ready'],
@@ -548,9 +547,13 @@ export const updateOrderStatus = async (req, res) => {
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     const isElevated = isElevatedOpsRole(req.user.role);
+    const orderCanteenId = order.canteen?._id?.toString() || order.canteen?.toString();
+    const assignedCanteenId = req.user?.canteen?.toString() || '';
+    const requestCanteenId = bodyCanteenId || resolveRequestCanteenId(req) || '';
+    const actorCanteenId = assignedCanteenId || requestCanteenId;
 
     // Enforce canteen ownership for non-elevated staff
-    if (!isElevated && order.canteen._id.toString() !== req.user.canteen?.toString()) {
+    if (!isElevated && (!actorCanteenId || orderCanteenId !== actorCanteenId)) {
       return res.status(403).json({ success: false, message: 'Not authorized for this canteen' });
     }
 

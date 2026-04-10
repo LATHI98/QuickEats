@@ -19,6 +19,7 @@ import {
   Ticket,
   Grid3x3,
   Calendar,
+  BriefcaseBusiness,
 } from 'lucide-react';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -144,6 +145,13 @@ const AdminLayout = () => {
                   label="Orders"
                   active={location.pathname === '/admin/orders'}
                 />
+                <MenuLink
+                  to="/admin/event-catering"
+                  icon={BriefcaseBusiness}
+                  label="Event Catering"
+                  active={location.pathname === '/admin/event-catering'}
+                  badge="New"
+                />
                 {user?.role === 'canteenStaff' && (
                   <MenuLink
                     to="/admin/meal-pass"
@@ -206,6 +214,12 @@ const AdminLayout = () => {
                   label="Staff Dashboard"
                   active={location.pathname === '/admin/staff'}
                   badge={user?.role === 'canteenStaff' ? 'You' : undefined}
+                />
+                <MenuLink
+                  to="/admin/event-catering"
+                  icon={BriefcaseBusiness}
+                  label="Event Catering"
+                  active={location.pathname === '/admin/event-catering'}
                 />
                 <MenuLink
                   to="/admin/meal-pass"

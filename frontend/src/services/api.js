@@ -92,4 +92,32 @@ export const groupSessionAPI = {
   getMemberStatus: (id) => api.get(`/api/group-sessions/${id}/member-status`),
 };
 
+// ── Event Catering ───────────────────────────────────────────────────────────
+export const eventCateringAPI = {
+  // Student side
+  createRequest: (payload) => api.post('/api/event-catering/requests', payload),
+  getMyRequests: (params) => api.get('/api/event-catering/requests/my', { params }),
+  getMyRequestById: (requestId) => api.get(`/api/event-catering/requests/my/${requestId}`),
+  confirmQuote: (requestId) => api.post(`/api/event-catering/requests/${requestId}/confirm-quote`),
+
+  // Staff/Admin side
+  getCanteenRequests: (params) => api.get('/api/event-catering/requests/canteen', { params }),
+  updateQuote: (requestId, payload) => api.patch(`/api/event-catering/requests/${requestId}/quote`, payload),
+  updateStatus: (requestId, status, reason = '') => api.patch(`/api/event-catering/requests/${requestId}/status`, { status, reason }),
+  updatePayment: (requestId, payload) => api.patch(`/api/event-catering/requests/${requestId}/payment`, payload),
+  verifyPaymentSubmission: (requestId, payload) => api.patch(`/api/event-catering/requests/${requestId}/payment/verify`, payload),
+  createPaymentPortal: (requestId) => api.post(`/api/event-catering/requests/${requestId}/payment/portal`),
+  confirmPaymentPortal: (requestId, sessionId) => api.post(`/api/event-catering/requests/${requestId}/payment/portal/confirm`, { sessionId }),
+  createStripeIntent: (requestId) => api.post(`/api/event-catering/requests/${requestId}/payment/stripe/create-intent`),
+  confirmStripePayment: (requestId, paymentIntentId) => api.post(`/api/event-catering/requests/${requestId}/payment/stripe/confirm`, { paymentIntentId }),
+  uploadReceipt: (requestId, formData) => api.post(`/api/event-catering/requests/${requestId}/payment/receipt`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+
+  // Package management
+  getPackages: (params) => api.get('/api/event-catering/packages', { params }),
+  createPackage: (payload) => api.post('/api/event-catering/packages', payload),
+  updatePackage: (packageId, payload) => api.patch(`/api/event-catering/packages/${packageId}`, payload),
+};
+
 export default api;

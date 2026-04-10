@@ -35,6 +35,7 @@ import queueRoutes from './routes/queue.routes.js';
 import tableRoutes from './routes/table.routes.js';
 import reservationRoutes from './routes/reservation.routes.js';
 import eventCateringRoutes from './routes/eventCatering.routes.js';
+import supportRoutes from './routes/support.routes.js';
 import { stripeWebhook } from './controllers/payment.controller.js';
 
 import mealPassRoutes from './routes/mealPass.routes.js';
@@ -285,6 +286,7 @@ app.use('/api/queue', queueRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/reservations', reservationRoutes);
 app.use('/api/event-catering', eventCateringRoutes);
+app.use('/api/support', supportRoutes);
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

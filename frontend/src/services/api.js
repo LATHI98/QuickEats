@@ -91,4 +91,10 @@ export const groupSessionAPI = {
   getMemberStatus: (id) => api.get(`/api/group-sessions/${id}/member-status`),
 };
 
+// ── Crowd Monitoring ─────────────────────────────────────────────────────────
+export const crowdAPI = {
+  getLatest: () => api.get('/api/crowd'),
+  create: (count, timestamp = new Date().toISOString()) => api.post('/api/crowd', { count, timestamp }),
+};
+
 export default api;

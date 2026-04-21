@@ -18,7 +18,8 @@ import {
   MessageSquare,
   Ticket,
   CalendarCheck,
-  Salad
+  Salad,
+  Radar
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -68,6 +69,7 @@ const StudentLayout = () => {
                 <MenuLink to="/dashboard" icon={Home} label="Dashboard" active={location.pathname === '/dashboard'} />
                 <MenuLink to="/dashboard/orders" icon={ClipboardList} label="My Order" active={location.pathname === '/dashboard/orders'} />
                 <MenuLink to="/dashboard/canteens" icon={Utensils} label="Canteens" active={location.pathname === '/dashboard/canteens'} />
+                <MenuLink to="/dashboard/crowd" icon={Radar} label="Live Crowd" active={location.pathname === '/dashboard/crowd'} />
                 <MenuLink to="/dashboard/group-order" icon={Users} label="Group Order" active={location.pathname === '/dashboard/group-order'} badge="New" />
               </nav>
             </div>

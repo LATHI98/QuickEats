@@ -43,6 +43,7 @@ import MealPassPage from './Pages/Student/MealPassPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
 import HealthMealPlanPage from './Pages/Student/HealthMealPlanPage';
 import GroupOrderHub from './Pages/Student/GroupOrderHub';
+import CrowdMonitorPage from './Pages/Student/CrowdMonitorPage';
 
 const AdminDashboardSelector = () => {
   const { user } = useAuth();
@@ -77,6 +78,7 @@ function App() {
             <Route path="meal-plan" element={<HealthMealPlanPage />} />
             <Route path="profile" element={<ProfilePage />} />
             <Route path="group-order" element={<GroupOrderHub />} />
+            <Route path="crowd" element={<CrowdMonitorPage />} />
           </Route>
         </Route>
 

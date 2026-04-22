@@ -51,6 +51,8 @@ const canteenSchema = new mongoose.Schema({
     select: false,
     default: '',
   },
+  isOpen: { type: Boolean, default: true },
+  notice: { type: String, trim: true, default: '' },
 }, {
   timestamps: true,
 });

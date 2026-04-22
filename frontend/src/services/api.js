@@ -32,6 +32,12 @@ export const canteenAPI = {
   getById: (id) => api.get(`/api/canteens/${id}`),
   getMenu: (id, params) => api.get(`/api/canteens/${id}/menu`, { params }),
   verifyPassword: (id, canteenPassword) => api.post(`/api/canteens/${id}/verify-password`, { canteenPassword }),
+  updateSettings: (id, data) => api.patch(`/api/canteens/${id}/settings`, data),
+};
+
+export const systemAPI = {
+  getConfig: () => api.get('/api/system/config'),
+  updateConfig: (data) => api.patch('/api/system/config', data),
 };
 
 // ── Cart ─────────────────────────────────────────────────────────────────────

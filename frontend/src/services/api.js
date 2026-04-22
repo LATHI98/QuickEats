@@ -129,6 +129,7 @@ export const supportAPI = {
   addTicketMessage: (ticketId, payload) => api.post(`/api/support/tickets/${ticketId}/messages`, payload),
   updateTicketStatus: (ticketId, payload) => api.patch(`/api/support/tickets/${ticketId}/status`, payload),
   chatSupport: (payload) => api.post('/api/support/chat', payload),
+  broadcastStaffNotification: (payload) => api.post('/api/support/notify-staff', payload),
 };
 
 export default api;

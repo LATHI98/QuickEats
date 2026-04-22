@@ -20,6 +20,8 @@ import {
   CalendarCheck,
   Salad,
   WalletCards,
+  BriefcaseBusiness,
+  LifeBuoy,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { cartAPI } from '../../services/api';
@@ -122,6 +124,13 @@ const StudentLayout = () => {
                 <MenuLink to="/dashboard/orders" icon={ClipboardList} label="My Order" active={location.pathname === '/dashboard/orders'} />
                 <MenuLink to="/dashboard/canteens" icon={Utensils} label="Canteens" active={location.pathname === '/dashboard/canteens'} />
                 <MenuLink to="/dashboard/group-order" icon={Users} label="Group Order" active={location.pathname === '/dashboard/group-order'} badge="New" />
+                <MenuLink
+                  to="/dashboard/event-catering"
+                  icon={BriefcaseBusiness}
+                  label="Event Catering"
+                  active={location.pathname === '/dashboard/event-catering'}
+                  badge="New"
+                />
               </nav>
             </div>
 
@@ -143,6 +152,7 @@ const StudentLayout = () => {
               <nav className="space-y-1">
                 <MenuLink to="/dashboard/profile" icon={User} label="My Profile" active={location.pathname === '/dashboard/profile'} />
                 <MenuLink to="/dashboard/settings" icon={Settings} label="Settings" active={location.pathname === '/dashboard/settings'} />
+                <MenuLink to="/dashboard/help" icon={LifeBuoy} label="Help Center" active={location.pathname === '/dashboard/help'} />
               </nav>
             </div>
           </div>

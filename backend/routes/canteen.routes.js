@@ -10,6 +10,7 @@ import {
   deleteCanteenMenuItem,
   updateCanteen,
   deleteCanteen,
+  updateCanteenSettings,
 } from '../controllers/canteen.controller.js';
 import { protect, authorize } from '../middleware/auth.middleware.js';
 
@@ -28,5 +29,8 @@ router.delete('/:id/menu/:menuItemId', protect, authorize('superAdmin', 'admin',
 router.post('/', protect, authorize('superAdmin', 'admin'), createCanteen);
 router.put('/:id', protect, authorize('superAdmin', 'admin'), updateCanteen);
 router.delete('/:id', protect, authorize('superAdmin', 'admin'), deleteCanteen);
+
+// Canteen manager can update operational fields of their assigned canteen
+router.patch('/:id/settings', protect, authorize('canteenManager', 'admin', 'superAdmin'), updateCanteenSettings);
 
 export default router;

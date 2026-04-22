@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  User, Mail, Phone, Lock, Shield, AlertTriangle,
+  User, Mail, Phone, Hash, Lock, Shield, AlertTriangle,
   Eye, EyeOff, Save, Trash2, CheckCircle2, XCircle,
-  ChefHat, Settings, Loader2, KeyRound, Crown,
-  ShieldCheck, LogOut, Store,
+  GraduationCap, Users, Settings, Loader2, KeyRound,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -18,95 +17,46 @@ const TABS = [
 ];
 
 const ROLE_CONFIG = {
-  canteenStaff: {
-    label: 'Canteen Staff',
-    icon: ChefHat,
-    accent: 'bg-emerald-50 border-emerald-100 text-emerald-800',
-    iconColor: 'text-emerald-600',
-    badgeBg: 'bg-emerald-100',
-    description: 'Operational role for order management and meal pass verification at your assigned canteen.',
-    features: [
-      { label: 'View and manage incoming orders', available: true },
-      { label: 'Update order statuses', available: true },
-      { label: 'Meal pass verification', available: true },
-      { label: 'Staff dashboard access', available: true },
-      { label: 'View canteen reservations', available: true },
-      { label: 'Event catering coordination', available: true },
-      { label: 'Urgent notification broadcasts', available: false },
-      { label: 'Canteen configuration', available: false },
-      { label: 'Menu management', available: false },
-      { label: 'User management', available: false },
-      { label: 'System administration', available: false },
-    ],
-    canDelete: true,
-    dangerNote: 'Deleting your account will remove your access to this canteen and all associated activity logs.',
-  },
-  canteenManager: {
-    label: 'Canteen Manager',
-    icon: Store,
-    accent: 'bg-blue-50 border-blue-100 text-blue-800',
+  student: {
+    label: 'Student',
+    icon: GraduationCap,
+    accent: 'bg-blue-50 border-blue-100 text-blue-700',
     iconColor: 'text-blue-600',
-    badgeBg: 'bg-blue-100',
-    description: 'Full canteen operational control including configuration, menus, tables, and staff oversight.',
+    description: 'Standard campus student account with full ordering, tracking, and budget features.',
     features: [
-      { label: 'View and manage incoming orders', available: true },
-      { label: 'Canteen configuration', available: true },
-      { label: 'Menu and item management', available: true },
-      { label: 'Table and reservation management', available: true },
-      { label: 'Meal pass management', available: true },
-      { label: 'Event catering management', available: true },
-      { label: 'Staff dashboard & oversight', available: true },
-      { label: 'Support ticket management', available: true },
-      { label: 'Urgent notification broadcasts', available: false },
-      { label: 'User management', available: false },
-      { label: 'System administration', available: false },
+      { label: 'Browse & order from canteens', available: true },
+      { label: 'Real-time order tracking', available: true },
+      { label: 'Meal budget management', available: true },
+      { label: 'Group ordering sessions', available: true },
+      { label: 'Table reservations', available: true },
+      { label: 'Event catering requests', available: true },
+      { label: 'Meal pass & digital passes', available: true },
+      { label: 'Health meal planning', available: true },
+      { label: 'Submit support tickets', available: true },
+      { label: 'Canteen staff dashboard', available: false },
+      { label: 'User administration', available: false },
+      { label: 'System settings', available: false },
     ],
-    canDelete: true,
-    dangerNote: 'Deleting your account will remove your canteen management access and all associated data.',
   },
-  admin: {
-    label: 'Administrator',
-    icon: ShieldCheck,
-    accent: 'bg-orange-50 border-orange-100 text-orange-800',
-    iconColor: 'text-orange-600',
-    badgeBg: 'bg-orange-100',
-    description: 'System-wide administrator with full canteen, user, and operational management capabilities.',
-    features: [
-      { label: 'All canteen management', available: true },
-      { label: 'User management & creation', available: true },
-      { label: 'Orders and reservations oversight', available: true },
-      { label: 'Menu and item management', available: true },
-      { label: 'Event catering tracking', available: true },
-      { label: 'Meal pass approvals', available: true },
-      { label: 'Support ticket management', available: true },
-      { label: 'Urgent staff notification broadcast', available: true },
-      { label: 'Canteen-specific analytics', available: true },
-      { label: 'Role assignment for all users', available: false },
-    ],
-    canDelete: false,
-    dangerNote: null,
-  },
-  superAdmin: {
-    label: 'Super Administrator',
-    icon: Crown,
-    accent: 'bg-purple-50 border-purple-100 text-purple-800',
+  universityStaff: {
+    label: 'University Staff',
+    icon: Users,
+    accent: 'bg-purple-50 border-purple-100 text-purple-700',
     iconColor: 'text-purple-600',
-    badgeBg: 'bg-purple-100',
-    description: 'Full platform authority including user role assignment, system configuration, and all admin capabilities.',
+    description: 'University staff account with the same ordering capabilities as students.',
     features: [
-      { label: 'All canteen management', available: true },
-      { label: 'User management & role assignment', available: true },
-      { label: 'Orders and reservations oversight', available: true },
-      { label: 'Full menu management', available: true },
-      { label: 'Event catering tracking', available: true },
-      { label: 'Meal pass approvals', available: true },
-      { label: 'Support ticket management', available: true },
-      { label: 'Urgent staff notification broadcast', available: true },
-      { label: 'System-wide configuration', available: true },
-      { label: 'Create users with any role', available: true },
+      { label: 'Browse & order from canteens', available: true },
+      { label: 'Real-time order tracking', available: true },
+      { label: 'Meal budget management', available: true },
+      { label: 'Group ordering sessions', available: true },
+      { label: 'Table reservations', available: true },
+      { label: 'Event catering requests', available: true },
+      { label: 'Meal pass & digital passes', available: true },
+      { label: 'Submit support tickets', available: true },
+      { label: 'Canteen staff dashboard', available: false },
+      { label: 'Canteen management', available: false },
+      { label: 'User administration', available: false },
     ],
-    canDelete: false,
-    dangerNote: null,
   },
 };
 
@@ -117,10 +67,10 @@ const panelVariants = {
 };
 
 const SettingsPage = () => {
-  const { user, updateProfile, deleteAccount, logout } = useAuth();
+  const { user, updateProfile, deleteAccount } = useAuth();
   const [activeTab, setActiveTab] = useState('account');
 
-  const [accountForm, setAccountForm] = useState({ name: '', email: '', phoneNumber: '' });
+  const [accountForm, setAccountForm] = useState({ name: '', email: '', studentId: '', phoneNumber: '' });
   const [accountBusy, setAccountBusy] = useState(false);
 
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
@@ -129,13 +79,13 @@ const SettingsPage = () => {
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [logoutConfirm, setLogoutConfirm] = useState(false);
 
   useEffect(() => {
     if (user) {
       setAccountForm({
         name: user.name || '',
         email: user.email || '',
+        studentId: user.studentId || '',
         phoneNumber: user.phoneNumber || '',
       });
     }
@@ -195,10 +145,8 @@ const SettingsPage = () => {
     }
   };
 
-  const roleConfig = ROLE_CONFIG[user?.role] || ROLE_CONFIG.canteenStaff;
+  const roleConfig = ROLE_CONFIG[user?.role] || ROLE_CONFIG.student;
   const RoleIcon = roleConfig.icon;
-  const isAdminLevel = ['admin', 'superAdmin'].includes(user?.role);
-  const hasCanteen = Boolean(user?.canteen);
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4 font-['Gilroy_Medium']">
@@ -213,7 +161,7 @@ const SettingsPage = () => {
         </div>
         <div>
           <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900 tracking-tight">Settings</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage your account, security, and role access.</p>
+          <p className="text-sm text-gray-500 mt-0.5">Manage your account, security, and role information.</p>
         </div>
       </motion.div>
 
@@ -259,7 +207,7 @@ const SettingsPage = () => {
               <section className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-8">
                 <div className="mb-8">
                   <h2 className="text-xl font-['Gilroy_Heavy'] text-gray-900">Account Information</h2>
-                  <p className="text-sm text-gray-500 mt-1">Update your name, email, and contact details.</p>
+                  <p className="text-sm text-gray-500 mt-1">Update your personal details and contact information.</p>
                 </div>
                 <form onSubmit={handleAccountSave} className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -280,6 +228,14 @@ const SettingsPage = () => {
                         placeholder="your@email.com"
                       />
                     </Field>
+                    <Field label="Student / Staff ID" Icon={Hash}>
+                      <input
+                        value={accountForm.studentId}
+                        onChange={(e) => setAccountForm((f) => ({ ...f, studentId: e.target.value }))}
+                        className="settings-input"
+                        placeholder="e.g. CS/2021/001"
+                      />
+                    </Field>
                     <Field label="Phone Number" Icon={Phone}>
                       <input
                         type="tel"
@@ -289,19 +245,7 @@ const SettingsPage = () => {
                         placeholder="+94 7X XXX XXXX"
                       />
                     </Field>
-
-                    {hasCanteen && (
-                      <Field label="Canteen Assignment" Icon={Store}>
-                        <div className="settings-input cursor-not-allowed opacity-60 flex items-center gap-2">
-                          <Store size={14} className="text-gray-400 shrink-0" />
-                          <span className="text-gray-500 font-['Gilroy_Bold'] text-sm">
-                            Assigned — contact admin to change
-                          </span>
-                        </div>
-                      </Field>
-                    )}
                   </div>
-
                   <div className="flex justify-end pt-2">
                     <button
                       type="submit"
@@ -321,7 +265,7 @@ const SettingsPage = () => {
               <section className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-8">
                 <div className="mb-8">
                   <h2 className="text-xl font-['Gilroy_Heavy'] text-gray-900">Change Password</h2>
-                  <p className="text-sm text-gray-500 mt-1">Keep your account secure with a strong password.</p>
+                  <p className="text-sm text-gray-500 mt-1">Use a strong, unique password to keep your account safe.</p>
                 </div>
                 <form onSubmit={handlePasswordChange} className="space-y-5 max-w-md">
                   <PwField
@@ -364,18 +308,14 @@ const SettingsPage = () => {
               <section className="bg-white rounded-[32px] border border-gray-100 shadow-sm p-8 space-y-8">
                 <div>
                   <h2 className="text-xl font-['Gilroy_Heavy'] text-gray-900">Access & Role</h2>
-                  <p className="text-sm text-gray-500 mt-1">Your assigned role and the capabilities it grants.</p>
+                  <p className="text-sm text-gray-500 mt-1">Your current role and what you can access in QuickEats.</p>
                 </div>
 
-                <div className={`flex items-start gap-4 rounded-2xl border px-5 py-4 ${roleConfig.accent}`}>
-                  <div className={`p-2 rounded-xl ${roleConfig.badgeBg} shrink-0`}>
-                    <RoleIcon size={20} className={roleConfig.iconColor} />
-                  </div>
+                <div className={`inline-flex items-center gap-3 rounded-2xl border px-5 py-3 ${roleConfig.accent}`}>
+                  <RoleIcon size={20} className={roleConfig.iconColor} />
                   <div>
-                    <p className="font-['Gilroy_Heavy'] text-base">{roleConfig.label}</p>
-                    <p className="text-xs opacity-70 font-['Gilroy_Medium'] mt-0.5 leading-relaxed">
-                      {roleConfig.description}
-                    </p>
+                    <p className="font-['Gilroy_Heavy'] text-sm">{roleConfig.label}</p>
+                    <p className="text-xs opacity-70 font-['Gilroy_Medium'] mt-0.5">{roleConfig.description}</p>
                   </div>
                 </div>
 
@@ -395,130 +335,67 @@ const SettingsPage = () => {
                     </div>
                   ))}
                 </div>
-
-                {isAdminLevel && (
-                  <div className="rounded-2xl border border-blue-100 bg-blue-50/40 px-5 py-4">
-                    <p className="text-xs font-['Gilroy_Heavy'] text-blue-700 uppercase tracking-widest mb-1">Admin note</p>
-                    <p className="text-sm text-blue-800 font-['Gilroy_Medium'] leading-relaxed">
-                      Admin and Super Admin accounts cannot be self-deleted for system security. Contact the platform owner for account changes.
-                    </p>
-                  </div>
-                )}
               </section>
             )}
 
             {/* ── Danger Zone ───────────────────────────────────── */}
             {activeTab === 'danger' && (
-              <section className="bg-white rounded-[32px] border border-red-100 shadow-sm p-8 space-y-6">
+              <section className="bg-white rounded-[32px] border border-red-100 shadow-sm p-8 space-y-8">
                 <div>
                   <h2 className="text-xl font-['Gilroy_Heavy'] text-gray-900">Danger Zone</h2>
-                  <p className="text-sm text-gray-500 mt-1">Sensitive account actions — proceed with caution.</p>
+                  <p className="text-sm text-gray-500 mt-1">Irreversible actions — proceed with caution.</p>
                 </div>
 
-                {/* Sign out — available to all */}
-                <div className="rounded-2xl border border-gray-100 bg-gray-50/50 p-6 space-y-4">
+                <div className="rounded-2xl border border-red-100 bg-red-50/30 p-6 space-y-5">
                   <div className="flex items-start gap-4">
-                    <div className="p-2.5 rounded-xl bg-gray-100 text-gray-600 shrink-0">
-                      <LogOut size={20} />
+                    <div className="p-2.5 rounded-xl bg-red-100 text-red-600 shrink-0">
+                      <Trash2 size={20} />
                     </div>
                     <div>
-                      <h3 className="font-['Gilroy_Heavy'] text-gray-900 mb-1">Sign Out</h3>
-                      <p className="text-sm text-gray-500">End your current session. You will need to log in again to access the system.</p>
+                      <h3 className="font-['Gilroy_Heavy'] text-gray-900 mb-1">Delete Account</h3>
+                      <p className="text-sm text-gray-500 leading-relaxed">
+                        Permanently deletes your account and all associated data including orders, passes, and budgets.
+                        This cannot be undone.
+                      </p>
                     </div>
                   </div>
-                  {!logoutConfirm ? (
+
+                  {!deleteConfirm ? (
                     <button
-                      onClick={() => setLogoutConfirm(true)}
-                      className="ml-14 inline-flex items-center gap-2 text-gray-600 font-['Gilroy_Heavy'] text-sm hover:text-gray-900 underline underline-offset-4"
+                      onClick={() => setDeleteConfirm(true)}
+                      className="ml-14 inline-flex items-center gap-2 text-red-600 font-['Gilroy_Heavy'] text-sm hover:text-red-700 underline underline-offset-4 decoration-red-300"
                     >
-                      <LogOut size={14} />
-                      Sign out of my account
+                      <AlertTriangle size={14} />
+                      I want to delete my account
                     </button>
                   ) : (
                     <motion.div
-                      initial={{ opacity: 0, y: 5 }}
+                      initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="ml-14 flex gap-3"
+                      className="ml-14 space-y-3"
                     >
-                      <button
-                        onClick={logout}
-                        className="inline-flex items-center gap-2 rounded-2xl bg-gray-900 px-6 py-3 text-white font-['Gilroy_Heavy'] text-sm hover:bg-black transition-all"
-                      >
-                        <LogOut size={15} />
-                        Yes, Sign Out
-                      </button>
-                      <button
-                        onClick={() => setLogoutConfirm(false)}
-                        className="rounded-2xl border border-gray-200 bg-white px-6 py-3 text-gray-600 font-['Gilroy_Heavy'] text-sm hover:bg-gray-50 transition-all"
-                      >
-                        Cancel
-                      </button>
+                      <p className="text-xs font-['Gilroy_Heavy'] text-red-700 uppercase tracking-widest">
+                        Are you absolutely sure? This cannot be undone.
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={handleDeleteAccount}
+                          disabled={deleteBusy}
+                          className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-['Gilroy_Heavy'] text-sm hover:bg-red-700 transition-all disabled:opacity-50"
+                        >
+                          {deleteBusy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                          Yes, Delete
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirm(false)}
+                          className="rounded-2xl border border-gray-200 bg-white px-6 py-3 text-gray-600 font-['Gilroy_Heavy'] text-sm hover:bg-gray-50 transition-all"
+                        >
+                          Cancel
+                        </button>
+                      </div>
                     </motion.div>
                   )}
                 </div>
-
-                {/* Delete — only for non-admin roles */}
-                {roleConfig.canDelete && (
-                  <div className="rounded-2xl border border-red-100 bg-red-50/30 p-6 space-y-4">
-                    <div className="flex items-start gap-4">
-                      <div className="p-2.5 rounded-xl bg-red-100 text-red-600 shrink-0">
-                        <Trash2 size={20} />
-                      </div>
-                      <div>
-                        <h3 className="font-['Gilroy_Heavy'] text-gray-900 mb-1">Delete Account</h3>
-                        <p className="text-sm text-gray-500 leading-relaxed">
-                          {roleConfig.dangerNote || 'Permanently deletes your account and all associated data. This cannot be undone.'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {!deleteConfirm ? (
-                      <button
-                        onClick={() => setDeleteConfirm(true)}
-                        className="ml-14 inline-flex items-center gap-2 text-red-600 font-['Gilroy_Heavy'] text-sm hover:text-red-700 underline underline-offset-4 decoration-red-300"
-                      >
-                        <AlertTriangle size={14} />
-                        I want to delete my account
-                      </button>
-                    ) : (
-                      <motion.div
-                        initial={{ opacity: 0, y: 6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="ml-14 space-y-3"
-                      >
-                        <p className="text-xs font-['Gilroy_Heavy'] text-red-700 uppercase tracking-widest">
-                          Are you absolutely sure? This cannot be undone.
-                        </p>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={handleDeleteAccount}
-                            disabled={deleteBusy}
-                            className="inline-flex items-center gap-2 rounded-2xl bg-red-600 px-6 py-3 text-white font-['Gilroy_Heavy'] text-sm hover:bg-red-700 transition-all disabled:opacity-50"
-                          >
-                            {deleteBusy ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
-                            Yes, Delete
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(false)}
-                            className="rounded-2xl border border-gray-200 bg-white px-6 py-3 text-gray-600 font-['Gilroy_Heavy'] text-sm hover:bg-gray-50 transition-all"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-                )}
-
-                {/* Admin-level note instead of delete */}
-                {isAdminLevel && (
-                  <div className="rounded-2xl border border-orange-100 bg-orange-50/30 p-5 flex items-start gap-3">
-                    <AlertTriangle size={18} className="text-orange-500 shrink-0 mt-0.5" />
-                    <p className="text-sm text-orange-800 font-['Gilroy_Medium'] leading-relaxed">
-                      Admin and Super Admin accounts are protected from self-deletion. To remove an admin account, contact the platform owner or use the User Management panel.
-                    </p>
-                  </div>
-                )}
               </section>
             )}
           </motion.div>

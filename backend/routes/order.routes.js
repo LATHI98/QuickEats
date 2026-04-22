@@ -9,6 +9,9 @@ import {
   updateOrderStatus,
   verifyPickup,
   pickupByCode,
+  getStaleOrders,
+  bulkCancelOrders,
+  deleteCancelledOrders,
 } from '../controllers/order.controller.js';
 import {
   createStripeIntent,
@@ -31,6 +34,9 @@ router.get('/my/:orderId', protect, authorize('student'), getMyOrderById);
 
 // ── Staff + Admin: Order Status Management ───────────────────────────────────
 router.get('/canteen', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), getCanteenOrders);
+router.get('/canteen/stale', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), getStaleOrders);
+router.post('/canteen/bulk-cancel', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), bulkCancelOrders);
+router.delete('/canteen/cancelled', protect, authorize('admin', 'superAdmin'), deleteCancelledOrders);
 router.patch('/:orderId/status', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), updateOrderStatus);
 router.post('/:orderId/pickup-verify', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), verifyPickup);
 router.post('/pickup-by-code', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), pickupByCode);

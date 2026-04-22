@@ -60,6 +60,9 @@ export const orderAPI = {
   updateOrderStatus: (orderId, status, reason = '', canteenId = '') => api.patch(`/api/orders/${orderId}/status`, { status, reason, canteenId }),
   verifyPickup: (orderId, payload) => api.post(`/api/orders/${orderId}/pickup-verify`, payload),
   pickupByCode: (pickupCode, qrValidated = true, canteenId = '') => api.post('/api/orders/pickup-by-code', { pickupCode, qrValidated, canteenId }),
+  getStaleOrders: (params = {}) => api.get('/api/orders/canteen/stale', { params }),
+  bulkCancelOrders: (orderIds, reason) => api.post('/api/orders/canteen/bulk-cancel', { orderIds, reason }),
+  deleteCancelledOrders: (canteenId = '') => api.delete('/api/orders/canteen/cancelled', { params: canteenId ? { canteen: canteenId } : {} }),
 };
 
 // ── Payment ───────────────────────────────────────────────────────────────────

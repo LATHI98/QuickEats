@@ -43,6 +43,7 @@ import PaymentPage from './Pages/Student/PaymentPage';
 import CartPage from './Pages/Student/CartPage';
 import CanteenMenuPage from './Pages/Student/CanteenMenuPage';
 import ProfilePage from './Pages/Student/ProfilePage';
+import StudentSettings from './Pages/Student/SettingsPage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
 import MyMealPasses from './Pages/Student/MyMealPassesPage';
@@ -91,6 +92,7 @@ function App() {
             <Route path="reviews" element={<CanteenReviewPage />} />
 
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="settings" element={<StudentSettings />} />
             <Route path="group-order" element={<GroupOrderHub />} />
             <Route path="event-catering" element={<EventCateringRequestPage />} />
             <Route path="event-catering/tracking" element={<EventCateringTrackingPage />} />

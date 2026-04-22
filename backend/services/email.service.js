@@ -160,6 +160,39 @@ export const sendSupportTicketReplyEmail = async (email, ticket, replyText = '')
     });
 };
 
+export const sendUrgentStaffNotification = async (emails, { title, message, senderName }) => {
+    if (!emails || emails.length === 0) return;
+
+    const subject = `[URGENT] ${title}`;
+
+    if (!process.env.EMAIL_USER) {
+        console.log('--- MOCK EMAIL ---');
+        console.log(`To: ${emails.join(', ')}`);
+        console.log(`Subject: ${subject}`);
+        console.log(`From: ${senderName}`);
+        console.log(`Message: ${message}`);
+        console.log('------------------');
+        return;
+    }
+
+    await transporter.sendMail({
+        from: '"QuickEats Admin" <noreply@quickeats.com>',
+        to: emails.join(', '),
+        subject,
+        html: `
+            <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #fed7aa;border-radius:12px;background:#fff7ed">
+                <div style="background:#ea580c;color:#fff;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:bold;letter-spacing:0.05em;margin-bottom:20px">
+                    ⚠ URGENT STAFF NOTIFICATION
+                </div>
+                <h2 style="color:#1f2937;margin:0 0 12px">${title}</h2>
+                <p style="color:#374151;font-size:15px;line-height:1.6;white-space:pre-line">${message}</p>
+                <hr style="border:none;border-top:1px solid #fed7aa;margin:24px 0"/>
+                <p style="color:#9ca3af;font-size:12px">Sent by <b>${senderName}</b> via QuickEats Admin · Please log in to the app for any follow-up actions.</p>
+            </div>
+        `,
+    });
+};
+
 export const sendSupportTicketResolvedEmail = async (ticket, actor = null) => {
     const requesterEmail = ticket?.requester?.email || ticket?.requesterEmail || null;
     if (!requesterEmail || !ticket) return;

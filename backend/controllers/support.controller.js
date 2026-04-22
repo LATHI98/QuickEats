@@ -2,12 +2,14 @@ import Order from '../models/Order.model.js';
 import Canteen from '../models/Canteen.model.js';
 import Budget from '../models/Budget.model.js';
 import GroupSession from '../models/GroupSession.model.js';
+import User from '../models/User.model.js';
 import SupportTicket, { SUPPORT_CATEGORIES, SUPPORT_PRIORITIES, SUPPORT_STATUSES } from '../models/SupportTicket.model.js';
 import SupportTicketMessage from '../models/SupportTicketMessage.model.js';
 import {
   sendSupportTicketCreatedEmail,
   sendSupportTicketReplyEmail,
   sendSupportTicketResolvedEmail,
+  sendUrgentStaffNotification,
 } from '../services/email.service.js';
 
 const SUPPORT_ASSISTANT_NAME = 'Q-Guide';
@@ -71,7 +73,7 @@ const normalizeText = (value = '') => String(value || '').trim();
 
 const sanitizeTicketForRole = (ticket, role) => {
   if (!ticket) return ticket;
-  if (isAdminSupportRole(role)) return ticket;
+  if (isElevatedSupportRole(role)) return ticket;
 
   const safeTicket = typeof ticket.toObject === 'function' ? ticket.toObject() : { ...ticket };
   safeTicket.requester = null;
@@ -89,11 +91,12 @@ const sanitizeTicketForRole = (ticket, role) => {
 
 const sanitizeMessageForRole = (message, role) => {
   if (!message) return message;
-  if (isAdminSupportRole(role)) return message;
+  if (isElevatedSupportRole(role)) return message;
 
+  // For students: keep senderRole so the frontend can distinguish staff vs own messages,
+  // but strip personal sender details.
   const safeMessage = typeof message.toObject === 'function' ? message.toObject() : { ...message };
   safeMessage.sender = null;
-  safeMessage.senderRole = 'private';
   return safeMessage;
 };
 
@@ -632,5 +635,44 @@ export const updateTicketStatus = async (req, res) => {
   } catch (error) {
     console.error('Update support ticket error:', error);
     return res.status(500).json({ success: false, message: 'Could not update ticket' });
+  }
+};
+
+export const broadcastStaffNotification = async (req, res) => {
+  try {
+    const title = normalizeText(req.body?.title);
+    const message = normalizeText(req.body?.message);
+
+    if (!title || title.length < 3) {
+      return res.status(400).json({ success: false, message: 'title is required' });
+    }
+    if (!message || message.length < 10) {
+      return res.status(400).json({ success: false, message: 'message is required' });
+    }
+
+    const staffUsers = await User.find({
+      role: { $in: ['canteenStaff', 'canteenManager'] },
+      isActive: true,
+    }).select('email name');
+
+    if (staffUsers.length === 0) {
+      return res.status(404).json({ success: false, message: 'No active canteen staff found' });
+    }
+
+    const emails = staffUsers.map((u) => u.email).filter(Boolean);
+    await sendUrgentStaffNotification(emails, {
+      title,
+      message,
+      senderName: req.user.name || req.user.email,
+    });
+
+    return res.json({
+      success: true,
+      notifiedCount: emails.length,
+      message: `Urgent notification sent to ${emails.length} canteen staff member(s).`,
+    });
+  } catch (error) {
+    console.error('Broadcast staff notification error:', error);
+    return res.status(500).json({ success: false, message: 'Could not send notification' });
   }
 };

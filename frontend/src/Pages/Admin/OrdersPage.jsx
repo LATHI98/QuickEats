@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Html5QrcodeScanner } from 'html5-qrcode';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ShoppingBag, LayoutList, BarChart2, RefreshCw, CheckCircle, ChefHat, Package, XCircle, Banknote, QrCode, ChevronDown, Wallet, TrendingUp, Clock, AlertCircle, ChevronRight, Users, CreditCard, X } from 'lucide-react';
+import { ShoppingBag, LayoutList, BarChart2, RefreshCw, CheckCircle, ChefHat, Package, XCircle, Banknote, QrCode, ChevronDown, Wallet, TrendingUp, Clock, AlertCircle, ChevronRight, Users, CreditCard, X, Trash2, AlertTriangle, Calendar } from 'lucide-react';
 import { orderAPI, paymentAPI, queueAPI, canteenAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 import { toast } from 'react-toastify';
@@ -10,6 +10,31 @@ import { toast } from 'react-toastify';
 
 const ORDER_STATUSES = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
 const PICKUP_CODE_REGEX = /^[A-Z2-9]{6}$/;
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const ONE_WEEK_MS = 7 * ONE_DAY_MS;
+
+const CANCEL_REASONS = [
+  { id: 'expired_payment',    label: 'Order expired — payment not completed within time limit', group: 'stale' },
+  { id: 'expired_no_collect', label: 'Order expired — customer did not collect in time',        group: 'stale' },
+  { id: 'expired_weekly',     label: 'Inactive for over 1 week — system cleanup',               group: 'stale' },
+  { id: 'customer_requested', label: 'Customer requested cancellation',                         group: 'general' },
+  { id: 'item_unavailable',   label: 'Item temporarily unavailable',                            group: 'general' },
+  { id: 'kitchen_capacity',   label: 'Kitchen at capacity — unable to fulfill',                 group: 'general' },
+  { id: 'no_show',            label: 'Customer no-show',                                        group: 'general' },
+  { id: 'duplicate',          label: 'Duplicate order',                                         group: 'general' },
+  { id: 'other',              label: 'Other (specify below)',                                   group: 'general' },
+];
+
+const formatAge = (dateStr) => {
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const hours = Math.floor(ms / 3600000);
+  const days = Math.floor(ms / ONE_DAY_MS);
+  const weeks = Math.floor(ms / ONE_WEEK_MS);
+  if (weeks >= 1) return `${weeks}w ${days % 7}d ago`;
+  if (days >= 1) return `${days}d ${hours % 24}h ago`;
+  return `${hours}h ago`;
+};
 const VERIFICATION_CODE_REGEX = /^\d{6}$/;
 const CURRENCY_INPUT_REGEX = /^\d+(\.\d{1,2})?$/;
 const MAX_CASH_RECEIVED = 5000;
@@ -39,7 +64,7 @@ const StatusBadge = ({ status }) => {
 
 // ─── Order Detail Modal (Admin) ──────────────────────────────────────────────
 
-const OrderDetailModal = ({ order, onClose, onStatusChange, onVerifyCash, onRejectCash, canManagePayments, userRole }) => {
+const OrderDetailModal = ({ order, onClose, onStatusChange, onVerifyCash, onRejectCash, onVerifyPickup, canManagePayments, userRole }) => {
   if (!order) return null;
 
   const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
@@ -205,6 +230,19 @@ const OrderDetailModal = ({ order, onClose, onStatusChange, onVerifyCash, onReje
                   <XCircle size={16} /> Reject Payment
                 </button>
               </div>
+            )}
+
+            {/* Mark Delivered (canteen staff / manager only, when order is ready) */}
+            {canManagePayments && order.status === 'ready' && (
+              <button
+                onClick={() => {
+                  onVerifyPickup(order);
+                  onClose();
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-2xl text-sm font-extrabold transition-colors"
+              >
+                <CheckCircle size={16} /> Mark Delivered
+              </button>
             )}
 
             <button
@@ -503,19 +541,36 @@ const PickupVerificationModal = ({ order, form, onChange, submitting, onClose, o
   );
 };
 
-// ─── Confirm Cancel (Admin) Modal ─────────────────────────────────────────────
+// ─── Cancel Order Modal (dropdown reasons) ────────────────────────────────────
 
-const ConfirmCancelAdminModal = ({ order, reason, onChange, submitting, onClose, onSubmit }) => {
+const CancelWithReasonModal = ({ order, submitting, onClose, onSubmit }) => {
+  const [selectedId, setSelectedId] = useState('');
+  const [customText, setCustomText] = useState('');
   if (!order) return null;
-  const MIN_REASON_LEN = 5;
-  const MAX_REASON_LEN = 200;
-  const trimmed = (reason || '').trim();
-  const isReasonValid = trimmed.length >= MIN_REASON_LEN;
-  const canSubmit = !submitting && isReasonValid;
+
+  const ageMs = Date.now() - new Date(order.createdAt).getTime();
+  const isStale = ageMs > ONE_DAY_MS;
+  const isVeryStale = ageMs > ONE_WEEK_MS;
+
+  const staleReasons = CANCEL_REASONS.filter(r => r.group === 'stale');
+  const generalReasons = CANCEL_REASONS.filter(r => r.group === 'general');
+
+  const finalReason = selectedId === 'other'
+    ? customText.trim()
+    : CANCEL_REASONS.find(r => r.id === selectedId)?.label || '';
+
+  const canSubmit = !submitting && finalReason.length >= 5;
+
+  const RadioRow = ({ reason }) => (
+    <label key={reason.id} className={`flex items-start gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${selectedId === reason.id ? 'bg-red-50 border border-red-200' : 'border border-transparent hover:bg-gray-50'}`}>
+      <input type="radio" name="cancelReason" value={reason.id} checked={selectedId === reason.id} onChange={() => setSelectedId(reason.id)} className="mt-0.5 accent-red-500 shrink-0" />
+      <span className="text-sm text-gray-700 leading-snug">{reason.label}</span>
+    </label>
+  );
 
   return (
     <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-4">
           <div>
             <p className="text-xs uppercase tracking-widest text-red-400 font-extrabold">Cancel Order</p>
@@ -526,38 +581,46 @@ const ConfirmCancelAdminModal = ({ order, reason, onChange, submitting, onClose,
           </button>
         </div>
 
-        <div className="rounded-2xl bg-red-50 border border-red-100 px-4 py-3 mb-5 flex items-start gap-2">
-          <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
-          <p className="text-xs text-red-600 leading-relaxed">
-            Cancelling this order will notify the student. <strong>This action is permanent.</strong>
+        <div className={`rounded-2xl px-4 py-3 mb-5 flex items-start gap-2 ${isVeryStale ? 'bg-red-50 border border-red-200' : isStale ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-100'}`}>
+          <AlertCircle size={15} className={`shrink-0 mt-0.5 ${isVeryStale ? 'text-red-500' : isStale ? 'text-amber-500' : 'text-red-500'}`} />
+          <p className={`text-xs leading-relaxed ${isVeryStale ? 'text-red-700' : isStale ? 'text-amber-700' : 'text-red-600'}`}>
+            {isVeryStale
+              ? <><strong>Very old order ({formatAge(order.createdAt)}).</strong> This order has been inactive for over a week.</>
+              : isStale
+              ? <><strong>Stale order ({formatAge(order.createdAt)}).</strong> This order exceeded the expected completion time.</>
+              : <>Cancelling will notify the student. <strong>This action is permanent.</strong></>}
           </p>
         </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Reason for Cancellation</label>
-            <span className={`text-xs ${
-              trimmed.length > MAX_REASON_LEN ? 'text-red-500' : trimmed.length >= MIN_REASON_LEN ? 'text-green-600' : 'text-gray-400'
-            } font-extrabold`}>
-              {reason.length}/{MAX_REASON_LEN}
-            </span>
+        <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold mb-3 block">Select reason for cancellation</label>
+
+        {isStale && (
+          <div className="mb-3">
+            <p className="text-[10px] uppercase tracking-widest text-amber-600 font-extrabold mb-1.5 px-1">Suggested for expired orders</p>
+            <div className="flex flex-col gap-1">
+              {staleReasons.map(r => <RadioRow key={r.id} reason={r} />)}
+            </div>
           </div>
-          <textarea
-            value={reason}
-            onChange={(e) => onChange(e.target.value)}
-            placeholder="e.g. Items are out of stock. Please place a different order."
-            maxLength={MAX_REASON_LEN}
-            rows={3}
-            className={`w-full rounded-xl border px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 transition-colors ${
-              !isReasonValid && trimmed.length > 0 ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:ring-red-200'
-            }`}
-          />
-          {!isReasonValid && trimmed.length > 0 && (
-            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-              <AlertCircle size={11} /> Reason must be at least {MIN_REASON_LEN} characters
-            </p>
-          )}
+        )}
+
+        <div className={isStale ? 'border-t border-gray-100 pt-3' : ''}>
+          {isStale && <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold mb-1.5 px-1">Other reasons</p>}
+          <div className="flex flex-col gap-1">
+            {generalReasons.map(r => <RadioRow key={r.id} reason={r} />)}
+          </div>
         </div>
+
+        {selectedId === 'other' && (
+          <textarea
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            placeholder="Describe the reason (min. 5 characters)…"
+            maxLength={200}
+            rows={3}
+            autoFocus
+            className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200 transition-colors"
+          />
+        )}
 
         <div className="mt-5 flex gap-2">
           <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-extrabold text-gray-600 hover:bg-gray-50 transition-colors">
@@ -566,7 +629,7 @@ const ConfirmCancelAdminModal = ({ order, reason, onChange, submitting, onClose,
           <button
             type="button"
             disabled={!canSubmit}
-            onClick={onSubmit}
+            onClick={() => onSubmit(finalReason)}
             className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm font-extrabold text-white transition-colors"
           >
             {submitting ? (
@@ -575,6 +638,92 @@ const ConfirmCancelAdminModal = ({ order, reason, onChange, submitting, onClose,
                 Cancelling...
               </span>
             ) : 'Confirm Cancellation'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Bulk Cancel Modal ────────────────────────────────────────────────────────
+
+const BulkCancelModal = ({ count, submitting, onClose, onSubmit }) => {
+  const [selectedId, setSelectedId] = useState('expired_payment');
+  const [customText, setCustomText] = useState('');
+  if (!count) return null;
+
+  const finalReason = selectedId === 'other'
+    ? customText.trim()
+    : CANCEL_REASONS.find(r => r.id === selectedId)?.label || '';
+
+  const canSubmit = !submitting && finalReason.length >= 5;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-red-400 font-extrabold">Bulk Cancellation</p>
+            <h3 className="text-xl font-extrabold text-gray-900 mt-1">Cancel {count} expired order{count !== 1 ? 's' : ''}</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
+            <X size={16} className="text-gray-400" />
+          </button>
+        </div>
+
+        <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 mb-5 flex items-start gap-2">
+          <AlertTriangle size={15} className="text-red-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-700 leading-relaxed">
+            This will cancel <strong>{count} order{count !== 1 ? 's' : ''}</strong> and notify all affected students by email. This cannot be undone.
+          </p>
+        </div>
+
+        <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold mb-2 block">Reason for cancellation</label>
+        <select
+          value={selectedId}
+          onChange={(e) => setSelectedId(e.target.value)}
+          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 bg-white mb-3"
+        >
+          <optgroup label="Suggested for expired orders">
+            {CANCEL_REASONS.filter(r => r.group === 'stale').map(r => (
+              <option key={r.id} value={r.id}>{r.label}</option>
+            ))}
+          </optgroup>
+          <optgroup label="Other reasons">
+            {CANCEL_REASONS.filter(r => r.group === 'general').map(r => (
+              <option key={r.id} value={r.id}>{r.label}</option>
+            ))}
+          </optgroup>
+        </select>
+
+        {selectedId === 'other' && (
+          <textarea
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            placeholder="Describe the reason (min. 5 characters)…"
+            maxLength={200}
+            rows={3}
+            autoFocus
+            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200 transition-colors"
+          />
+        )}
+
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-extrabold text-gray-600 hover:bg-gray-50 transition-colors">
+            Back
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() => onSubmit(finalReason)}
+            className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm font-extrabold text-white transition-colors"
+          >
+            {submitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Cancelling...
+              </span>
+            ) : `Cancel ${count} Order${count !== 1 ? 's' : ''}`}
           </button>
         </div>
       </div>
@@ -1419,7 +1568,219 @@ const resolveCanteenId = (canteen) => {
   return canteen._id || canteen.id || '';
 };
 
+// ─── Delete Cancelled Orders Modal (admin only) ───────────────────────────────
 
+const DeleteCancelledModal = ({ count, canteenName, onClose, onConfirm, submitting }) => (
+  <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-red-500 font-extrabold">Irreversible Action</p>
+          <h3 className="text-xl font-extrabold text-gray-900 mt-1">Delete Cancelled Orders</h3>
+        </div>
+        <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
+          <X size={16} className="text-gray-400" />
+        </button>
+      </div>
+
+      <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-4 mb-5 flex items-start gap-3">
+        <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-extrabold text-red-800 mb-1">
+            {count} cancelled order{count !== 1 ? 's' : ''} will be permanently deleted
+            {canteenName ? ` from ${canteenName}` : ' across all canteens'}.
+          </p>
+          <p className="text-xs text-red-600 leading-relaxed">
+            This removes all order history, activity logs, and payment records for these orders. <strong>This cannot be undone.</strong>
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-extrabold text-gray-600 hover:bg-gray-50 transition-colors">
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={submitting || count === 0}
+          onClick={onConfirm}
+          className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm font-extrabold text-white transition-colors"
+        >
+          {submitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Deleting…
+            </span>
+          ) : `Delete ${count} Order${count !== 1 ? 's' : ''}`}
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+// ─── Stale Orders Tab ─────────────────────────────────────────────────────────
+
+const StaleOrdersTab = ({ staleOrders, onCancelOrder, onBulkCancel, bulkSubmitting, loading }) => {
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+
+  const now = Date.now();
+  const veryStale = staleOrders.filter(o => now - new Date(o.createdAt).getTime() > ONE_WEEK_MS);
+  const mildStale  = staleOrders.filter(o => {
+    const age = now - new Date(o.createdAt).getTime();
+    return age > ONE_DAY_MS && age <= ONE_WEEK_MS;
+  });
+
+  const handleSingleCancel = async (reason) => {
+    if (!cancelTarget) return;
+    setCancelSubmitting(true);
+    try {
+      await onCancelOrder(cancelTarget._id, reason);
+      setCancelTarget(null);
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
+  const handleBulkCancel = async (reason) => {
+    const ids = staleOrders.map(o => o._id);
+    await onBulkCancel(ids, reason);
+    setBulkModalOpen(false);
+  };
+
+  const StaleCard = ({ order }) => {
+    const payStatus = order.payment?.status || 'unpaid';
+    const payLabel = PAYMENT_STATUS[payStatus]?.label || payStatus;
+    const payBg    = PAYMENT_STATUS[payStatus]?.bg || 'bg-gray-100';
+    const payColor = PAYMENT_STATUS[payStatus]?.color || 'text-gray-500';
+    const ageMs = now - new Date(order.createdAt).getTime();
+    const isVery = ageMs > ONE_WEEK_MS;
+
+    return (
+      <div className={`rounded-2xl border bg-white p-4 flex flex-col gap-2 shadow-sm ${isVery ? 'border-red-200' : 'border-amber-200'}`}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-extrabold text-gray-900">#{order.queueNumber}</span>
+            <StatusBadge status={order.status} />
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${payBg} ${payColor}`}>{payLabel}</span>
+            {isVery
+              ? <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-600">7+ days</span>
+              : <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-700">Stale</span>
+            }
+          </div>
+          <button
+            onClick={() => setCancelTarget(order)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-extrabold text-red-600 border border-red-200 hover:bg-red-50 transition-colors shrink-0"
+          >
+            <Trash2 size={12} /> Cancel
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span className="font-semibold text-gray-700">{order.student?.name || 'Unknown'}</span>
+          {order.student?.studentId && <span>{order.student.studentId}</span>}
+          <span className="flex items-center gap-1"><Clock size={11} /> {formatAge(order.createdAt)}</span>
+        </div>
+
+        <div className="text-xs text-gray-500">
+          {(order.items || []).slice(0, 3).map((item, i) => (
+            <span key={i}>{i > 0 ? ', ' : ''}{item.name} ×{item.quantity}</span>
+          ))}
+          {(order.items || []).length > 3 && <span> +{order.items.length - 3} more</span>}
+        </div>
+
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-gray-400">{order.canteen?.name || ''}</span>
+          <span className="font-extrabold text-gray-800">LKR {(order.totalPrice || 0).toLocaleString()}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const GroupSection = ({ title, icon: Icon, iconColor, orders: list }) => {
+    if (!list.length) return null;
+    return (
+      <div className="mb-6">
+        <div className={`flex items-center gap-2 mb-3 px-1`}>
+          <Icon size={14} className={iconColor} />
+          <span className={`text-xs font-extrabold uppercase tracking-wider ${iconColor}`}>{title}</span>
+          <span className="ml-auto text-xs font-extrabold text-gray-400">{list.length} order{list.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div className="flex flex-col gap-3">
+          {list.map(o => <StaleCard key={o._id} order={o} />)}
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-gray-400 text-sm gap-2">
+        <span className="w-4 h-4 border-2 border-gray-300 border-t-orange-400 rounded-full animate-spin" />
+        Loading stale orders…
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Header bar */}
+      <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 mb-5 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <AlertTriangle size={16} className="text-red-500 shrink-0" />
+          <div>
+            <p className="text-sm font-extrabold text-red-800">
+              {staleOrders.length === 0 ? 'No stale orders' : `${staleOrders.length} order${staleOrders.length !== 1 ? 's' : ''} need attention`}
+            </p>
+            {staleOrders.length > 0 && (
+              <p className="text-xs text-red-600 mt-0.5">Orders inactive for 24h+, payment not verified, not delivered</p>
+            )}
+          </div>
+        </div>
+        {staleOrders.length > 0 && (
+          <button
+            onClick={() => setBulkModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-extrabold transition-colors shrink-0"
+          >
+            <Trash2 size={13} /> Cancel All Expired ({staleOrders.length})
+          </button>
+        )}
+      </div>
+
+      {staleOrders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <CheckCircle size={40} className="text-green-400 mb-3" />
+          <p className="text-gray-500 font-extrabold">All clear!</p>
+          <p className="text-sm text-gray-400 mt-1">No orders have been inactive for more than 24 hours.</p>
+        </div>
+      ) : (
+        <>
+          <GroupSection title="Very old — 7+ days" icon={AlertTriangle} iconColor="text-red-500" orders={veryStale} />
+          <GroupSection title="Stale — 1 to 7 days" icon={Calendar} iconColor="text-amber-500" orders={mildStale} />
+        </>
+      )}
+
+      {cancelTarget && (
+        <CancelWithReasonModal
+          order={cancelTarget}
+          submitting={cancelSubmitting}
+          onClose={() => setCancelTarget(null)}
+          onSubmit={handleSingleCancel}
+        />
+      )}
+
+      {bulkModalOpen && (
+        <BulkCancelModal
+          count={staleOrders.length}
+          submitting={bulkSubmitting}
+          onClose={() => setBulkModalOpen(false)}
+          onSubmit={handleBulkCancel}
+        />
+      )}
+    </div>
+  );
+};
 
 const AdminOrdersPage = () => {
   const { user, selectedCanteenId, selectedCanteenName } = useAuth();
@@ -1454,10 +1815,14 @@ const AdminOrdersPage = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectSubmitting, setRejectSubmitting] = useState(false);
   const [adminCancelOrder, setAdminCancelOrder] = useState(null);
-  const [adminCancelReason, setAdminCancelReason] = useState('');
   const [adminCancelSubmitting, setAdminCancelSubmitting] = useState(false);
   const [codeInputTouched, setCodeInputTouched] = useState(false);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [staleOrders, setStaleOrders] = useState([]);
+  const [staleLoading, setStaleLoading] = useState(false);
+  const [bulkCancelSubmitting, setBulkCancelSubmitting] = useState(false);
+  const [deleteCancelledOpen, setDeleteCancelledOpen] = useState(false);
+  const [deleteCancelledBusy, setDeleteCancelledBusy] = useState(false);
 
   // Keep canteen context in sync after auth/session restore to avoid empty staff fetches.
   useEffect(() => {
@@ -1535,7 +1900,23 @@ const AdminOrdersPage = () => {
     }
   }, [statusFilter, canteenId, isAdmin, user?.canteen]);
 
+  const fetchStaleOrders = useCallback(async () => {
+    if (!canteenId && !isAdmin) { setStaleOrders([]); return; }
+    setStaleLoading(true);
+    try {
+      const params = {};
+      if (canteenId) params.canteen = canteenId;
+      const res = await orderAPI.getStaleOrders(params);
+      setStaleOrders(res.data.data || []);
+    } catch {
+      setStaleOrders([]);
+    } finally {
+      setStaleLoading(false);
+    }
+  }, [canteenId, isAdmin]);
+
   useEffect(() => { if (tab === 'orders') fetchOrders(); }, [fetchOrders, tab]);
+  useEffect(() => { if (tab === 'stale') fetchStaleOrders(); }, [fetchStaleOrders, tab]);
   useEffect(() => {
     if (tab !== 'orders') return;
 
@@ -1556,12 +1937,10 @@ const AdminOrdersPage = () => {
   }, [fetchOrders, tab]);
 
   const handleStatusChange = async (orderId, status) => {
-    // If cancelling, open the specialized modal first
     if (status === 'cancelled') {
-        const orderToCancel = orders.find(o => o._id === orderId);
-        setAdminCancelOrder(orderToCancel);
-        setAdminCancelReason('');
-        return;
+      const orderToCancel = orders.find(o => o._id === orderId);
+      setAdminCancelOrder(orderToCancel);
+      return;
     }
     try {
       await orderAPI.updateOrderStatus(orderId, status, '', canteenId);
@@ -1572,18 +1951,53 @@ const AdminOrdersPage = () => {
     }
   };
 
-  const handleConfirmAdminCancel = async () => {
+  const handleConfirmAdminCancel = async (reason) => {
     if (!adminCancelOrder) return;
     setAdminCancelSubmitting(true);
     try {
-      await orderAPI.updateOrderStatus(adminCancelOrder._id, 'cancelled', adminCancelReason, canteenId);
-        toast.success('Order cancelled and student notified.');
-        setAdminCancelOrder(null);
-        fetchOrders(true);
+      await orderAPI.updateOrderStatus(adminCancelOrder._id, 'cancelled', reason, canteenId);
+      toast.success('Order cancelled and student notified.');
+      setAdminCancelOrder(null);
+      fetchOrders(true);
     } catch (err) {
-        toast.error(err.response?.data?.message || 'Cancellation failed');
+      toast.error(err.response?.data?.message || 'Cancellation failed');
     } finally {
-        setAdminCancelSubmitting(false);
+      setAdminCancelSubmitting(false);
+    }
+  };
+
+  const handleSingleStaleCancel = async (orderId, reason) => {
+    await orderAPI.updateOrderStatus(orderId, 'cancelled', reason, canteenId);
+    toast.success('Order cancelled and student notified.');
+    fetchOrders(true);
+    fetchStaleOrders();
+  };
+
+  const handleBulkCancel = async (orderIds, reason) => {
+    setBulkCancelSubmitting(true);
+    try {
+      const res = await orderAPI.bulkCancelOrders(orderIds, reason);
+      toast.success(res.data.message || 'Orders cancelled.');
+      fetchOrders(true);
+      fetchStaleOrders();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Bulk cancellation failed');
+    } finally {
+      setBulkCancelSubmitting(false);
+    }
+  };
+
+  const handleDeleteCancelled = async () => {
+    setDeleteCancelledBusy(true);
+    try {
+      const res = await orderAPI.deleteCancelledOrders(canteenId);
+      toast.success(res.data.message || 'Cancelled orders deleted.');
+      setDeleteCancelledOpen(false);
+      fetchOrders(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Deletion failed');
+    } finally {
+      setDeleteCancelledBusy(false);
     }
   };
 
@@ -1765,6 +2179,12 @@ const AdminOrdersPage = () => {
   const pendingVerificationCount = orders.filter((order) => order.payment?.status === 'pending_verification').length;
   const verifiedPaymentsCount = orders.filter((order) => order.payment?.status === 'verified').length;
   const visibleRevenue = orders.reduce((sum, order) => sum + Number(order.totalPrice || 0), 0);
+  const staleCount = staleOrders.length || orders.filter(o =>
+    ['pending', 'preparing'].includes(o.status) &&
+    o.payment?.status !== 'verified' &&
+    (Date.now() - new Date(o.createdAt).getTime()) > ONE_DAY_MS
+  ).length;
+  const cancelledCount = orders.filter(o => o.status === 'cancelled').length;
 
   return (
     <div className="max-w-6xl mx-auto py-8 px-4">
@@ -1886,33 +2306,52 @@ const AdminOrdersPage = () => {
               <button onClick={() => setTab('orders')} className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-orange-50 text-orange-700 hover:bg-orange-100">Order Flow</button>
               <button onClick={() => setTab('billing')} className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Billing View</button>
               <button onClick={() => setTab('queue')} className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-700 hover:bg-indigo-100">Queue Board</button>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={() => setDeleteCancelledOpen(true)}
+                  disabled={cancelledCount === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-red-200"
+                >
+                  <Trash2 size={12} />
+                  Delete Cancelled
+                  {cancelledCount > 0 && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-500 text-white leading-none">{cancelledCount}</span>}
+                </button>
+              </div>
             </div>
           )}
 
           {/* Tabs */}
-          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit border border-gray-200 shadow-sm">
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit border border-gray-200 shadow-sm flex-wrap">
             <button
               onClick={() => setTab('orders')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'orders' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'
-            }`}
-        >
-          <LayoutList size={14} /> Orders
-        </button>
-        <button
-          onClick={() => setTab('billing')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'billing' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'
-            }`}
-        >
-          <Wallet size={14} /> Billing
-        </button>
-        <button
-          onClick={() => setTab('queue')}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'queue' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'
-            }`}
-        >
-          <BarChart2 size={14} /> Queue Board
-        </button>
-      </div>
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'orders' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <LayoutList size={14} /> Orders
+            </button>
+            <button
+              onClick={() => setTab('billing')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'billing' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <Wallet size={14} /> Billing
+            </button>
+            <button
+              onClick={() => setTab('queue')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'queue' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <BarChart2 size={14} /> Queue Board
+            </button>
+            <button
+              onClick={() => setTab('stale')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'stale' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <Trash2 size={14} /> Expired
+              {staleCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-500 text-white leading-none">
+                  {staleCount}
+                </span>
+              )}
+            </button>
+          </div>
 
       <AnimatePresence mode="wait" initial={false}>
         {tab === 'queue' ? (
@@ -1934,6 +2373,22 @@ const AdminOrdersPage = () => {
             transition={{ duration: 0.22 }}
           >
             <BillingBoard canteenId={canteenId} />
+          </motion.div>
+        ) : tab === 'stale' ? (
+          <motion.div
+            key="stale-tab"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
+            <StaleOrdersTab
+              staleOrders={staleOrders}
+              loading={staleLoading}
+              onCancelOrder={handleSingleStaleCancel}
+              onBulkCancel={handleBulkCancel}
+              bulkSubmitting={bulkCancelSubmitting}
+            />
           </motion.div>
         ) : (
           <motion.div
@@ -2062,6 +2517,7 @@ const AdminOrdersPage = () => {
           onStatusChange={handleStatusChange}
           onVerifyCash={handleOpenVerifyCash}
           onRejectCash={handleRejectCash}
+          onVerifyPickup={handleOpenPickupVerify}
           canManagePayments={canManagePayments}
           userRole={user?.role}
         />
@@ -2104,14 +2560,22 @@ const AdminOrdersPage = () => {
         onSubmit={handleConfirmReject}
       />
 
-      <ConfirmCancelAdminModal
+      <CancelWithReasonModal
         order={adminCancelOrder}
-        reason={adminCancelReason}
-        onChange={setAdminCancelReason}
         submitting={adminCancelSubmitting}
         onClose={() => setAdminCancelOrder(null)}
         onSubmit={handleConfirmAdminCancel}
       />
+
+      {isAdmin && deleteCancelledOpen && (
+        <DeleteCancelledModal
+          count={cancelledCount}
+          canteenName={canteens.find(c => c._id === canteenId)?.name || (canteenId ? '' : null)}
+          submitting={deleteCancelledBusy}
+          onClose={() => setDeleteCancelledOpen(false)}
+          onConfirm={handleDeleteCancelled}
+        />
+      )}
         </>
       )}
     </div>

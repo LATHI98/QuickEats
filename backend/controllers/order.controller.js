@@ -698,3 +698,108 @@ export const pickupByCode = async (req, res) => {
   }
 };
 
+
+// GET /api/orders/canteen/stale — pending/preparing, payment unverified, older than 24h
+export const getStaleOrders = async (req, res) => {
+  try {
+    const isElevated = isElevatedOpsRole(req.user.role);
+    const isGlobalViewer = isAdminRole(req.user.role);
+
+    let canteenId;
+    if (isElevated) {
+      canteenId = req.query.canteen || null;
+      if (!canteenId && !isGlobalViewer) {
+        return res.status(400).json({ success: false, code: 'CANTEEN_CONTEXT_REQUIRED', message: 'Select a canteen context first.' });
+      }
+    } else {
+      canteenId = req.user.canteen ? req.user.canteen.toString() : null;
+      if (!canteenId) {
+        return res.status(403).json({ success: false, code: 'STAFF_CANTEEN_NOT_ASSIGNED', message: 'No canteen assigned to your account.' });
+      }
+    }
+
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const filter = {
+      status: { $in: ['pending', 'preparing'] },
+      'payment.status': { $nin: ['verified'] },
+      createdAt: { $lt: oneDayAgo },
+    };
+    if (canteenId) filter.canteen = canteenId;
+
+    const orders = await Order.find(filter)
+      .populate('student', 'name studentId email')
+      .populate('canteen', 'name')
+      .sort({ createdAt: 1 });
+
+    return res.json({ success: true, count: orders.length, data: orders });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/orders/canteen/bulk-cancel — cancel multiple stale orders with a shared reason
+export const bulkCancelOrders = async (req, res) => {
+  try {
+    const { orderIds, reason } = req.body;
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No order IDs provided.' });
+    }
+    const trimmedReason = String(reason || '').trim();
+    if (trimmedReason.length < 5) {
+      return res.status(400).json({ success: false, message: 'Cancellation reason must be at least 5 characters.' });
+    }
+
+    const isElevated = isElevatedOpsRole(req.user.role);
+    const assignedCanteenId = req.user.canteen ? req.user.canteen.toString() : null;
+
+    const orders = await Order.find({
+      _id: { $in: orderIds },
+      status: { $in: ['pending', 'preparing'] },
+    }).populate('student', 'email name').populate('canteen', 'name');
+
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, message: 'No eligible orders found to cancel.' });
+    }
+
+    let cancelledCount = 0;
+    for (const order of orders) {
+      const orderCanteenId = order.canteen?._id?.toString() || order.canteen?.toString();
+      if (!isElevated && assignedCanteenId && orderCanteenId !== assignedCanteenId) continue;
+
+      const prevStatus = order.status;
+      order.status = 'cancelled';
+      appendActivity(order, {
+        action: 'order_status_updated',
+        actor: req.user._id,
+        actorRole: req.user.role,
+        note: `Bulk cancelled by staff. Reason: ${trimmedReason}`,
+        metadata: { previousStatus: prevStatus, newStatus: 'cancelled', reason: trimmedReason },
+      });
+      await order.save();
+
+      if (order.student?.email) {
+        sendCancellationEmail(order.student.email, order, trimmedReason).catch((e) =>
+          console.error('Bulk cancel email failed:', e)
+        );
+      }
+      cancelledCount++;
+    }
+
+    return res.json({ success: true, cancelledCount, message: `${cancelledCount} order(s) cancelled.` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// DELETE /api/orders/canteen/cancelled — permanently remove all cancelled orders (admin only)
+export const deleteCancelledOrders = async (req, res) => {
+  try {
+    const filter = { status: 'cancelled' };
+    if (req.query.canteen) filter.canteen = req.query.canteen;
+
+    const result = await Order.deleteMany(filter);
+    return res.json({ success: true, deletedCount: result.deletedCount, message: `${result.deletedCount} cancelled order(s) permanently deleted.` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};

@@ -34,6 +34,10 @@ import MealPassStaffPage from './Pages/CanteenStaff/MealPassPage';
 import StudentDashboard from './Pages/Student/DashboardPage';
 import StudentCanteens from './Pages/Student/CanteensPage';
 import StudentOrders from './Pages/Student/OrdersPage';
+import OrderTrackingPage from './Pages/Student/OrderTrackingPage';
+import PaymentPage from './Pages/Student/PaymentPage';
+import CartPage from './Pages/Student/CartPage';
+import CanteenMenuPage from './Pages/Student/CanteenMenuPage';
 import ProfilePage from './Pages/Student/ProfilePage';
 import StudentSettings from './Pages/Student/SettingsPage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
@@ -68,9 +72,13 @@ function App() {
           <Route path="/dashboard" element={<StudentLayout />}>
             <Route index element={<StudentDashboard />} />
             <Route path="canteens" element={<StudentCanteens />} />
+            <Route path="canteens/:canteenId/menu" element={<CanteenMenuPage />} />
+            <Route path="cart" element={<CartPage />} />
             <Route path="orders" element={<StudentOrders />} />
+            <Route path="payment/:orderId" element={<PaymentPage />} />
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="meal-pass" element={<MealPassPage />} />
+            <Route path="order-tracking" element={<OrderTrackingPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
             <Route path="meal-plan" element={<HealthMealPlanPage />} />
             <Route path="profile" element={<ProfilePage />} />
@@ -100,6 +108,10 @@ function App() {
             <Route path="event-catering" element={<EventCateringDashboardPage />} />
             <Route path="help" element={<SupportCenterPage />} />
           </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['canteenStaff', 'canteenManager']} />}>
+          <Route path="/admin/select-canteen" element={<SelectCanteenPage />} />
         </Route>
 
         {/* Catch-all */}

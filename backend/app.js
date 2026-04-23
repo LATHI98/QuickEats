@@ -287,13 +287,10 @@ app.use('/api/group-sessions', groupSessionRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/reservations', reservationRoutes);
-<<<<<<< HEAD
 app.use('/api/crowd', crowdRoutes);
-=======
 app.use('/api/event-catering', eventCateringRoutes);
 app.use('/api/support', supportRoutes);
 app.use('/api/system', systemRoutes);
->>>>>>> dev
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -104,18 +104,18 @@ const ReservationsPage = () => {
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 space-y-8">
       <header>
-        <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">Meal Reservations</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Meal Reservations</h1>
         <p className="text-sm text-gray-500">Book your table at your favorite canteen</p>
       </header>
 
       {/* Booking Form */}
       <form onSubmit={handleSubmitReservation} className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm space-y-6">
-        <h2 className="text-xl font-['Gilroy_Bold'] text-gray-900">New Reservation</h2>
+        <h2 className="text-xl font-bold text-gray-900">New Reservation</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Canteen Selection */}
           <div>
-            <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-2">Select Canteen</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Select Canteen</label>
             <select
               value={formData.canteenId}
               onChange={(e) => setFormData((s) => ({ ...s, canteenId: e.target.value }))}
@@ -133,7 +133,7 @@ const ReservationsPage = () => {
 
           {/* Seats */}
           <div>
-            <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-2">Number of Seats</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Number of Seats</label>
             <input
               type="number"
               min="1"
@@ -147,7 +147,7 @@ const ReservationsPage = () => {
 
           {/* Date */}
           <div>
-            <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-2">Reservation Date</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Reservation Date</label>
             <input
               type="date"
               min={minDate}
@@ -160,7 +160,7 @@ const ReservationsPage = () => {
 
           {/* Time Slot */}
           <div>
-            <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-2">Time Slot</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Time Slot</label>
             <select
               value={formData.timeSlot}
               onChange={(e) => setFormData((s) => ({ ...s, timeSlot: e.target.value }))}
@@ -181,7 +181,7 @@ const ReservationsPage = () => {
           <button
             type="submit"
             disabled={submitting}
-            className="px-8 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-['Gilroy_Bold'] transition-all disabled:opacity-50"
+            className="px-8 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-bold transition-all disabled:opacity-50"
           >
             {submitting ? 'Booking...' : 'Book Table'}
           </button>
@@ -190,7 +190,7 @@ const ReservationsPage = () => {
 
       {/* My Reservations */}
       <section className="bg-white rounded-3xl border border-gray-100 p-8 shadow-sm">
-        <h2 className="text-xl font-['Gilroy_Bold'] text-gray-900 mb-6">My Reservations</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-6">My Reservations</h2>
 
         {loading ? (
           <div className="text-center text-gray-500">Loading...</div>
@@ -204,10 +204,10 @@ const ReservationsPage = () => {
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
                       <Store size={18} className="text-orange-600" />
-                      <h3 className="font-['Gilroy_Bold'] text-gray-900">
+                      <h3 className="font-bold text-gray-900">
                         {res.canteenId?.name || 'Canteen'}
                       </h3>
-                      <span className={`text-xs px-2 py-1 rounded-full font-['Gilroy_Bold'] ${
+                      <span className={`text-xs px-2 py-1 rounded-full font-bold ${
                         res.status === 'confirmed'
                           ? 'bg-green-100 text-green-700'
                           : 'bg-red-100 text-red-700'
@@ -230,7 +230,7 @@ const ReservationsPage = () => {
                         {res.seatsBooked} seats
                       </div>
                       <div className="flex items-center gap-2 text-gray-600">
-                        <span className="font-['Gilroy_Bold']">Table {res.tableId?.tableNumber || 'N/A'}</span>
+                        <span className="font-bold">Table {res.tableId?.tableNumber || 'N/A'}</span>
                       </div>
                     </div>
                   </div>

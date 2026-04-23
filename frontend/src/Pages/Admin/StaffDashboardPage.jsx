@@ -22,7 +22,7 @@ const EMPTY_ADD = { name: '', category: 'breakfast', price: '', stock: '', avail
 // ─── Tab pill ────────────────────────────────────────────────────────────────
 const TabBtn = ({ active, onClick, icon: Icon, label, count }) => (
   <button onClick={onClick}
-    className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-['Gilroy_Bold'] text-sm transition-all ${
+    className={`flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm transition-all ${
       active ? 'bg-orange-600 text-white shadow-lg shadow-orange-100'
               : 'bg-white text-gray-500 border border-gray-100 hover:bg-gray-50'
     }`}>
@@ -121,10 +121,10 @@ const StaffDashboardPage = () => {
       {/* ── Header ── */}
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">Staff Dashboard</h1>
-          <p className="text-gray-400 font-['Gilroy_Medium'] mt-1">Add items, edit prices and restock inventory.</p>
+          <h1 className="text-3xl font-bold text-gray-900">Staff Dashboard</h1>
+          <p className="text-gray-400 font-medium mt-1">Add items, edit prices and restock inventory.</p>
         </div>
-        <button onClick={fetchFoods} className="flex items-center gap-2 border-2 border-gray-100 text-gray-500 px-5 py-3 rounded-2xl font-['Gilroy_Bold'] text-sm hover:bg-gray-50 transition-all">
+        <button onClick={fetchFoods} className="flex items-center gap-2 border-2 border-gray-100 text-gray-500 px-5 py-3 rounded-2xl font-bold text-sm hover:bg-gray-50 transition-all">
           <RefreshCw size={15} /> Refresh
         </button>
       </div>
@@ -133,8 +133,8 @@ const StaffDashboardPage = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {stats.map(s => (
           <div key={s.label} className={`${s.bg} rounded-2xl p-5 border border-gray-100`}>
-            <p className="text-sm font-['Gilroy_Medium'] text-gray-400">{s.label}</p>
-            <p className={`text-3xl font-['Gilroy_Heavy'] mt-1 ${s.color}`}>{s.value}</p>
+            <p className="text-sm font-medium text-gray-400">{s.label}</p>
+            <p className={`text-3xl font-extrabold mt-1 ${s.color}`}>{s.value}</p>
           </div>
         ))}
       </div>
@@ -155,7 +155,7 @@ const StaffDashboardPage = () => {
           {/* ══════════ ADD NEW ITEM ══════════ */}
           {tab === 'add' && (
             <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 max-w-2xl">
-              <h2 className="text-xl font-['Gilroy_Bold'] text-gray-900 mb-6 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
                 <span className="w-9 h-9 bg-orange-50 rounded-xl flex items-center justify-center">
                   <Plus size={18} className="text-orange-600" />
                 </span>
@@ -165,20 +165,20 @@ const StaffDashboardPage = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   {/* Name */}
                   <div className="sm:col-span-2">
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-500 uppercase tracking-wider mb-1.5">Item Name</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Item Name</label>
                     <input type="text" placeholder="e.g. Nasi Lemak" required
                       value={addForm.name} onChange={e => setAddForm(p => ({ ...p, name: e.target.value }))}
-                      className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent rounded-xl focus:border-orange-500 focus:bg-white outline-none font-['Gilroy_Medium'] transition-all" />
+                      className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent rounded-xl focus:border-orange-500 focus:bg-white outline-none font-medium transition-all" />
                   </div>
 
                   {/* Category dropdown */}
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-500 uppercase tracking-wider mb-1.5">Category</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Category</label>
                     <div className="relative">
                       <select
                         value={addForm.category}
                         onChange={e => setAddForm(p => ({ ...p, category: e.target.value }))}
-                        className="w-full appearance-none px-4 py-3.5 bg-gray-50 border-2 border-transparent rounded-xl focus:border-orange-500 focus:bg-white outline-none font-['Gilroy_Medium'] transition-all capitalize cursor-pointer">
+                        className="w-full appearance-none px-4 py-3.5 bg-gray-50 border-2 border-transparent rounded-xl focus:border-orange-500 focus:bg-white outline-none font-medium transition-all capitalize cursor-pointer">
                         {CATEGORIES.map(c => <option key={c} value={c} className="capitalize">{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
                       </select>
                       <ChevronDown size={15} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
@@ -187,18 +187,18 @@ const StaffDashboardPage = () => {
 
                   {/* Price */}
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-500 uppercase tracking-wider mb-1.5">Price (LKR)</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Price (LKR)</label>
                     <input type="number" min="0" step="0.01" placeholder="0.00" required
                       value={addForm.price} onChange={e => setAddForm(p => ({ ...p, price: e.target.value }))}
-                      className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent rounded-xl focus:border-orange-500 focus:bg-white outline-none font-['Gilroy_Medium'] transition-all" />
+                      className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent rounded-xl focus:border-orange-500 focus:bg-white outline-none font-medium transition-all" />
                   </div>
 
                   {/* Stock */}
                   <div>
-                    <label className="block text-xs font-['Gilroy_Bold'] text-gray-500 uppercase tracking-wider mb-1.5">Initial Stock</label>
+                    <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1.5">Initial Stock</label>
                     <input type="number" min="0" placeholder="0" required
                       value={addForm.stock} onChange={e => setAddForm(p => ({ ...p, stock: e.target.value }))}
-                      className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent rounded-xl focus:border-orange-500 focus:bg-white outline-none font-['Gilroy_Medium'] transition-all" />
+                      className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent rounded-xl focus:border-orange-500 focus:bg-white outline-none font-medium transition-all" />
                   </div>
 
                   {/* Available toggle */}
@@ -207,14 +207,14 @@ const StaffDashboardPage = () => {
                       className={`w-12 h-6 rounded-full transition-colors ${addForm.available ? 'bg-green-500' : 'bg-gray-200'}`}>
                       <span className={`block w-5 h-5 bg-white rounded-full shadow mx-0.5 transition-transform ${addForm.available ? 'translate-x-6' : ''}`} />
                     </button>
-                    <span className="text-sm font-['Gilroy_Medium'] text-gray-600">
-                      Mark as <span className={addForm.available ? 'text-green-600 font-["Gilroy_Bold"]' : 'text-gray-400'}>available</span>
+                    <span className="text-sm font-medium text-gray-600">
+                      Mark as <span className={addForm.available ? 'text-green-600 font-bold' : 'text-gray-400'}>available</span>
                     </span>
                   </div>
                 </div>
 
                 <button type="submit" disabled={adding}
-                  className="w-full bg-orange-600 text-white py-4 rounded-2xl font-['Gilroy_Bold'] text-base hover:bg-orange-700 transition-all shadow-lg shadow-orange-100 disabled:opacity-50 flex items-center justify-center gap-2">
+                  className="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold text-base hover:bg-orange-700 transition-all shadow-lg shadow-orange-100 disabled:opacity-50 flex items-center justify-center gap-2">
                   <Plus size={18} />
                   {adding ? 'Adding...' : 'Add to Menu'}
                 </button>
@@ -228,14 +228,14 @@ const StaffDashboardPage = () => {
               {foods.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-gray-300">
                   <UtensilsCrossed size={40} />
-                  <p className="mt-3 font-['Gilroy_Bold'] text-gray-400">No items yet.</p>
+                  <p className="mt-3 font-bold text-gray-400">No items yet.</p>
                 </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-50 bg-gray-50/50">
                       {['Item', 'Category', 'Current Price', 'Stock', 'Update Price'].map(h => (
-                        <th key={h} className="px-6 py-4 text-left text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest">{h}</th>
+                        <th key={h} className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -246,27 +246,27 @@ const StaffDashboardPage = () => {
                       const isEditing = editPriceId === food._id;
                       return (
                         <tr key={food._id} className="border-b border-gray-50 last:border-0 hover:bg-orange-50/20 transition-colors">
-                          <td className="px-6 py-4 font-['Gilroy_Bold'] text-gray-900">{food.name}</td>
+                          <td className="px-6 py-4 font-bold text-gray-900">{food.name}</td>
                           <td className="px-6 py-4">
-                            <span className={`inline-flex items-center gap-1 text-xs font-['Gilroy_Bold'] px-2.5 py-1 rounded-full capitalize ${meta.bg} ${meta.color}`}>
+                            <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full capitalize ${meta.bg} ${meta.color}`}>
                               <CatIcon size={11} />{food.category}
                             </span>
                           </td>
-                          <td className="px-6 py-4 font-['Gilroy_Heavy'] text-orange-600">LKR {Number(food.price).toFixed(2)}</td>
+                          <td className="px-6 py-4 font-extrabold text-orange-600">LKR {Number(food.price).toFixed(2)}</td>
                           <td className="px-6 py-4">
-                            <span className={`flex items-center gap-1 text-xs font-['Gilroy_Bold'] ${food.available ? 'text-green-600' : 'text-red-500'}`}>
+                            <span className={`flex items-center gap-1 text-xs font-bold ${food.available ? 'text-green-600' : 'text-red-500'}`}>
                               {food.available ? <CheckCircle size={13} /> : <XCircle size={13} />} {food.stock}
                             </span>
                           </td>
                           <td className="px-6 py-4">
                             {isEditing ? (
                               <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-400 font-['Gilroy_Bold']">LKR</span>
+                                <span className="text-sm text-gray-400 font-bold">LKR</span>
                                 <input type="number" min="0" step="0.01" autoFocus
                                   value={editPriceVal}
                                   onChange={e => setEditPriceVal(e.target.value)}
                                   onKeyDown={e => { if (e.key === 'Enter') savePrice(food); if (e.key === 'Escape') cancelEditPrice(); }}
-                                  className="w-24 px-3 py-2 bg-gray-50 border-2 border-orange-400 rounded-xl outline-none font-['Gilroy_Bold'] text-sm" />
+                                  className="w-24 px-3 py-2 bg-gray-50 border-2 border-orange-400 rounded-xl outline-none font-bold text-sm" />
                                 <button onClick={() => savePrice(food)} disabled={savingPrice}
                                   className="p-2 bg-green-50 hover:bg-green-100 text-green-600 rounded-xl transition-colors">
                                   <Check size={15} />
@@ -278,7 +278,7 @@ const StaffDashboardPage = () => {
                               </div>
                             ) : (
                               <button onClick={() => startEditPrice(food)}
-                                className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-orange-50 text-gray-500 hover:text-orange-600 rounded-xl font-['Gilroy_Bold'] text-xs transition-colors">
+                                className="flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-orange-50 text-gray-500 hover:text-orange-600 rounded-xl font-bold text-xs transition-colors">
                                 <Pencil size={13} /> Edit Price
                               </button>
                             )}
@@ -298,14 +298,14 @@ const StaffDashboardPage = () => {
               {foods.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-48 text-gray-300">
                   <UtensilsCrossed size={40} />
-                  <p className="mt-3 font-['Gilroy_Bold'] text-gray-400">No items yet.</p>
+                  <p className="mt-3 font-bold text-gray-400">No items yet.</p>
                 </div>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-gray-50 bg-gray-50/50">
                       {['Item', 'Category', 'Current Stock', 'Status', 'Add Stock', ''].map(h => (
-                        <th key={h} className="px-6 py-4 text-left text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest">{h}</th>
+                        <th key={h} className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -322,42 +322,42 @@ const StaffDashboardPage = () => {
                         <tr key={food._id} className={`border-b border-gray-50 last:border-0 transition-colors ${isOut ? 'bg-red-50/30' : isLow ? 'bg-yellow-50/30' : 'hover:bg-gray-50/50'}`}>
                           <td className="px-6 py-4">
                             <div>
-                              <p className="font-['Gilroy_Bold'] text-gray-900">{food.name}</p>
+                              <p className="font-bold text-gray-900">{food.name}</p>
                               {recentlyRestocked && (
-                                <span className="text-[10px] font-['Gilroy_Bold'] text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
+                                <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full">
                                   ✓ Restocked today
                                 </span>
                               )}
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`inline-flex items-center gap-1 text-xs font-['Gilroy_Bold'] px-2.5 py-1 rounded-full capitalize ${meta.bg} ${meta.color}`}>
+                            <span className={`inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full capitalize ${meta.bg} ${meta.color}`}>
                               <CatIcon size={11} />{food.category}
                             </span>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={`text-2xl font-['Gilroy_Heavy'] ${isOut ? 'text-red-500' : isLow ? 'text-yellow-600' : 'text-gray-900'}`}>
+                            <span className={`text-2xl font-extrabold ${isOut ? 'text-red-500' : isLow ? 'text-yellow-600' : 'text-gray-900'}`}>
                               {food.stock}
                             </span>
-                            <span className="text-xs text-gray-400 font-['Gilroy_Medium'] ml-1">units</span>
+                            <span className="text-xs text-gray-400 font-medium ml-1">units</span>
                           </td>
                           <td className="px-6 py-4">
                             {isOut
-                              ? <span className="flex items-center gap-1 text-xs font-['Gilroy_Bold'] text-red-500 bg-red-50 px-2.5 py-1 rounded-full"><XCircle size={12} /> Out of Stock</span>
+                              ? <span className="flex items-center gap-1 text-xs font-bold text-red-500 bg-red-50 px-2.5 py-1 rounded-full"><XCircle size={12} /> Out of Stock</span>
                               : isLow
-                                ? <span className="flex items-center gap-1 text-xs font-['Gilroy_Bold'] text-yellow-600 bg-yellow-50 px-2.5 py-1 rounded-full">⚠ Low Stock</span>
-                                : <span className="flex items-center gap-1 text-xs font-['Gilroy_Bold'] text-green-600 bg-green-50 px-2.5 py-1 rounded-full"><CheckCircle size={12} /> Good</span>
+                                ? <span className="flex items-center gap-1 text-xs font-bold text-yellow-600 bg-yellow-50 px-2.5 py-1 rounded-full">⚠ Low Stock</span>
+                                : <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full"><CheckCircle size={12} /> Good</span>
                             }
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-400 font-['Gilroy_Bold']">+</span>
+                              <span className="text-sm text-gray-400 font-bold">+</span>
                               <input
                                 type="number" min="1" placeholder="qty"
                                 value={restockAmounts[food._id] || ''}
                                 onChange={e => setRestockAmounts(p => ({ ...p, [food._id]: e.target.value }))}
                                 onKeyDown={e => e.key === 'Enter' && handleRestock(food)}
-                                className="w-20 px-3 py-2 bg-gray-50 border-2 border-transparent focus:border-orange-400 rounded-xl outline-none font-['Gilroy_Bold'] text-sm transition-all"
+                                className="w-20 px-3 py-2 bg-gray-50 border-2 border-transparent focus:border-orange-400 rounded-xl outline-none font-bold text-sm transition-all"
                               />
                             </div>
                           </td>
@@ -365,7 +365,7 @@ const StaffDashboardPage = () => {
                             <button
                               onClick={() => handleRestock(food)}
                               disabled={restocking === food._id || !restockAmounts[food._id]}
-                              className="flex items-center gap-2 px-5 py-2.5 bg-orange-600 text-white rounded-2xl font-['Gilroy_Bold'] text-xs hover:bg-orange-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-orange-100">
+                              className="flex items-center gap-2 px-5 py-2.5 bg-orange-600 text-white rounded-2xl font-bold text-xs hover:bg-orange-700 transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm shadow-orange-100">
                               <PackagePlus size={14} />
                               {restocking === food._id ? 'Adding...' : 'Restock'}
                             </button>

@@ -37,8 +37,8 @@ const ResetPassword = () => {
                 className="max-w-md w-full bg-white rounded-[40px] shadow-2xl p-10 border border-gray-100"
             >
                 <div className="text-center mb-10">
-                    <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">Reset Password</h1>
-                    <p className="text-gray-500 mt-2 font-['Gilroy_Medium']">Enter the 6-digit OTP sent to your email.</p>
+                    <h1 className="text-3xl font-bold text-gray-900">Reset Password</h1>
+                    <p className="text-gray-500 mt-2 font-medium">Enter the 6-digit OTP sent to your email.</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -49,7 +49,7 @@ const ResetPassword = () => {
                             name="otp"
                             placeholder="Enter OTP"
                             required
-                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition-all font-['Gilroy_Medium']"
+                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium"
                             onChange={(e) => setFormData({ ...formData, otp: e.target.value })}
                         />
                     </div>
@@ -61,7 +61,7 @@ const ResetPassword = () => {
                             name="newPassword"
                             placeholder="New Password"
                             required
-                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition-all font-['Gilroy_Medium']"
+                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:ring-2 focus:ring-orange-500 outline-none transition-all font-medium"
                             onChange={(e) => setFormData({ ...formData, newPassword: e.target.value })}
                         />
                     </div>
@@ -69,7 +69,7 @@ const ResetPassword = () => {
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-orange-600 text-white py-5 rounded-2xl font-['Gilroy_Bold'] text-lg hover:bg-orange-700 transition-all shadow-xl flex items-center justify-center space-x-2 disabled:opacity-50"
+                        className="w-full bg-orange-600 text-white py-5 rounded-2xl font-bold text-lg hover:bg-orange-700 transition-all shadow-xl flex items-center justify-center space-x-2 disabled:opacity-50"
                     >
                         {loading ? "Resetting..." : (
                             <>

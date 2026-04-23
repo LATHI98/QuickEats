@@ -85,15 +85,15 @@ const OrdersPage = () => {
     <div className="max-w-7xl mx-auto space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">My Menu</h1>
-        <p className="text-gray-400 font-['Gilroy_Medium'] mt-1">Browse available food and place orders.</p>
+        <h1 className="text-3xl font-bold text-gray-900">My Menu</h1>
+        <p className="text-gray-400 font-medium mt-1">Browse available food and place orders.</p>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2">
         {[{ key: 'menu', label: 'Order Food' }, { key: 'history', label: 'Order History' }].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
-            className={`px-6 py-3 rounded-2xl font-['Gilroy_Bold'] text-sm transition-all ${
+            className={`px-6 py-3 rounded-2xl font-bold text-sm transition-all ${
               tab === t.key ? 'bg-orange-600 text-white shadow-lg shadow-orange-100' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
             }`}>
             {t.label}
@@ -109,7 +109,7 @@ const OrdersPage = () => {
             <div id="category-dropdown" className="relative">
               <button
                 onClick={() => setDropdownOpen(o => !o)}
-                className="flex items-center gap-3 bg-white border-2 border-gray-100 hover:border-orange-300 px-5 py-3 rounded-2xl font-['Gilroy_Bold'] text-sm text-gray-700 transition-all shadow-sm min-w-[180px] justify-between"
+                className="flex items-center gap-3 bg-white border-2 border-gray-100 hover:border-orange-300 px-5 py-3 rounded-2xl font-bold text-sm text-gray-700 transition-all shadow-sm min-w-[180px] justify-between"
               >
                 <span className="flex items-center gap-2">
                   <span className={`w-7 h-7 rounded-xl flex items-center justify-center ${activeCategory.bg}`}>
@@ -126,7 +126,7 @@ const OrdersPage = () => {
                     <button
                       key={cat.key}
                       onClick={() => { setCategory(cat.key); setDropdownOpen(false); }}
-                      className={`w-full flex items-center gap-3 px-5 py-3.5 text-sm font-['Gilroy_Bold'] transition-colors hover:bg-gray-50 ${
+                      className={`w-full flex items-center gap-3 px-5 py-3.5 text-sm font-bold transition-colors hover:bg-gray-50 ${
                         category === cat.key ? 'text-orange-600 bg-orange-50/60' : 'text-gray-700'
                       }`}
                     >
@@ -145,7 +145,7 @@ const OrdersPage = () => {
               )}
             </div>
 
-            <span className="text-sm font-['Gilroy_Medium'] text-gray-400">
+            <span className="text-sm font-medium text-gray-400">
               {filteredFoods.length} item{filteredFoods.length !== 1 ? 's' : ''} available
             </span>
           </div>
@@ -157,7 +157,7 @@ const OrdersPage = () => {
           ) : filteredFoods.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-300">
               <ActiveIcon size={48} className="opacity-30" />
-              <p className="mt-4 font-['Gilroy_Bold'] text-gray-400">
+              <p className="mt-4 font-bold text-gray-400">
                 No {activeCategory.label.toLowerCase()} available right now.
               </p>
             </div>
@@ -182,26 +182,26 @@ const OrdersPage = () => {
                     <div className="p-6 space-y-4">
                       <div className="flex items-start justify-between">
                         <div className="space-y-1">
-                          <h3 className="font-['Gilroy_Bold'] text-gray-900 text-lg">{food.name}</h3>
+                          <h3 className="font-bold text-gray-900 text-lg">{food.name}</h3>
                           <div className="flex items-center flex-wrap gap-1.5">
-                            <span className={`inline-flex items-center gap-1 text-xs font-['Gilroy_Bold'] px-2 py-0.5 rounded-full capitalize ${catInfo.bg} ${catInfo.color}`}>
+                            <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-full capitalize ${catInfo.bg} ${catInfo.color}`}>
                               <CatInfoIcon size={10} />
                               {food.category}
                             </span>
                             {recentlyRestocked && (
-                              <span className="inline-flex items-center gap-1 text-[10px] font-['Gilroy_Bold'] px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100">
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-600 border border-green-100">
                                 ✦ Restocked
                               </span>
                             )}
                           </div>
                         </div>
-                        <p className="text-2xl font-['Gilroy_Heavy'] text-orange-600">LKR {Number(food.price).toFixed(2)}</p>
+                        <p className="text-2xl font-extrabold text-orange-600">LKR {Number(food.price).toFixed(2)}</p>
                       </div>
-                      <div className="flex items-center text-xs text-gray-400 font-['Gilroy_Medium']">
+                      <div className="flex items-center text-xs text-gray-400 font-medium">
                         <span className="flex items-center gap-1">
                           {food.available
                             ? <><CheckCircle2 size={13} className="text-green-500" />
-                                <span className={recentlyRestocked ? 'text-green-600 font-["Gilroy_Bold"]' : ''}>
+                                <span className={recentlyRestocked ? 'text-green-600 font-bold' : ''}>
                                   {food.stock} left{recentlyRestocked ? ' (freshly stocked)' : ''}
                                 </span>
                               </>
@@ -214,7 +214,7 @@ const OrdersPage = () => {
                           <button onClick={() => setQty(food._id, qty - 1)} className="w-7 h-7 flex items-center justify-center rounded-xl hover:bg-white text-gray-400 hover:text-orange-600 transition-colors">
                             <Minus size={14} />
                           </button>
-                          <span className="w-8 text-center font-['Gilroy_Bold'] text-gray-900">{qty}</span>
+                          <span className="w-8 text-center font-bold text-gray-900">{qty}</span>
                           <button onClick={() => setQty(food._id, qty + 1)} className="w-7 h-7 flex items-center justify-center rounded-xl hover:bg-white text-gray-400 hover:text-orange-600 transition-colors">
                             <Plus size={14} />
                           </button>
@@ -222,7 +222,7 @@ const OrdersPage = () => {
                         <button
                           onClick={() => placeOrder(food)}
                           disabled={placing === food._id || food.stock < 1}
-                          className="flex-1 bg-orange-600 text-white py-2.5 rounded-2xl font-['Gilroy_Bold'] text-sm hover:bg-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                          className="flex-1 bg-orange-600 text-white py-2.5 rounded-2xl font-bold text-sm hover:bg-orange-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                           {placing === food._id ? 'Ordering...' : 'Order Now'}
                         </button>
                       </div>
@@ -244,7 +244,7 @@ const OrdersPage = () => {
         ) : orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-gray-300">
             <ShoppingBag size={48} />
-            <p className="mt-4 font-['Gilroy_Bold'] text-gray-400">No orders placed yet.</p>
+            <p className="mt-4 font-bold text-gray-400">No orders placed yet.</p>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
@@ -252,7 +252,7 @@ const OrdersPage = () => {
               <thead>
                 <tr className="border-b border-gray-50 bg-gray-50/50">
                   {['#', 'Food Item', 'Category', 'Unit Price', 'Qty', 'Total', 'Date'].map(h => (
-                    <th key={h} className="px-6 py-4 text-left text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest">{h}</th>
+                    <th key={h} className="px-6 py-4 text-left text-xs font-bold text-gray-400 uppercase tracking-widest">{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -262,15 +262,15 @@ const OrdersPage = () => {
                   const total = (food?.price || 0) * order.quantity;
                   return (
                     <tr key={order._id} className="border-b border-gray-50 last:border-0 hover:bg-orange-50/20 transition-colors">
-                      <td className="px-6 py-4 text-gray-400 font-['Gilroy_Medium']">{idx + 1}</td>
-                      <td className="px-6 py-4 font-['Gilroy_Bold'] text-gray-900">{food?.name || '—'}</td>
+                      <td className="px-6 py-4 text-gray-400 font-medium">{idx + 1}</td>
+                      <td className="px-6 py-4 font-bold text-gray-900">{food?.name || '—'}</td>
                       <td className="px-6 py-4">
-                        <span className="px-3 py-1 bg-orange-50 text-orange-600 rounded-full text-xs font-['Gilroy_Bold']">{food?.category || '—'}</span>
+                        <span className="px-3 py-1 bg-orange-50 text-orange-600 rounded-full text-xs font-bold">{food?.category || '—'}</span>
                       </td>
-                      <td className="px-6 py-4 font-['Gilroy_Medium'] text-gray-700">LKR {(food?.price || 0).toFixed(2)}</td>
-                      <td className="px-6 py-4 font-['Gilroy_Bold'] text-gray-900">{order.quantity}</td>
-                      <td className="px-6 py-4 font-['Gilroy_Bold'] text-orange-600">LKR {total.toFixed(2)}</td>
-                      <td className="px-6 py-4 font-['Gilroy_Medium'] text-gray-400 text-xs">
+                      <td className="px-6 py-4 font-medium text-gray-700">LKR {(food?.price || 0).toFixed(2)}</td>
+                      <td className="px-6 py-4 font-bold text-gray-900">{order.quantity}</td>
+                      <td className="px-6 py-4 font-bold text-orange-600">LKR {total.toFixed(2)}</td>
+                      <td className="px-6 py-4 font-medium text-gray-400 text-xs">
                         {new Date(order.date).toLocaleString('en-MY', { dateStyle: 'medium', timeStyle: 'short' })}
                       </td>
                     </tr>

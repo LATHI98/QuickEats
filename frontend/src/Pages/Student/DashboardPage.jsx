@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import api from '../../services/api';
+import api, { cartAPI, canteenAPI } from '../../services/api';
+import { toast } from 'react-toastify';
 import {
   ArrowRight,
   Clock3,
@@ -19,13 +20,27 @@ import {
   ChevronRight,
   Store,
   CheckCircle2,
+  Image as ImageIcon,
+  RotateCcw,
+  RefreshCw,
 } from 'lucide-react';
 
+import burgerImg from '../../assets/images/burger.png';
+import pizzaImg from '../../assets/images/pizza.png';
+import chickenImg from '../../assets/images/chicken.jpg';
+import noodleImg from '../../assets/images/noodle.jpg';
+import sushiImg from '../../assets/images/sushi.png';
+
+import ReviewModal from '../../Components/ReviewModal';
+import { reorderOrderToCart } from '../../utils/reorder';
+
+const heroImages = [burgerImg, pizzaImg, chickenImg, noodleImg, sushiImg];
+
 const quickActions = [
-  { title: 'Browse Canteens', description: 'See what is open now and jump straight to the menu.', icon: Store, path: '/dashboard/canteens', accent: 'from-orange-500 to-amber-400' },
-  { title: 'My Orders', description: 'Track pending, ready, and completed orders in one place.', icon: ReceiptText, path: '/dashboard/orders', accent: 'from-slate-900 to-slate-700' },
-  { title: 'Reservations', description: 'Reserve a table before lunch rush starts.', icon: BadgeCheck, path: '/dashboard/reservations', accent: 'from-emerald-500 to-teal-400' },
-  { title: 'Meal Pass', description: 'Use your meal pass or follow your campus meal plan.', icon: Ticket, path: '/dashboard/meal-pass', accent: 'from-indigo-500 to-violet-500' },
+  { title: 'Browse Canteens', description: 'See what is open now and jump straight to the menu.', icon: Store, path: '/dashboard/canteens', accent: 'from-orange-600 to-amber-500' },
+  { title: 'My Orders', description: 'Track pending, ready, and completed orders in one place.', icon: ReceiptText, path: '/dashboard/orders', accent: 'from-orange-500 to-rose-400' },
+  { title: 'Reservations', description: 'Reserve a table before lunch rush starts.', icon: BadgeCheck, path: '/dashboard/reservations', accent: 'from-amber-500 to-orange-400' },
+  { title: 'Meal Pass', description: 'Use your meal pass or follow your campus meal plan.', icon: Ticket, path: '/dashboard/meal-pass', accent: 'from-orange-400 to-amber-300' },
 ];
 
 const flowSteps = [
@@ -48,13 +63,24 @@ const getGreeting = (hour) => {
   return 'Good evening';
 };
 
-const CanteenCard = ({ canteen, onOpenMenu }) => (
+const CanteenCard = ({ canteen, onOpenMenu, onRate }) => (
   <motion.div
     whileHover={{ y: -6 }}
     transition={{ duration: 0.25 }}
     className="group overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-sm hover:shadow-2xl hover:shadow-orange-100/40 transition-all"
   >
-    <button type="button" onClick={onOpenMenu} className="block w-full text-left">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpenMenu}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpenMenu();
+        }
+      }}
+      className="block w-full text-left cursor-pointer"
+    >
       <div className="relative h-52 overflow-hidden">
         {canteen.photo ? (
           <img
@@ -100,26 +126,36 @@ const CanteenCard = ({ canteen, onOpenMenu }) => (
           {canteen.description || 'Browse menus, add to cart, and track orders from this canteen.'}
         </p>
 
-        <div className="flex items-center justify-between rounded-2xl bg-gray-50 px-4 py-3 text-xs text-gray-500">
-          <span>{canteen.email || 'No email set'}</span>
-          <span className="inline-flex items-center gap-1 text-orange-600 font-['Gilroy_Bold']">
-            Open Menu <ArrowRight size={13} />
-          </span>
-        </div>
+        <p className="text-xs text-gray-400 mb-2">Contact: {canteen.email || 'No email set'}</p>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onRate(); }}
+          className="flex items-center gap-1.5 font-['Gilroy_Bold'] text-amber-600 hover:text-amber-700 mb-5 transition-colors text-xs"
+        >
+          <Star size={12} strokeWidth={2.5} /> Rate & Review
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onOpenMenu()}
+          className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-[24px] font-['Gilroy_Heavy'] text-sm tracking-wide shadow-lg shadow-orange-600/10 transition-all active:scale-95 text-center"
+        >
+          Order Now & Menu
+        </button>
       </div>
-    </button>
+    </div>
   </motion.div>
 );
 
-const StatCard = ({ icon: Icon, label, value, tone }) => (
-  <div className={`rounded-[28px] border border-white/60 bg-white/80 p-5 shadow-lg shadow-black/5 backdrop-blur ${tone}`}>
+const StatCard = ({ icon: Icon, label, value, tone, small, dark }) => (
+  <div className={`rounded-[28px] border ${dark ? 'border-white/20 bg-white/10' : 'border-white/60 bg-white/80'} ${small ? 'p-4' : 'p-5'} shadow-lg shadow-black/5 backdrop-blur-md ${tone}`}>
     <div className="flex items-center justify-between gap-4">
       <div>
-        <p className="text-xs uppercase tracking-[0.2em] text-gray-400">{label}</p>
-        <p className="mt-2 text-3xl font-['Gilroy_Heavy'] text-gray-900">{value}</p>
+        <p className={`text-[10px] uppercase tracking-[0.2em] ${dark ? 'text-white/60' : 'text-gray-400'}`}>{label}</p>
+        <p className={`mt-1 ${small ? 'text-2xl' : 'text-3xl'} font-['Gilroy_Heavy'] ${dark ? 'text-white' : 'text-gray-900'}`}>{value}</p>
       </div>
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-orange-600 shadow-sm">
-        <Icon size={20} />
+      <div className={`flex ${small ? 'h-10 w-10' : 'h-12 w-12'} items-center justify-center rounded-2xl ${dark ? 'bg-white/10 text-white' : 'bg-white text-orange-600 shadow-sm'}`}>
+        <Icon size={small ? 18 : 20} />
       </div>
     </div>
   </div>
@@ -132,6 +168,11 @@ const StudentDashboard = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [reorderingId, setReorderingId] = useState(null);
+  
+  // Review Modal State
+  const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '', type: 'canteen' });
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -159,32 +200,78 @@ const StudentDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    const heroTimer = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % heroImages.length);
+    }, 5000);
+    return () => clearInterval(heroTimer);
+  }, []);
+
   const recentOrders = orders.slice(0, 3);
+  const latestCompletedOrder = orders.find((order) => order.status === 'completed');
   const activeOrders = orders.filter((order) => !['completed', 'cancelled'].includes(order.status));
   const readyOrders = orders.filter((order) => order.status === 'ready').length;
   const totalSpent = orders.reduce((sum, order) => sum + Number(order.totalPrice || 0), 0);
   const greeting = getGreeting(now.getHours());
 
+  const handleQuickReorder = async (order) => {
+    if (!order) return;
+
+    setReorderingId(order._id);
+    try {
+      const result = await reorderOrderToCart({ order, cartAPI, canteenAPI });
+      if (result.skippedItems.length > 0) {
+        toast.warn(`Added ${result.addedCount} item(s). Skipped unavailable items: ${result.skippedItems.join(', ')}`);
+      } else {
+        toast.success('Items moved to cart for a quick reorder');
+      }
+      navigate('/dashboard/cart');
+    } catch (err) {
+        toast.error(err?.message || 'Could not reorder this meal');
+    } finally {
+      setReorderingId(null);
+    }
+  };
+
   return (
-    <div className="relative mx-auto max-w-7xl space-y-10 overflow-hidden pb-10">
+    <div className="relative mx-auto max-w-7xl overflow-hidden pb-10">
       <div className="absolute left-0 top-0 -z-10 h-72 w-72 rounded-full bg-orange-100/60 blur-3xl" />
       <div className="absolute right-0 top-24 -z-10 h-96 w-96 rounded-full bg-amber-100/60 blur-3xl" />
 
-      <section className="overflow-hidden rounded-[40px] border border-orange-100 bg-gradient-to-br from-orange-500 via-amber-500 to-rose-500 text-white shadow-2xl shadow-orange-200/30">
-        <div className="grid gap-8 px-8 py-10 lg:grid-cols-[1.3fr_0.7fr] lg:px-10 lg:py-12">
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.25em] text-orange-200">
-              <Sparkles size={14} /> QuickEats student flow
-            </div>
+      <div className="space-y-10">
+        <section className="relative overflow-hidden rounded-[40px] border border-gray-100 bg-gray-900 text-white shadow-2xl shadow-orange-200/20 group">
+          {/* Hero Image Slider Background */}
+          <div className="absolute inset-0">
+            {heroImages.map((img, idx) => (
+              <motion.div
+                key={img}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: heroIndex === idx ? 1 : 0 }}
+                transition={{ duration: 1.5, ease: 'easeInOut' }}
+                className="absolute inset-0"
+              >
+                <img
+                  src={img}
+                  alt="Delicious food background"
+                  className="h-full w-full object-cover scale-105 transition-transform duration-[10s] group-hover:scale-100"
+                />
+              </motion.div>
+            ))}
+            {/* Dark Overlays for Readability */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+            <div className="absolute inset-0 bg-black/20" />
+          </div>
 
+          <div className="relative z-10 grid gap-6 px-10 py-6 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="space-y-4">
-              <h1 className="max-w-3xl text-4xl font-['Gilroy_Heavy'] leading-tight tracking-tight md:text-5xl">
+
+            <div className="space-y-3">
+              <h1 className="max-w-3xl text-2xl font-['Gilroy_Heavy'] leading-tight tracking-tight md:text-3xl">
                 {greeting}, {user?.name || 'Student'}.
-                <span className="block text-orange-300">Your order journey is ready right now.</span>
+                <span className="block text-orange-200">Your journey is ready.</span>
               </h1>
-              <p className="max-w-2xl text-base leading-7 text-white/70 md:text-lg">
-                Start from one dashboard and move through the full flow: discover canteens, open menus, add items to cart,
-                follow order progress, and reserve a table when needed.
+              <p className="max-w-2xl text-sm leading-6 text-white/70">
+                Explore canteens, open menus, add items to cart, follow order progress, and reserve a table when needed.
               </p>
             </div>
 
@@ -199,26 +286,26 @@ const StudentDashboard = () => {
               <button
                 type="button"
                 onClick={() => navigate('/dashboard/canteens')}
-                className="inline-flex items-center gap-2 rounded-2xl bg-orange-500 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white transition-colors hover:bg-orange-600"
+                className="inline-flex items-center gap-2 rounded-2xl bg-orange-600 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white shadow-lg shadow-orange-600/30 transition-all hover:bg-orange-700 hover:scale-105 active:scale-95"
               >
-                Browse canteens <ArrowRight size={16} />
+                Order Now <ArrowRight size={16} />
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/dashboard/orders')}
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white transition-colors hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white backdrop-blur-md transition-all hover:bg-white/20 active:scale-95"
               >
-                View my orders <ShoppingBag size={16} />
+                Track status <ShoppingBag size={16} />
               </button>
             </div>
           </div>
 
-          <div className="grid gap-4">
-            <div className="grid grid-cols-2 gap-4">
-              <StatCard icon={ReceiptText} label="Active orders" value={loading ? '—' : activeOrders.length} tone="" />
-              <StatCard icon={BadgeCheck} label="Ready now" value={loading ? '—' : readyOrders} tone="" />
+          <div className="grid gap-3">
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard icon={ReceiptText} label="Active" value={loading ? '—' : activeOrders.length} dark small />
+              <StatCard icon={BadgeCheck} label="Ready" value={loading ? '—' : readyOrders} dark small />
             </div>
-            <StatCard icon={TimerReset} label="Total spent" value={loading ? '—' : formatMoney(totalSpent)} tone="" />
+            <StatCard icon={TimerReset} label="Total spent" value={loading ? '—' : formatMoney(totalSpent)} dark small />
           </div>
         </div>
       </section>
@@ -229,23 +316,66 @@ const StudentDashboard = () => {
           return (
             <motion.button
               key={action.title}
-              whileHover={{ y: -4 }}
+              whileHover={{ y: -6, scale: 1.01 }}
+              transition={{ duration: 0.2 }}
               type="button"
               onClick={() => navigate(action.path)}
-              className="group rounded-[30px] border border-gray-100 bg-white p-5 text-left shadow-sm transition-all hover:shadow-xl"
+              className="group relative overflow-hidden rounded-[32px] border border-orange-50 bg-white p-6 text-left shadow-sm transition-all hover:shadow-2xl hover:shadow-orange-100/50"
             >
-              <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${action.accent} text-white shadow-lg shadow-orange-100`}>
-                <Icon size={20} />
+              <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-orange-50/50 transition-transform group-hover:scale-150" />
+              <div className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${action.accent} text-white shadow-lg shadow-orange-200/50`}>
+                <Icon size={24} />
               </div>
-              <h3 className="mt-4 text-lg font-['Gilroy_Heavy'] text-gray-900">{action.title}</h3>
+              <h3 className="relative mt-5 text-xl font-['Gilroy_Heavy'] text-gray-900 group-hover:text-orange-600 transition-colors">{action.title}</h3>
               <p className="mt-2 min-h-[48px] text-sm leading-6 text-gray-500">{action.description}</p>
-              <span className="mt-4 inline-flex items-center gap-2 text-sm font-['Gilroy_Bold'] text-orange-600 transition-transform group-hover:translate-x-1">
-                Open <ArrowRight size={15} />
-              </span>
+              <div className="mt-5 flex items-center justify-between">
+                <span className="inline-flex items-center gap-2 text-sm font-['Gilroy_Bold'] text-orange-600">
+                  Open <ArrowRight size={15} />
+                </span>
+                <ChevronRight size={16} className="text-gray-200 group-hover:text-orange-300 group-hover:translate-x-1 transition-all" />
+              </div>
             </motion.button>
           );
         })}
       </section>
+
+      {latestCompletedOrder && (
+        <section>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="flex flex-col gap-4 rounded-[36px] border border-orange-100 bg-gradient-to-r from-orange-50 via-white to-amber-50 p-6 shadow-sm md:flex-row md:items-center md:justify-between md:p-7"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-600 text-white shadow-lg shadow-orange-200/50">
+                <RotateCcw size={24} />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-orange-500">Quick reorder</p>
+                <h3 className="mt-2 text-2xl font-['Gilroy_Heavy'] text-gray-900">Reorder your last completed meal</h3>
+                <p className="mt-2 text-sm leading-6 text-gray-500">
+                  {latestCompletedOrder.canteen?.name || 'Your last canteen'} · Order #{latestCompletedOrder.queueNumber || '—'} · {latestCompletedOrder.items?.length || 0} item(s)
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleQuickReorder(latestCompletedOrder)}
+              disabled={reorderingId === latestCompletedOrder._id}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-orange-600 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white shadow-lg shadow-orange-600/25 transition-all hover:bg-orange-700 hover:scale-[1.01] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {reorderingId === latestCompletedOrder._id ? (
+                <RefreshCw size={16} className="animate-spin" />
+              ) : (
+                <RotateCcw size={16} />
+              )}
+              Reorder Again
+            </button>
+          </motion.div>
+        </section>
+      )}
 
       <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[36px] border border-gray-100 bg-white p-6 shadow-sm md:p-8">
@@ -261,12 +391,12 @@ const StudentDashboard = () => {
 
           <div className="mt-6 grid gap-4">
             {flowSteps.map((step, index) => (
-              <div key={step.title} className="flex gap-4 rounded-[28px] border border-gray-100 bg-gray-50/70 p-5">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gray-900 text-sm font-['Gilroy_Heavy'] text-white">
+              <div key={step.title} className="group flex gap-4 rounded-[28px] border border-orange-50 bg-white p-5 hover:border-orange-200 transition-colors">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-600 text-sm font-['Gilroy_Heavy'] text-white transition-transform group-hover:scale-110">
                   0{index + 1}
                 </div>
                 <div>
-                  <h3 className="text-lg font-['Gilroy_Heavy'] text-gray-900">{step.title}</h3>
+                  <h3 className="text-lg font-['Gilroy_Heavy'] text-gray-900 group-hover:text-orange-600 transition-colors">{step.title}</h3>
                   <p className="mt-1 text-sm leading-6 text-gray-500">{step.text}</p>
                 </div>
               </div>
@@ -384,11 +514,25 @@ const StudentDashboard = () => {
                 key={canteen._id}
                 canteen={canteen}
                 onOpenMenu={() => navigate(`/dashboard/canteens/${canteen._id}/menu`)}
+                onRate={() => setReviewModal({ isOpen: true, targetId: canteen._id, targetName: canteen.name, type: 'canteen' })}
               />
             ))}
           </div>
         )}
       </section>
+      </div>
+
+      <ReviewModal
+        isOpen={reviewModal.isOpen}
+        onClose={() => setReviewModal({ ...reviewModal, isOpen: false })}
+        targetId={reviewModal.targetId}
+        targetName={reviewModal.targetName}
+        type={reviewModal.type}
+        onReviewSubmitted={() => {
+          // Re-fetch canteens to show updated stars
+          api.get('/api/canteens').then(res => setCanteens(res.data));
+        }}
+      />
     </div>
   );
 };

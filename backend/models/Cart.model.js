@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 const cartItemSchema = new mongoose.Schema(
   {
     menuItem: { type: mongoose.Schema.Types.ObjectId, ref: 'MenuItem', required: true },
+    canteen: { type: mongoose.Schema.Types.ObjectId, ref: 'Canteen', default: null },
     name: { type: String, required: true },
     unitPrice: { type: Number, required: true },
     quantity: { type: Number, required: true, min: 1 },

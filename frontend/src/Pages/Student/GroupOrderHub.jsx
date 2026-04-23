@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Users, Plus, KeyRound, Copy, Check, Lock, ArrowRight, Play, UtensilsCrossed, Settings, Trash2, X, LogOut, Info } from 'lucide-react';
 import { groupSessionAPI, canteenAPI, cartAPI } from '../../services/api';
 import { toast } from 'react-toastify';
@@ -27,11 +28,20 @@ const GroupOrderHub = () => {
     const [editName, setEditName] = useState('');
     const [editPaymentMode, setEditPaymentMode] = useState('');
 
+    // Cancel Session State
+    const [isCancellingSession, setIsCancellingSession] = useState(false);
+
     // UI State
     const [copied, setCopied] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [isSwitching, setIsSwitching] = useState(false);
     const [memberStatuses, setMemberStatuses] = useState([]);
+
+    const fadeUp = {
+        initial: { opacity: 0, y: 10 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.25 }
+    };
 
     const fetchSession = async () => {
         try {
@@ -179,14 +189,19 @@ const GroupOrderHub = () => {
     }
 
     const handleCancelSession = async () => {
-        if (!window.confirm('Are you sure you want to cancel and delete this ENTIRE group session? All group carts will be cleared.')) return;
+        setIsCancellingSession(true);
+    }
+
+    const confirmCancelSession = async () => {
         setActionLoading(true);
         try {
             await groupSessionAPI.deleteSession(session._id);
             toast.success('Group session cancelled');
             setSession(null); // Return to home view
+            setIsCancellingSession(false);
         } catch (err) {
             toast.error(err.response?.data?.message || 'Failed to cancel session');
+            setIsCancellingSession(false);
         } finally {
             setActionLoading(false);
         }
@@ -214,93 +229,112 @@ const GroupOrderHub = () => {
     };
 
     if (loading) return (
-        <div className="flex justify-center items-center h-64">
-            <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+        <div className="max-w-3xl mx-auto py-16 px-4">
+            <motion.div {...fadeUp} className="rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-10 text-center shadow-sm">
+                <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                <p className="text-sm text-gray-500 mt-4 font-medium">Loading group session...</p>
+            </motion.div>
         </div>
     );
 
     // NO ACTIVE SESSION VIEW (or switching)
     if (!session || isSwitching) {
         return (
-            <div className="max-w-2xl mx-auto py-8 px-4">
-                <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900 mb-2">Group Ordering</h1>
-                <p className="text-gray-500 mb-8">Create a session and share the code with friends, or join an existing session to order together!</p>
+            <div className="max-w-4xl mx-auto py-8 px-4 md:px-6">
+                <motion.div {...fadeUp} className="relative overflow-hidden rounded-[30px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6 md:p-8 mb-8 shadow-sm">
+                    <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-orange-100/70 blur-3xl" />
+                    <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-amber-100/70 blur-3xl" />
+                    <div className="relative">
+                        <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2">Group Ordering</h1>
+                        <p className="text-gray-600 text-sm md:text-base max-w-2xl">Create a session and share the code with friends, or join an existing session to order together.</p>
+                    </div>
+                </motion.div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                     {/* Create Session Card */}
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.26, delay: 0.05 }}
+                        className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between"
+                    >
                         <div>
-                            <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-4">
+                            <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-xl flex items-center justify-center mb-4 shadow-sm">
                                 <Plus size={24} />
                             </div>
-                            <h2 className="text-xl font-['Gilroy_Heavy'] text-gray-900 mb-2">Create a Session</h2>
+                            <h2 className="text-xl font-extrabold text-gray-900 mb-2">Create a Session</h2>
                             <p className="text-gray-500 text-sm mb-6">Start a new group order, pick a canteen, and decide how you want to split the bill.</p>
                         </div>
 
                         {isCreating ? (
                             <form onSubmit={handleCreate} className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-['Gilroy_Medium'] text-gray-500 mb-1">Group Name</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Group Name</label>
                                     <input
                                         type="text"
                                         value={groupName}
                                         onChange={e => setGroupName(e.target.value)}
                                         placeholder="e.g., Study Mates Lunch"
-                                        className="w-full text-sm border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
+                                        className="w-full text-sm border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
                                         required
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-['Gilroy_Medium'] text-gray-500 mb-1">Select Canteen</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Select Canteen</label>
                                     <select
                                         value={selectedCanteen}
                                         onChange={e => setSelectedCanteen(e.target.value)}
-                                        className="w-full text-sm border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
+                                        className="w-full text-sm border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
                                     >
                                         {canteens.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
                                     </select>
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-['Gilroy_Medium'] text-gray-500 mb-1">Payment Mode</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Payment Mode</label>
                                     <select
                                         value={paymentMode}
                                         onChange={e => setPaymentMode(e.target.value)}
-                                        className="w-full text-sm border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
+                                        className="w-full text-sm border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
                                     >
                                         <option value="pay_separately">Pay Separately (Everyone pays their own items)</option>
                                         <option value="pay_together">Pay Together (You pay for everyone)</option>
                                     </select>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2 border rounded-xl text-sm font-['Gilroy_Medium'] flex-1">Cancel</button>
-                                    <button type="submit" disabled={actionLoading} className="px-4 py-2 bg-orange-500 text-white rounded-xl text-sm font-['Gilroy_Medium'] flex-1 disabled:opacity-50">Start</button>
+                                    <button type="button" onClick={() => setIsCreating(false)} className="px-4 py-2.5 border rounded-xl text-sm font-semibold flex-1">Cancel</button>
+                                    <button type="submit" disabled={actionLoading} className="px-4 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-extrabold flex-1 disabled:opacity-50">Start</button>
                                 </div>
                             </form>
                         ) : (
                             <button
                                 onClick={() => setIsCreating(true)}
                                 disabled={isJoining}
-                                className="w-full py-3 bg-gray-900 text-white rounded-xl font-['Gilroy_Heavy'] hover:bg-gray-800 transition-colors"
+                                className="w-full py-3 bg-gray-900 text-white rounded-xl font-extrabold hover:bg-gray-800 transition-colors"
                             >
                                 Create Group Session
                             </button>
                         )}
-                    </div>
+                    </motion.div>
 
                     {/* Join Session Card */}
-                    <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between">
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.26, delay: 0.1 }}
+                        className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex flex-col justify-between"
+                    >
                         <div>
-                            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+                            <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4 shadow-sm">
                                 <KeyRound size={24} />
                             </div>
-                            <h2 className="text-xl font-['Gilroy_Heavy'] text-gray-900 mb-2">Join a Session</h2>
+                            <h2 className="text-xl font-extrabold text-gray-900 mb-2">Join a Session</h2>
                             <p className="text-gray-500 text-sm mb-6">Have a code from a friend? Enter it here to join their group order.</p>
                         </div>
 
                         {isJoining ? (
                             <form onSubmit={handleJoin} className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-['Gilroy_Medium'] text-gray-500 mb-1">Share Code</label>
+                                    <label className="block text-xs font-medium text-gray-500 mb-1">Share Code</label>
                                     <input
                                         type="text"
                                         value={shareCode}
@@ -312,20 +346,20 @@ const GroupOrderHub = () => {
                                     />
                                 </div>
                                 <div className="flex gap-2">
-                                    <button type="button" onClick={() => setIsJoining(false)} className="px-4 py-2 border rounded-xl text-sm font-['Gilroy_Medium'] flex-1">Cancel</button>
-                                    <button type="submit" disabled={actionLoading} className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-['Gilroy_Medium'] flex-1 disabled:opacity-50">Join</button>
+                                    <button type="button" onClick={() => setIsJoining(false)} className="px-4 py-2.5 border rounded-xl text-sm font-semibold flex-1">Cancel</button>
+                                    <button type="submit" disabled={actionLoading} className="px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-extrabold flex-1 disabled:opacity-50">Join</button>
                                 </div>
                             </form>
                         ) : (
                             <button
                                 onClick={() => setIsJoining(true)}
                                 disabled={isCreating}
-                                className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-['Gilroy_Heavy'] hover:bg-blue-100 transition-colors"
+                                className="w-full py-3 bg-blue-50 text-blue-600 rounded-xl font-extrabold hover:bg-blue-100 transition-colors"
                             >
                                 Join with Code
                             </button>
                         )}
-                    </div>
+                    </motion.div>
                 </div>
             </div>
         );
@@ -342,30 +376,33 @@ const GroupOrderHub = () => {
     };
 
     return (
-        <div className="max-w-3xl mx-auto py-8 px-4">
+        <div className="max-w-5xl mx-auto py-8 px-4 md:px-6">
 
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-                <div>
-                    <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900 flex items-center gap-3">
-                        {session.name}
-                        <span className={`px-3 py-1 rounded-full text-xs font-['Gilroy_Medium'] ${session.status === 'locked' ? 'bg-orange-100 text-orange-600' : 'bg-green-100 text-green-600'}`}>
-                            {session.status.toUpperCase()}
-                        </span>
-                    </h1>
-                    <p className="text-gray-500 text-sm mt-1 flex items-center gap-2">
-                        <span>Created by <span className="font-['Gilroy_Heavy']">{session.creator.name}</span></span>
-                        &bull;
-                        <span>Canteen: <span className="font-['Gilroy_Heavy']">{session.canteen?.name || 'Loading...'}</span></span>
-                    </p>
-                </div>
+            <motion.div {...fadeUp} className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6 mb-6 shadow-sm">
+                <div className="absolute -top-12 -right-10 h-32 w-32 rounded-full bg-orange-100/80 blur-2xl" />
+                <div className="absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-amber-100/80 blur-2xl" />
+                <div className="relative flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-3 flex-wrap">
+                            {session.name}
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${session.status === 'locked' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                                {session.status.toUpperCase()}
+                            </span>
+                        </h1>
+                        <p className="text-gray-600 text-sm mt-1 flex items-center gap-2 flex-wrap">
+                            <span>Created by <span className="font-extrabold">{session.creator.name}</span></span>
+                            <span className="text-gray-300">|</span>
+                            <span>Canteen: <span className="font-extrabold">{session.canteen?.name || 'Loading...'}</span></span>
+                        </p>
+                    </div>
 
-                {/* Actions Top Right */}
-                <div className="flex gap-2">
+                    {/* Actions Top Right */}
+                    <div className="flex gap-2 flex-wrap">
                     {isCreator && session.status === 'open' && (
                         <button
                             onClick={openEditModal}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-['Gilroy_Medium'] transition-colors"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white hover:bg-gray-100 text-gray-700 border border-gray-200 rounded-xl text-sm font-semibold transition-colors"
                         >
                             <Settings size={16} /> Edit Group
                         </button>
@@ -375,7 +412,7 @@ const GroupOrderHub = () => {
                         <button
                             onClick={handleCancelSession}
                             disabled={actionLoading}
-                            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-sm font-['Gilroy_Medium'] transition-colors"
+                            className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-sm font-semibold transition-colors"
                         >
                             <Trash2 size={16} /> Cancel Group
                         </button>
@@ -385,7 +422,7 @@ const GroupOrderHub = () => {
                         <button
                             onClick={handleLeaveSession}
                             disabled={actionLoading}
-                            className="flex items-center gap-2 px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-sm font-['Gilroy_Medium'] transition-colors"
+                            className="flex items-center gap-2 px-4 py-2.5 border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-sm font-semibold transition-colors"
                         >
                             <LogOut size={16} /> Leave Group
                         </button>
@@ -395,20 +432,26 @@ const GroupOrderHub = () => {
                           if (isSwitching) setIsSwitching(false);
                           else setIsSwitching(true);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-xl text-sm font-['Gilroy_Medium'] transition-colors"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl text-sm font-semibold transition-colors border border-indigo-100"
                     >
                         <Users size={16} /> {isSwitching ? 'Back to Current' : 'Join Different Group'}
                     </button>
                 </div>
             </div>
+            </motion.div>
 
             {/* Invite & Details Card */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.24, delay: 0.04 }}
+                className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6 mb-6"
+            >
                 <div className="flex flex-col md:flex-row gap-6 items-center justify-between">
 
                     {/* Share Code & QR */}
                     <div className="flex-1 text-center md:text-left">
-                        <h2 className="text-sm text-gray-400 font-['Gilroy_Medium'] uppercase tracking-wider mb-2">Step 1: Invite Friends</h2>
+                        <h2 className="text-sm text-gray-400 font-medium uppercase tracking-wider mb-2">Step 1: Invite Friends</h2>
                         <p className="text-xs text-gray-500 mb-4 max-w-sm mx-auto md:mx-0">
                             Have your friends scan the QR code or enter the share code to join this group.
                         </p>
@@ -423,7 +466,7 @@ const GroupOrderHub = () => {
                                 </div>
                                 <button
                                     onClick={copyCode}
-                                    className="px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 text-sm font-['Gilroy_Medium'] flex items-center justify-center md:justify-start gap-2 mx-auto md:mx-0"
+                                    className="px-4 py-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 text-sm font-semibold flex items-center justify-center md:justify-start gap-2 mx-auto md:mx-0"
                                 >
                                     {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                                     {copied ? 'Copied URL!' : 'Copy Code'}
@@ -433,9 +476,9 @@ const GroupOrderHub = () => {
                     </div>
 
                     {/* Payment Mode Info */}
-                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-5 min-w-[240px] text-center md:text-left">
-                        <p className="text-xs text-gray-500 mb-1 font-['Gilroy_Medium'] uppercase tracking-wider">Payment Rules</p>
-                        <p className="font-['Gilroy_Heavy'] text-gray-900 text-lg mb-2">
+                    <div className="bg-gradient-to-br from-gray-50 to-white border border-gray-100 rounded-xl p-5 min-w-[240px] text-center md:text-left">
+                        <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wider">Payment Rules</p>
+                        <p className="font-extrabold text-gray-900 text-lg mb-2">
                             {session.paymentMode === 'pay_together' ? 'Creator Pays All' : 'Split Bill'}
                         </p>
                         <p className="text-xs text-gray-500 flex items-start gap-1 justify-center md:justify-start">
@@ -444,35 +487,45 @@ const GroupOrderHub = () => {
                         </p>
                     </div>
                 </div>
-            </div>
+            </motion.div>
 
             {/* Action Bar / Step 2 & 3 */}
             <div className="grid md:grid-cols-2 gap-4 mb-6">
                 {/* Step 2: Add Items */}
-                <div className={`rounded-2xl p-6 border ${session.status === 'locked' ? 'bg-gray-50 border-gray-100 opacity-75' : 'bg-indigo-50 border-indigo-100'}`}>
-                    <h2 className="text-sm text-indigo-400 font-['Gilroy_Heavy'] uppercase tracking-wider mb-2">Step 2: Add Food</h2>
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.24, delay: 0.08 }}
+                    className={`rounded-2xl p-6 border ${session.status === 'locked' ? 'bg-gray-50 border-gray-100 opacity-75' : 'bg-indigo-50 border-indigo-100'} shadow-sm`}
+                >
+                    <h2 className="text-sm text-indigo-400 font-extrabold uppercase tracking-wider mb-2">Step 2: Add Food</h2>
                     <p className={`text-sm mb-4 ${session.status === 'locked' ? 'text-gray-500' : 'text-indigo-900'}`}>Everyone needs to add their own items to the cart now.</p>
 
                     <div className="flex gap-2">
                         <button
                             onClick={() => navigate(`/dashboard/canteens/${session.canteen?._id || session.canteen}/menu`)}
                             disabled={session.status === 'locked'}
-                            className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-['Gilroy_Heavy'] hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                            className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white py-3 rounded-xl font-extrabold hover:bg-indigo-700 transition-colors disabled:opacity-50 shadow-lg shadow-indigo-200"
                         >
                             <UtensilsCrossed size={16} /> Go to Menu
                         </button>
                         <button
                             onClick={() => navigate('/dashboard/cart')}
-                            className="flex-1 flex items-center justify-center gap-2 bg-white text-indigo-600 border border-indigo-200 py-3 rounded-xl font-['Gilroy_Heavy'] hover:bg-indigo-50 transition-colors"
+                            className="flex-1 flex items-center justify-center gap-2 bg-white text-indigo-600 border border-indigo-200 py-3 rounded-xl font-extrabold hover:bg-indigo-50 transition-colors"
                         >
                             View Cart
                         </button>
                     </div>
-                </div>
+                </motion.div>
 
                 {/* Step 3: Lock & Checkout */}
-                <div className={`rounded-2xl p-6 border ${session.status === 'locked' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-100'}`}>
-                    <h2 className={`text-sm font-['Gilroy_Heavy'] uppercase tracking-wider mb-2 ${session.status === 'locked' ? 'text-green-600' : 'text-orange-400'}`}>
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.24, delay: 0.12 }}
+                    className={`rounded-2xl p-6 border ${session.status === 'locked' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-100'} shadow-sm`}
+                >
+                    <h2 className={`text-sm font-extrabold uppercase tracking-wider mb-2 ${session.status === 'locked' ? 'text-green-600' : 'text-orange-400'}`}>
                         Step 3: Checkout
                     </h2>
                     <p className={`text-sm mb-4 ${session.status === 'locked' ? 'text-green-800' : 'text-orange-900'}`}>
@@ -483,14 +536,14 @@ const GroupOrderHub = () => {
                         <button
                             onClick={handleLock}
                             disabled={actionLoading}
-                            className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-['Gilroy_Heavy'] transition-colors"
+                            className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3 rounded-xl font-extrabold transition-colors shadow-lg shadow-orange-200"
                         >
                             <Lock size={16} /> Lock Session
                         </button>
                     )}
 
                     {!isCreator && session.status === 'open' && (
-                        <button disabled className="w-full flex items-center justify-center gap-2 bg-orange-200 text-orange-600 py-3 rounded-xl font-['Gilroy_Heavy'] cursor-not-allowed">
+                        <button disabled className="w-full flex items-center justify-center gap-2 bg-orange-200 text-orange-600 py-3 rounded-xl font-extrabold cursor-not-allowed">
                             <Lock size={16} /> Waiting for Creator to Lock...
                         </button>
                     )}
@@ -498,29 +551,35 @@ const GroupOrderHub = () => {
                     {session.status === 'locked' && (
                         <button
                             onClick={() => navigate('/dashboard/cart')}
-                            className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-['Gilroy_Heavy'] transition-colors"
+                            className="w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-extrabold transition-colors shadow-lg shadow-green-200"
                         >
                             Go to Checkout <Play size={16} />
                         </button>
                     )}
-                </div>
+                </motion.div>
             </div>
 
             {/* Members List */}
             <div>
-                <h3 className="text-lg font-['Gilroy_Heavy'] text-gray-900 mb-4 flex items-center gap-2">
+                <h3 className="text-lg font-extrabold text-gray-900 mb-4 flex items-center gap-2">
                     <Users size={20} className="text-blue-500" />
                     Members ({session.members.length})
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2">
-                    {session.members.map(m => (
-                        <div key={m._id} className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+                    {session.members.map((m, index) => (
+                        <motion.div
+                            key={m._id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.22, delay: Math.min(index * 0.04, 0.22) }}
+                            className="flex items-center justify-between bg-white p-3 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+                        >
                             <div className="flex items-center gap-3">
                                 <div className="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center font-bold text-gray-400 border border-gray-200">
                                     {m.name.charAt(0).toUpperCase()}
                                 </div>
                                 <div>
-                                    <p className="text-sm font-['Gilroy_Heavy'] text-gray-900 flex items-center gap-2">
+                                    <p className="text-sm font-extrabold text-gray-900 flex items-center gap-2">
                                         {m.name} 
                                         {m._id === session.creator._id && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded-md">Creator</span>}
                                         {m._id === currentUser.id && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded-md">You</span>}
@@ -544,18 +603,102 @@ const GroupOrderHub = () => {
                                     <X size={16} />
                                 </button>
                             )}
-                        </div>
+                        </motion.div>
                     ))}
                 </div>
             </div>
 
 
+            {/* Cancel Session Modal */}
+            <AnimatePresence>
+            {isCancellingSession && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 overflow-hidden"
+                    >
+                        {/* Header with gradient background */}
+                        <div className="mb-4 -mx-6 -mt-6 px-6 pt-6 pb-4 bg-gradient-to-r from-red-500 to-orange-500">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 bg-white/20 rounded-xl">
+                                    <Trash2 size={20} className="text-white" />
+                                </div>
+                                <h2 className="text-lg font-extrabold text-white">Cancel Group Order?</h2>
+                            </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="space-y-4">
+                            <div className="bg-red-50 border border-red-100 rounded-2xl p-4">
+                                <p className="text-sm text-red-900 font-medium leading-relaxed">
+                                    <span className="font-extrabold">This action cannot be undone.</span> You will delete the entire group session and clear all member carts.
+                                </p>
+                            </div>
+                            
+                            <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+                                <div className="flex items-start gap-2">
+                                    <span className="text-orange-500 font-bold mt-0.5">•</span>
+                                    <span className="text-xs text-gray-700"><span className="font-semibold">{session.members.length} member{session.members.length !== 1 ? 's' : ''}</span> will lose their cart items</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-orange-500 font-bold mt-0.5">•</span>
+                                    <span className="text-xs text-gray-700">Session <span className="font-semibold text-gray-900">"{session.name}"</span> will be permanently deleted</span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <span className="text-orange-500 font-bold mt-0.5">•</span>
+                                    <span className="text-xs text-gray-700">No one will be able to join using the share code</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-3 pt-4 mt-4 border-t border-gray-100">
+                            <button 
+                                onClick={() => setIsCancellingSession(false)}
+                                disabled={actionLoading}
+                                className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold hover:bg-gray-200 transition-colors"
+                            >
+                                Keep Session
+                            </button>
+                            <button 
+                                onClick={confirmCancelSession}
+                                disabled={actionLoading}
+                                className="flex-1 py-2.5 bg-gradient-to-r from-red-500 to-orange-500 text-white rounded-xl text-sm font-semibold hover:shadow-lg transition-all disabled:opacity-50"
+                            >
+                                {actionLoading ? 'Cancelling...' : 'Delete Session'}
+                            </button>
+                        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+            </AnimatePresence>
+
             {/* Edit Modal */}
+            <AnimatePresence>
             {isEditing && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-                    <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, y: 12, scale: 0.98 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                        transition={{ duration: 0.2 }}
+                        className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-gray-100"
+                    >
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-['Gilroy_Heavy'] text-gray-900">Edit Group</h2>
+                            <h2 className="text-xl font-extrabold text-gray-900">Edit Group</h2>
                             <button onClick={() => setIsEditing(false)} className="p-1 hover:bg-gray-100 rounded-full text-gray-500">
                                 <X size={20} />
                             </button>
@@ -563,35 +706,36 @@ const GroupOrderHub = () => {
 
                         <form onSubmit={handleSaveEdit} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-['Gilroy_Medium'] text-gray-500 mb-1">Group Name</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Group Name</label>
                                 <input
                                     type="text"
                                     value={editName}
                                     onChange={e => setEditName(e.target.value)}
-                                    className="w-full text-sm border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
+                                    className="w-full text-sm border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
                                     required
                                 />
                             </div>
                             <div>
-                                <label className="block text-xs font-['Gilroy_Medium'] text-gray-500 mb-1">Payment Mode</label>
+                                <label className="block text-xs font-medium text-gray-500 mb-1">Payment Mode</label>
                                 <select
                                     value={editPaymentMode}
                                     onChange={e => setEditPaymentMode(e.target.value)}
-                                    className="w-full text-sm border-gray-200 rounded-xl px-3 py-2 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
+                                    className="w-full text-sm border-gray-200 rounded-xl px-3 py-2.5 bg-gray-50 focus:ring-orange-300 focus:border-orange-300"
                                 >
                                     <option value="pay_separately">Pay Separately</option>
                                     <option value="pay_together">Pay Together</option>
                                 </select>
                             </div>
                             <div className="pt-2">
-                                <button type="submit" disabled={actionLoading} className="w-full py-2.5 bg-gray-900 text-white rounded-xl text-sm font-['Gilroy_Heavy']">
+                                <button type="submit" disabled={actionLoading} className="w-full py-2.5 bg-gray-900 text-white rounded-xl text-sm font-extrabold hover:bg-gray-800 transition-colors">
                                     Save Changes
                                 </button>
                             </div>
                         </form>
-                    </div>
-                </div>
+                    </motion.div>
+                </motion.div>
             )}
+            </AnimatePresence>
 
         </div>
     );

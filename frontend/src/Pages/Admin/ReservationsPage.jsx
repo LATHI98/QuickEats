@@ -52,7 +52,7 @@ const AdminReservationsPage = () => {
     <div className="max-w-7xl mx-auto py-10 px-4 space-y-8">
       <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">Reservation Management</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Reservation Management</h1>
           <p className="text-sm text-gray-500">Monitor and manage all seat reservations</p>
         </div>
       </header>
@@ -60,16 +60,16 @@ const AdminReservationsPage = () => {
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-2xl border border-gray-100 p-4">
-          <p className="text-xs text-gray-500 font-['Gilroy_Bold'] uppercase">Total Reservations</p>
-          <p className="text-3xl font-['Gilroy_Heavy'] text-gray-900">{stats.total}</p>
+          <p className="text-xs text-gray-500 font-bold uppercase">Total Reservations</p>
+          <p className="text-3xl font-extrabold text-gray-900">{stats.total}</p>
         </div>
         <div className="bg-green-50 rounded-2xl border border-green-100 p-4">
-          <p className="text-xs text-green-600 font-['Gilroy_Bold'] uppercase">Confirmed</p>
-          <p className="text-3xl font-['Gilroy_Heavy'] text-green-700">{stats.confirmed}</p>
+          <p className="text-xs text-green-600 font-bold uppercase">Confirmed</p>
+          <p className="text-3xl font-extrabold text-green-700">{stats.confirmed}</p>
         </div>
         <div className="bg-red-50 rounded-2xl border border-red-100 p-4">
-          <p className="text-xs text-red-600 font-['Gilroy_Bold'] uppercase">Cancelled</p>
-          <p className="text-3xl font-['Gilroy_Heavy'] text-red-700">{stats.cancelled}</p>
+          <p className="text-xs text-red-600 font-bold uppercase">Cancelled</p>
+          <p className="text-3xl font-extrabold text-red-700">{stats.cancelled}</p>
         </div>
       </div>
 
@@ -77,7 +77,7 @@ const AdminReservationsPage = () => {
       <div className="flex gap-2">
         <button
           onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg font-['Gilroy_Bold'] transition-all ${
+          className={`px-4 py-2 rounded-lg font-bold transition-all ${
             filter === 'all'
               ? 'bg-orange-600 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -87,7 +87,7 @@ const AdminReservationsPage = () => {
         </button>
         <button
           onClick={() => setFilter('confirmed')}
-          className={`px-4 py-2 rounded-lg font-['Gilroy_Bold'] transition-all ${
+          className={`px-4 py-2 rounded-lg font-bold transition-all ${
             filter === 'confirmed'
               ? 'bg-green-600 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -97,7 +97,7 @@ const AdminReservationsPage = () => {
         </button>
         <button
           onClick={() => setFilter('cancelled')}
-          className={`px-4 py-2 rounded-lg font-['Gilroy_Bold'] transition-all ${
+          className={`px-4 py-2 rounded-lg font-bold transition-all ${
             filter === 'cancelled'
               ? 'bg-red-600 text-white'
               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
@@ -131,17 +131,17 @@ const AdminReservationsPage = () => {
               {filteredReservations.map((res) => (
                 <tr key={res._id} className="border-b border-gray-100 hover:bg-gray-50 transition-all">
                   <td className="px-4 py-3">
-                    <div className="text-gray-900 font-['Gilroy_Bold']">{res.userId?.name || 'N/A'}</div>
+                    <div className="text-gray-900 font-bold">{res.userId?.name || 'N/A'}</div>
                     <div className="text-xs text-gray-500">{res.userId?.email}</div>
                   </td>
                   <td className="px-4 py-3">{res.canteenId?.name || 'N/A'}</td>
-                  <td className="px-4 py-3 font-['Gilroy_Bold']">Table {res.tableId?.tableNumber || 'N/A'}</td>
+                  <td className="px-4 py-3 font-bold">Table {res.tableId?.tableNumber || 'N/A'}</td>
                   <td className="px-4 py-3">{res.seatsBooked}</td>
                   <td className="px-4 py-3">{new Date(res.reservationDate).toLocaleDateString()}</td>
                   <td className="px-4 py-3">{res.timeSlot}</td>
                   <td className="px-4 py-3">
                     <span
-                      className={`text-xs px-3 py-1 rounded-full font-['Gilroy_Bold'] ${
+                      className={`text-xs px-3 py-1 rounded-full font-bold ${
                         res.status === 'confirmed'
                           ? 'bg-green-100 text-green-700'
                           : 'bg-red-100 text-red-700'

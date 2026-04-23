@@ -118,13 +118,13 @@ const TablesManagementPage = () => {
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 space-y-8">
       <header>
-        <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">Tables Management</h1>
+        <h1 className="text-3xl font-bold text-gray-900">Tables Management</h1>
         <p className="text-sm text-gray-500">Set up and manage seating capacity for each canteen</p>
       </header>
 
       {/* Canteen Selection */}
       <div className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-        <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-2">Select Canteen</label>
+        <label className="block text-sm font-bold text-gray-700 mb-2">Select Canteen</label>
         <select
           value={selectedCanteen}
           onChange={(e) => handleCanteenChange(e.target.value)}
@@ -143,13 +143,13 @@ const TablesManagementPage = () => {
         <>
           {/* Add/Edit Table Form */}
           <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm space-y-4">
-            <h2 className="text-lg font-['Gilroy_Bold'] text-gray-900">
+            <h2 className="text-lg font-bold text-gray-900">
               {isEditing ? 'Edit Table' : 'Add New Table'}
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Table Number</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Table Number</label>
                 <input
                   value={formData.tableNumber}
                   onChange={(e) => setFormData((s) => ({ ...s, tableNumber: e.target.value }))}
@@ -162,7 +162,7 @@ const TablesManagementPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Seat Capacity</label>
+                <label className="block text-sm font-bold text-gray-700 mb-1">Seat Capacity</label>
                 <input
                   value={formData.capacity}
                   onChange={(e) => setFormData((s) => ({ ...s, capacity: e.target.value }))}
@@ -177,7 +177,7 @@ const TablesManagementPage = () => {
               <div className="flex items-end gap-2">
                 <button
                   type="submit"
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-['Gilroy_Bold']"
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 font-bold"
                 >
                   <Plus size={16} className="inline mr-1" /> {isEditing ? 'Update' : 'Create'}
                 </button>
@@ -197,18 +197,18 @@ const TablesManagementPage = () => {
           {/* Tables Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-orange-50 rounded-2xl border border-orange-100 p-4">
-              <p className="text-xs text-orange-600 font-['Gilroy_Bold'] uppercase">Total Tables</p>
-              <p className="text-3xl font-['Gilroy_Heavy'] text-orange-700">{tables.length}</p>
+              <p className="text-xs text-orange-600 font-bold uppercase">Total Tables</p>
+              <p className="text-3xl font-extrabold text-orange-700">{tables.length}</p>
             </div>
             <div className="bg-blue-50 rounded-2xl border border-blue-100 p-4">
-              <p className="text-xs text-blue-600 font-['Gilroy_Bold'] uppercase">Total Capacity</p>
-              <p className="text-3xl font-['Gilroy_Heavy'] text-blue-700">{totalCapacity}</p>
+              <p className="text-xs text-blue-600 font-bold uppercase">Total Capacity</p>
+              <p className="text-3xl font-extrabold text-blue-700">{totalCapacity}</p>
             </div>
           </div>
 
           {/* Tables List */}
           <section className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-            <h2 className="text-lg font-['Gilroy_Bold'] text-gray-900 mb-4">Tables</h2>
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Tables</h2>
 
             {loading ? (
               <div className="text-center text-gray-500">Loading...</div>
@@ -227,7 +227,7 @@ const TablesManagementPage = () => {
                   <tbody>
                     {tables.map((table) => (
                       <tr key={table._id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="px-4 py-3 font-['Gilroy_Bold']">Table {table.tableNumber}</td>
+                        <td className="px-4 py-3 font-bold">Table {table.tableNumber}</td>
                         <td className="px-4 py-3 flex items-center gap-1">
                           <Users size={16} /> {table.capacity} seats
                         </td>

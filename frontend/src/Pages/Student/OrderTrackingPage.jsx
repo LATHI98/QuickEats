@@ -49,11 +49,11 @@ const StatusTracker = ({ currentStatus }) => {
               </div>
 
               <div className="pt-1">
-                <h3 className={`font-['Gilroy_Heavy'] text-sm ${isCompleted ? 'text-green-600' : isActive ? 'text-gray-900' : 'text-gray-400'
+                <h3 className={`font-extrabold text-sm ${isCompleted ? 'text-green-600' : isActive ? 'text-gray-900' : 'text-gray-400'
                   }`}>
                   {step.label}
                 </h3>
-                <p className="text-xs text-gray-400 mt-0.5 font-['Gilroy_Medium']">
+                <p className="text-xs text-gray-400 mt-0.5 font-medium">
                   {step.description}
                 </p>
               </div>
@@ -169,23 +169,29 @@ const OrderTrackingPage = () => {
   );
 
   return (
-    <div className="max-w-lg mx-auto py-8 px-4 pb-24">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-['Gilroy_Heavy'] text-gray-900 tracking-tight">Track Order</h1>
-          <p className="text-gray-400 text-sm mt-1 font-['Gilroy_Medium']">Live updates from the kitchen</p>
-          {activeOrder?.instantPickupRequested && (
-            <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-orange-50 text-orange-600 text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest">
-              <Zap size={10} /> Instant Pickup Mode
-            </span>
-          )}
+    <div className="max-w-3xl mx-auto py-8 px-4 md:px-6 pb-24">
+      <div className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6 md:p-7 mb-8 shadow-sm">
+        <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-orange-100/70 blur-3xl" />
+        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-amber-100/70 blur-3xl" />
+
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Track Order</h1>
+            <p className="text-gray-500 text-sm mt-1 font-medium">Live updates from the kitchen and queue</p>
+            {activeOrder?.instantPickupRequested && (
+              <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-orange-50 text-orange-600 text-[10px] font-extrabold uppercase tracking-widest border border-orange-100">
+                <Zap size={10} /> Instant Pickup Mode
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={() => refresh(true)}
+            className={`p-3 rounded-2xl bg-white border border-orange-100 hover:bg-orange-50 transition-all ${refreshing ? 'animate-spin-slow' : ''}`}
+          >
+            <RefreshCw size={20} className="text-gray-600" />
+          </button>
         </div>
-        <button
-          onClick={() => refresh(true)}
-          className={`p-3 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-all ${refreshing ? 'animate-spin-slow' : ''}`}
-        >
-          <RefreshCw size={20} className="text-gray-600" />
-        </button>
       </div>
 
       {!activeOrder ? (
@@ -197,13 +203,13 @@ const OrderTrackingPage = () => {
           <div className="w-24 h-24 bg-white shadow-sm rounded-[35px] flex items-center justify-center mx-auto mb-6 text-orange-400">
             <QrCode size={48} strokeWidth={1.5} />
           </div>
-          <h2 className="text-2xl font-['Gilroy_Heavy'] text-gray-900 mb-2">No Active Orders</h2>
-          <p className="text-gray-400 text-sm font-['Gilroy_Medium'] max-w-xs mx-auto mb-8">
+          <h2 className="text-2xl font-extrabold text-gray-900 mb-2">No Active Orders</h2>
+          <p className="text-gray-400 text-sm font-medium max-w-xs mx-auto mb-8">
             When you place an order, its live progress and pickup details will appear here.
           </p>
           <button
             onClick={() => window.location.href = '/dashboard/canteens'}
-            className="bg-orange-500 text-white px-8 py-4 rounded-2xl font-['Gilroy_Heavy'] hover:bg-orange-600 transition-all shadow-lg shadow-orange-100"
+            className="bg-orange-500 text-white px-8 py-4 rounded-2xl font-extrabold hover:bg-orange-600 transition-all shadow-lg shadow-orange-100"
           >
             Order Something Fresh
           </button>
@@ -224,7 +230,7 @@ const OrderTrackingPage = () => {
                 className="flex items-center gap-3 p-4 bg-orange-50 rounded-2xl text-orange-700"
               >
                 <Clock size={18} />
-                <span className="text-sm font-['Gilroy_Heavy']">
+                <span className="text-sm font-extrabold">
                   Estimated Pickup: {new Date(activeOrder.estimatedPickupTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </motion.div>
@@ -238,7 +244,7 @@ const OrderTrackingPage = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 className="bg-indigo-600 rounded-[32px] p-8 text-center text-white shadow-xl shadow-indigo-100"
               >
-                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest mb-6">
+                <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-[10px] font-extrabold uppercase tracking-widest mb-6">
                   <Zap size={10} fill="currentColor" /> Pickup Pass
                 </div>
 
@@ -250,8 +256,8 @@ const OrderTrackingPage = () => {
                   />
                 </div>
 
-                <p className="text-5xl font-['Gilroy_Heavy'] tracking-[0.2em] mb-2">{activeOrder.pickupCode}</p>
-                <p className="text-indigo-100 text-sm font-['Gilroy_Medium']">
+                <p className="text-5xl font-extrabold tracking-[0.2em] mb-2">{activeOrder.pickupCode}</p>
+                <p className="text-indigo-100 text-sm font-medium">
                   {activeOrder.status === 'ready'
                     ? 'Order is ready. Show this QR/code to collect your meal.'
                     : 'Payment verified. Keep this pass ready for pickup time.'}
@@ -265,25 +271,25 @@ const OrderTrackingPage = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-indigo-700"
               >
-                <p className="text-sm font-['Gilroy_Heavy']">Generating your pickup pass...</p>
+                <p className="text-sm font-extrabold">Generating your pickup pass...</p>
                 <p className="text-xs text-indigo-500 mt-1">Refresh in a moment if the QR is not visible yet.</p>
               </motion.div>
             )}
           </AnimatePresence>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white border border-gray-100 rounded-[28px] p-6 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-100 rounded-[28px] p-6 text-center shadow-sm">
               <Hash size={20} className="text-orange-500 mx-auto mb-2" />
-              <p className="text-4xl font-['Gilroy_Heavy'] text-gray-900">{activeOrder.queueNumber}</p>
-              <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-wider mt-1">Your Token</p>
+              <p className="text-4xl font-extrabold text-gray-900">{activeOrder.queueNumber}</p>
+              <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mt-1">Your Token</p>
             </div>
-            <div className="bg-white border border-gray-100 rounded-[28px] p-6 text-center">
+            <div className="bg-white border border-gray-100 rounded-[28px] p-6 text-center shadow-sm">
               <Users size={20} className="text-orange-500 mx-auto mb-2" />
-              <p className="text-4xl font-['Gilroy_Heavy'] text-gray-900">
+              <p className="text-4xl font-extrabold text-gray-900">
                 {queuePosition !== null ? queuePosition : '—'}
               </p>
-              <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-wider mt-1">Orders Ahead</p>
+              <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mt-1">Orders Ahead</p>
             </div>
           </div>
 
@@ -295,16 +301,16 @@ const OrderTrackingPage = () => {
               className="bg-gray-900 rounded-[28px] p-6 text-white relative overflow-hidden group"
             >
               <div className="relative z-10">
-                <h3 className="text-lg font-['Gilroy_Heavy'] mb-1 flex items-center gap-2">
+                <h3 className="text-lg font-extrabold mb-1 flex items-center gap-2">
                   <Zap size={18} className="text-orange-400" fill="currentColor" /> Already there?
                 </h3>
-                <p className="text-xs text-gray-400 mb-6 font-['Gilroy_Medium'] leading-relaxed">
+                <p className="text-xs text-gray-400 mb-6 font-medium leading-relaxed">
                   Let the canteen know you've arrived and get bumped to the front.
                 </p>
                 <button
                   onClick={handleSkipQueue}
                   disabled={claiming}
-                  className="w-full bg-white text-gray-900 py-4 rounded-2xl font-['Gilroy_Heavy'] transition-all hover:bg-orange-500 hover:text-white disabled:opacity-50"
+                  className="w-full bg-white text-gray-900 py-4 rounded-2xl font-extrabold transition-all hover:bg-orange-500 hover:text-white disabled:opacity-50"
                 >
                   {claiming ? 'Activating Priority...' : "I'm Here! Skip the Queue"}
                 </button>
@@ -319,8 +325,8 @@ const OrderTrackingPage = () => {
                 <Zap size={24} fill="currentColor" />
               </div>
               <div>
-                <p className="text-xs font-['Gilroy_Heavy'] uppercase tracking-widest opacity-80">Priority Boost</p>
-                <p className="font-['Gilroy_Heavy'] text-lg">You're at the front! 🚀</p>
+                <p className="text-xs font-extrabold uppercase tracking-widest opacity-80">Priority Boost</p>
+                <p className="font-extrabold text-lg">You're at the front! 🚀</p>
               </div>
             </div>
           )}
@@ -329,12 +335,12 @@ const OrderTrackingPage = () => {
           <div className="bg-white border border-gray-100 rounded-[32px] p-8">
             <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-50">
               <div>
-                <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-widest">Ordered from</p>
-                <h4 className="font-['Gilroy_Heavy'] text-gray-900">{typeof activeOrder.canteen === 'object' ? activeOrder.canteen.name : 'Canteen'}</h4>
+                <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest">Ordered from</p>
+                <h4 className="font-extrabold text-gray-900">{typeof activeOrder.canteen === 'object' ? activeOrder.canteen.name : 'Canteen'}</h4>
               </div>
               <div className="text-right">
-                <p className="text-[10px] text-gray-400 font-['Gilroy_Heavy'] uppercase tracking-widest">Total Bill</p>
-                <p className="font-['Gilroy_Heavy'] text-orange-600">LKR {activeOrder.totalPrice?.toLocaleString()}</p>
+                <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-widest">Total Bill</p>
+                <p className="font-extrabold text-orange-600">LKR {activeOrder.totalPrice?.toLocaleString()}</p>
               </div>
             </div>
 
@@ -342,12 +348,12 @@ const OrderTrackingPage = () => {
               {activeOrder.items?.map((item, i) => (
                 <div key={i} className="flex justify-between items-center group">
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center text-[10px] font-['Gilroy_Heavy'] text-gray-500 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
+                    <div className="w-8 h-8 bg-gray-50 rounded-lg flex items-center justify-center text-[10px] font-extrabold text-gray-500 group-hover:bg-orange-50 group-hover:text-orange-500 transition-colors">
                       {item.quantity}x
                     </div>
-                    <span className="text-sm font-['Gilroy_Medium'] text-gray-600 group-hover:text-gray-900 transition-colors">{item.name}</span>
+                    <span className="text-sm font-medium text-gray-600 group-hover:text-gray-900 transition-colors">{item.name}</span>
                   </div>
-                  <span className="text-xs font-['Gilroy_Heavy'] text-gray-400">LKR {(item.unitPrice * item.quantity).toLocaleString()}</span>
+                  <span className="text-xs font-extrabold text-gray-400">LKR {(item.unitPrice * item.quantity).toLocaleString()}</span>
                 </div>
               ))}
             </div>

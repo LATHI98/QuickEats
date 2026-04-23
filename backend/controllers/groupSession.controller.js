@@ -3,6 +3,23 @@ import QRCode from 'qrcode';
 import Order from '../models/Order.model.js';
 import Cart from '../models/Cart.model.js';
 
+const getItemCanteenId = (item) => {
+    if (!item) return null;
+    if (item.canteen && typeof item.canteen === 'object' && item.canteen._id) return item.canteen._id.toString();
+    if (item.canteen) return item.canteen.toString();
+    if (item.menuItem && typeof item.menuItem === 'object' && item.menuItem.canteen) {
+        const menuCanteen = item.menuItem.canteen;
+        if (typeof menuCanteen === 'object' && menuCanteen._id) return menuCanteen._id.toString();
+        return menuCanteen.toString();
+    }
+    return null;
+};
+
+const filterItemsByCanteen = (items = [], canteenId) => {
+    const target = canteenId ? canteenId.toString() : null;
+    return items.filter((item) => getItemCanteenId(item) === target);
+};
+
 // Random 6 character alphanumeric code
 const generateShareCode = () => {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -243,9 +260,9 @@ export const getMergedCart = async (req, res) => {
             return res.status(403).json({ success: false, message: 'Not a member of this session' });
         }
 
-        const memberCarts = await Cart.find({ student: { $in: session.members }, canteen: session.canteen });
+        const memberCarts = await Cart.find({ student: { $in: session.members } });
         const allItems = [];
-        memberCarts.forEach(c => allItems.push(...c.items));
+        memberCarts.forEach(c => allItems.push(...filterItemsByCanteen(c.items, session.canteen)));
 
         const totalPrice = allItems.reduce((sum, item) => sum + (item.unitPrice * item.quantity), 0);
 
@@ -261,13 +278,14 @@ export const getMemberStatus = async (req, res) => {
         if (!session) return res.status(404).json({ success: false, message: 'Session not found' });
 
         const memberData = await Promise.all(session.members.map(async (m) => {
-            const cart = await Cart.findOne({ student: m._id, canteen: session.canteen });
+            const cart = await Cart.findOne({ student: m._id });
+            const sessionItems = cart ? filterItemsByCanteen(cart.items, session.canteen) : [];
             return {
                 _id: m._id,
                 name: m.name,
                 username: m.username,
-                hasItems: cart && cart.items && cart.items.length > 0,
-                itemCount: cart ? cart.items.length : 0
+                hasItems: sessionItems.length > 0,
+                itemCount: sessionItems.length
             };
         }));
 

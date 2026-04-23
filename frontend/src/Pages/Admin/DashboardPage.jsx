@@ -33,6 +33,12 @@ const getGreeting = (hour) => {
   return 'Good evening';
 };
 
+const HERO_IMAGES = [
+  'https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&q=80', // Kitchen/Canteen
+  'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&q=80', // Gourmet Food
+  'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&q=80', // Healthy Salad
+];
+
 const normalizeList = (data) => {
   if (Array.isArray(data)) return data;
   if (Array.isArray(data?.data)) return data.data;
@@ -42,12 +48,12 @@ const normalizeList = (data) => {
 const formatMoney = (value) => `LKR ${Number(value || 0).toLocaleString()}`;
 
 const quickActions = [
-  { label: 'Manage Canteens', description: 'Create, update, and review all canteens.', icon: Store, path: '/admin/canteens', accent: 'from-orange-500 to-amber-400' },
-  { label: 'Tables', description: 'Adjust seating and table capacity.', icon: Grid3x3, path: '/admin/tables', accent: 'from-emerald-500 to-teal-400' },
-  { label: 'Reservations', description: 'Review confirmed and pending bookings.', icon: Calendar, path: '/admin/reservations', accent: 'from-indigo-500 to-violet-500' },
-  { label: 'Menu Items', description: 'Control menu coverage across canteens.', icon: UtensilsCrossed, path: '/admin/menu', accent: 'from-slate-900 to-slate-700' },
-  { label: 'Orders', description: 'Inspect the live order pipeline.', icon: ShoppingBag, path: '/admin/orders', accent: 'from-rose-500 to-orange-500' },
-  { label: 'User Control', description: 'Manage accounts and system roles.', icon: Users, path: '/admin/users', accent: 'from-cyan-500 to-blue-500' },
+  { label: 'Manage Canteens', description: 'Create, update, and review all canteens.', icon: Store, path: '/admin/canteens', accent: 'from-orange-600 to-orange-400' },
+  { label: 'Tables', description: 'Adjust seating and table capacity.', icon: Grid3x3, path: '/admin/tables', accent: 'from-orange-500 to-amber-500' },
+  { label: 'Reservations', description: 'Review confirmed and pending bookings.', icon: Calendar, path: '/admin/reservations', accent: 'from-amber-600 to-orange-500' },
+  { label: 'Menu Items', description: 'Control menu coverage across canteens.', icon: UtensilsCrossed, path: '/admin/menu', accent: 'from-orange-600 to-amber-400' },
+  { label: 'Orders', description: 'Inspect the live order pipeline.', icon: ShoppingBag, path: '/admin/orders', accent: 'from-orange-500 to-orange-700' },
+  { label: 'User Control', description: 'Manage accounts and system roles.', icon: Users, path: '/admin/users', accent: 'from-amber-500 to-orange-600' },
 ];
 
 const statCardTone = [
@@ -64,6 +70,7 @@ const AdminDashboard = () => {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
+  const [heroIndex, setHeroIndex] = useState(0);
 
   useEffect(() => {
     const loadDashboard = async () => {
@@ -89,6 +96,13 @@ const AdminDashboard = () => {
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const heroTimer = setInterval(() => {
+      setHeroIndex((prev) => (prev + 1) % HERO_IMAGES.length);
+    }, 4000);
+    return () => clearInterval(heroTimer);
   }, []);
 
   const greeting = getGreeting(now.getHours());
@@ -164,77 +178,94 @@ const AdminDashboard = () => {
       <div className="absolute left-0 top-0 -z-10 h-72 w-72 rounded-full bg-orange-100/70 blur-3xl" />
       <div className="absolute right-0 top-24 -z-10 h-96 w-96 rounded-full bg-amber-100/70 blur-3xl" />
 
-      <section className="overflow-hidden rounded-[40px] border border-orange-100 bg-gradient-to-br from-orange-500 via-amber-500 to-rose-500 text-white shadow-2xl shadow-orange-200/30">
-        <div className="grid gap-8 px-8 py-10 lg:grid-cols-[1.2fr_0.8fr] lg:px-10 lg:py-12">
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs uppercase tracking-[0.25em] text-white/90 backdrop-blur">
-              <Sparkles size={14} /> Admin control center
+      <section className="relative overflow-hidden rounded-[40px] border border-orange-100 bg-gray-900 text-white shadow-2xl shadow-orange-200/20 group mt-0">
+        {/* Hero Slider Background */}
+        <div className="absolute inset-0">
+          {HERO_IMAGES.map((img, idx) => (
+            <motion.div
+              key={img}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: heroIndex === idx ? 1 : 0 }}
+              transition={{ duration: 1.5, ease: 'easeInOut' }}
+              className="absolute inset-0"
+            >
+              <img
+                src={img}
+                alt="System Admin"
+                className="h-full w-full object-cover scale-105 transition-transform duration-[10s] group-hover:scale-100 opacity-50"
+              />
+            </motion.div>
+          ))}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
+        </div>
+
+        <div className="relative z-10 grid gap-8 px-10 py-6 lg:grid-cols-[1fr_1fr] lg:py-8">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-1.5 text-[10px] font-bold uppercase tracking-[0.25em] text-white/90 backdrop-blur">
+              <Sparkles size={12} /> Admin control center
             </div>
 
-            <div className="space-y-4">
-              <h1 className="max-w-3xl text-4xl font-['Gilroy_Heavy'] leading-tight tracking-tight md:text-5xl">
+            <div className="space-y-2">
+              <h1 className="text-2xl font-extrabold leading-tight tracking-tight md:text-3xl">
                 {greeting}, {user?.name || 'Admin'}.
-                <span className="block text-white/90">Manage the campus dining system from one clean view.</span>
+                <span className="block text-orange-200">Campus dining at a glance.</span>
               </h1>
-              <p className="max-w-2xl text-base leading-7 text-white/85 md:text-lg">
-                Keep an eye on canteens, reservations, tables, menu coverage, and account management without jumping between
-                disconnected screens.
+              <p className="max-w-2xl text-xs leading-5 text-white/70">
+                Manage canteens, reservations, and system-wide settings from your unified control board.
               </p>
             </div>
 
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-              <Clock3 size={14} />
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-1.5 text-[10px] text-white/90 backdrop-blur">
+              <Clock3 size={11} />
               <span>{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
               <span className="text-white/50">·</span>
-              <span>{now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</span>
+              <span>{now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })}</span>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => navigate('/admin/canteens')}
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-['Gilroy_Heavy'] text-orange-600 transition-colors hover:bg-orange-50"
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-xs font-bold text-orange-600 transition-colors hover:bg-orange-50"
               >
-                Manage canteens <ArrowRight size={16} />
+                Canteens <ArrowRight size={14} />
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/admin/reservations')}
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white transition-colors hover:bg-white/15"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-white/15"
               >
-                Review reservations <Calendar size={16} />
+                Reservations <Calendar size={14} />
               </button>
             </div>
           </div>
 
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             <div className="rounded-[28px] border border-white/20 bg-white/10 p-5 backdrop-blur-md">
-              <p className="text-xs uppercase tracking-[0.2em] text-white/70">Platform status</p>
-              <div className="mt-3 flex items-start justify-between gap-4">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">System Monitoring</p>
+              <div className="mt-2 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-2xl font-['Gilroy_Heavy'] text-white">Operational</p>
-                  <p className="mt-2 flex items-center gap-2 text-sm text-white/80">
-                    <Activity size={14} />
-                    <span>Realtime data connected</span>
+                  <p className="text-xl font-extrabold text-white">OPERATIONAL</p>
+                  <p className="mt-1 flex items-center gap-2 text-[10px] text-white/70">
+                    <Activity size={12} />
+                    <span>Realtime systems synchronized</span>
                   </p>
                 </div>
-                <div className="rounded-2xl bg-white/15 px-3 py-2 text-right">
-                  <p className="text-[10px] uppercase tracking-[0.2em] text-white/70">Canteens</p>
-                  <p className="text-lg font-['Gilroy_Heavy'] text-white">{canteens.length}</p>
+                <div className="rounded-2xl bg-white/15 px-3 py-1.5 text-right">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40">Outlets</p>
+                  <p className="text-base font-extrabold text-white">{canteens.length}</p>
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-[28px] border border-white/20 bg-white/10 p-5 backdrop-blur-md">
-                <p className="text-xs uppercase tracking-[0.2em] text-white/70">Reservations</p>
-                <p className="mt-2 text-3xl font-['Gilroy_Heavy'] text-white">{reservations.length}</p>
-                <p className="mt-1 text-xs text-white/75">All reservation records</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-[24px] border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">Reservations</p>
+                <p className="mt-1 text-xl font-extrabold text-white">{reservations.length}</p>
               </div>
-              <div className="rounded-[28px] border border-white/20 bg-white/10 p-5 backdrop-blur-md">
-                <p className="text-xs uppercase tracking-[0.2em] text-white/70">Coverage</p>
-                <p className="mt-2 text-3xl font-['Gilroy_Heavy'] text-white">100%</p>
-                <p className="mt-1 text-xs text-white/75">Admin visibility</p>
+              <div className="rounded-[24px] border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">Platform</p>
+                <p className="mt-1 text-xl font-extrabold text-white">100%</p>
               </div>
             </div>
           </div>
@@ -253,7 +284,7 @@ const AdminDashboard = () => {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-gray-400">{stat.label}</p>
-                  <p className="mt-2 text-3xl font-['Gilroy_Heavy'] text-gray-900">{stat.value}</p>
+                  <p className="mt-2 text-3xl font-extrabold text-gray-900">{stat.value}</p>
                   <p className="mt-1 text-xs text-gray-500">{stat.note}</p>
                 </div>
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-orange-600 shadow-sm">
@@ -270,9 +301,9 @@ const AdminDashboard = () => {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Management shortcuts</p>
-              <h2 className="mt-2 text-2xl font-['Gilroy_Heavy'] text-gray-900">Open the areas you use most</h2>
+              <h2 className="mt-2 text-2xl font-extrabold text-gray-900">Open the areas you use most</h2>
             </div>
-            <div className="rounded-2xl bg-orange-50 px-3 py-2 text-sm font-['Gilroy_Bold'] text-orange-700">
+            <div className="rounded-2xl bg-orange-50 px-3 py-2 text-sm font-bold text-orange-700">
               Admin view
             </div>
           </div>
@@ -291,9 +322,9 @@ const AdminDashboard = () => {
                   <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${action.accent} text-white shadow-lg shadow-orange-100`}>
                     <Icon size={20} />
                   </div>
-                  <h3 className="mt-4 text-lg font-['Gilroy_Heavy'] text-gray-900">{action.label}</h3>
+                  <h3 className="mt-4 text-lg font-extrabold text-gray-900">{action.label}</h3>
                   <p className="mt-2 text-sm leading-6 text-gray-500">{action.description}</p>
-                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-['Gilroy_Bold'] text-orange-600 transition-transform group-hover:translate-x-1">
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-orange-600 transition-transform group-hover:translate-x-1">
                     Open <ChevronRight size={15} />
                   </span>
                 </motion.button>
@@ -301,23 +332,23 @@ const AdminDashboard = () => {
             })}
           </div>
 
-          <div className="mt-8 rounded-[30px] bg-gradient-to-br from-gray-900 via-gray-800 to-slate-900 p-6 text-white">
+          <div className="mt-8 rounded-[30px] bg-gradient-to-br from-orange-600 via-orange-500 to-amber-500 p-6 text-white shadow-xl shadow-orange-100/50">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-white/50">Daily focus</p>
-                <h3 className="mt-2 text-xl font-['Gilroy_Heavy']">What needs attention</h3>
+                <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-white/60">Daily focus</p>
+                <h3 className="mt-1 text-xl font-extrabold">What needs attention</h3>
               </div>
-              <div className="rounded-2xl bg-white/10 px-3 py-2 text-sm text-white/80">Updated live</div>
+              <div className="rounded-2xl bg-white/20 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-white backdrop-blur-sm">Updated live</div>
             </div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-white/50">Reservations</p>
-                <p className="mt-2 text-lg font-['Gilroy_Heavy']">{pendingReservations} need review</p>
+              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm border border-white/10">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">Reservations</p>
+                <p className="mt-1 text-lg font-extrabold">{pendingReservations} need review</p>
               </div>
-              <div className="rounded-2xl bg-white/5 p-4">
-                <p className="text-xs uppercase tracking-[0.2em] text-white/50">Top canteen</p>
-                <p className="mt-2 text-lg font-['Gilroy_Heavy']">{topCanteens[0]?.name || 'No canteen yet'}</p>
+              <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm border border-white/10">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/50">Top canteen</p>
+                <p className="mt-1 text-lg font-extrabold truncate">{topCanteens[0]?.name || 'No canteen yet'}</p>
               </div>
             </div>
           </div>
@@ -326,12 +357,41 @@ const AdminDashboard = () => {
         <div className="rounded-[36px] border border-gray-100 bg-white p-6 shadow-sm md:p-8">
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Recent activity</p>
-              <h2 className="mt-2 text-2xl font-['Gilroy_Heavy'] text-gray-900">Current snapshot</h2>
+              <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Order command center</p>
+              <h2 className="mt-2 text-2xl font-extrabold text-gray-900">Live order operations</h2>
             </div>
-            <button type="button" onClick={() => navigate('/admin/orders')} className="text-sm font-['Gilroy_Bold'] text-orange-600">
-              View orders
+            <button type="button" onClick={() => navigate('/admin/orders')} className="text-sm font-bold text-orange-600">
+              Open orders hub
             </button>
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 via-white to-amber-50 p-4">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={() => navigate('/admin/orders')}
+                className="rounded-xl border border-orange-100 bg-white px-4 py-3 text-left hover:bg-orange-50 transition-colors"
+              >
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">Orders</p>
+                <p className="text-sm font-extrabold text-gray-900 mt-1">Track live order flow</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/orders')}
+                className="rounded-xl border border-emerald-100 bg-white px-4 py-3 text-left hover:bg-emerald-50 transition-colors"
+              >
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">Billing</p>
+                <p className="text-sm font-extrabold text-gray-900 mt-1">Review payment state</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('/admin/orders')}
+                className="rounded-xl border border-indigo-100 bg-white px-4 py-3 text-left hover:bg-indigo-50 transition-colors"
+              >
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold">Queue Board</p>
+                <p className="text-sm font-extrabold text-gray-900 mt-1">Manage serving sequence</p>
+              </button>
+            </div>
           </div>
 
           <div className="mt-6 space-y-4">
@@ -345,10 +405,10 @@ const AdminDashboard = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="text-sm font-['Gilroy_Heavy'] text-gray-900">{activity.label}</p>
+                        <p className="text-sm font-extrabold text-gray-900">{activity.label}</p>
                         <p className="mt-1 text-sm leading-6 text-gray-500">{activity.detail}</p>
                       </div>
-                      <span className="rounded-full bg-white px-3 py-1 text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest text-gray-500 shadow-sm">
+                      <span className="rounded-full bg-white px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-500 shadow-sm">
                         {activity.time}
                       </span>
                     </div>
@@ -362,7 +422,7 @@ const AdminDashboard = () => {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Top canteens</p>
-                <h3 className="mt-1 text-lg font-['Gilroy_Heavy'] text-gray-900">Best rated locations</h3>
+                <h3 className="mt-1 text-lg font-extrabold text-gray-900">Best rated locations</h3>
               </div>
               <BarChart3 size={18} className="text-orange-500" />
             </div>
@@ -381,15 +441,15 @@ const AdminDashboard = () => {
                     className="flex w-full items-center justify-between rounded-2xl bg-gray-50 px-4 py-3 text-left transition-colors hover:bg-orange-50"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-xs font-['Gilroy_Heavy'] text-gray-500 shadow-sm">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white text-xs font-extrabold text-gray-500 shadow-sm">
                         {index + 1}
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-['Gilroy_Heavy'] text-gray-900">{canteen.name}</p>
+                        <p className="truncate text-sm font-extrabold text-gray-900">{canteen.name}</p>
                         <p className="text-xs text-gray-500">{canteen.owner || 'Owner not set'}</p>
                       </div>
                     </div>
-                    <span className="text-sm font-['Gilroy_Bold'] text-orange-600">{Number(canteen.ratings || 0).toFixed(1)}</span>
+                    <span className="text-sm font-bold text-orange-600">{Number(canteen.ratings || 0).toFixed(1)}</span>
                   </button>
                 ))
               )}

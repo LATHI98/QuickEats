@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { io } from 'socket.io-client';
 import {
   Salad, ChevronDown, Flame, Beef, Wheat, Droplets,
-  Clock, Zap, Trophy, Target, Sun, Sunrise, Moon, Coffee, Apple
+  Clock, Zap, Trophy, Target, Sun, Sunrise, Moon, Coffee, Apple, MessageCircle, Send
 } from 'lucide-react';
+import config from '../../config/config';
 
 // ── Sport Definitions ────────────────────────────────────────────────────────
 const SPORTS = {
@@ -186,12 +188,12 @@ const MEAL_PLANS = {
 // ── Dropdown ──────────────────────────────────────────────────────────────────
 const Dropdown = ({ label, value, onChange, options, placeholder }) => (
   <div className="flex flex-col gap-2">
-    <label className="text-xs font-['Gilroy_Bold'] text-gray-400 uppercase tracking-widest">{label}</label>
+    <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</label>
     <div className="relative">
       <select
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full appearance-none bg-white border-2 border-gray-100 focus:border-orange-500 rounded-2xl px-5 py-4 pr-12 outline-none font-['Gilroy_Bold'] text-gray-800 text-sm transition-all cursor-pointer shadow-sm">
+        className="w-full appearance-none bg-white border-2 border-gray-100 focus:border-orange-500 rounded-2xl px-5 py-4 pr-12 outline-none font-bold text-gray-800 text-sm transition-all cursor-pointer shadow-sm">
         <option value="">{placeholder}</option>
         {options.map(o => (
           <option key={o.value} value={o.value}>{o.label}</option>
@@ -206,8 +208,8 @@ const Dropdown = ({ label, value, onChange, options, placeholder }) => (
 const MacroBar = ({ label, pct, grams, color, bg }) => (
   <div className="space-y-2">
     <div className="flex justify-between items-center">
-      <span className="text-xs font-['Gilroy_Bold'] text-gray-500">{label}</span>
-      <span className={`text-xs font-['Gilroy_Heavy'] ${color}`}>{pct}% · {grams}g</span>
+      <span className="text-xs font-bold text-gray-500">{label}</span>
+      <span className={`text-xs font-extrabold ${color}`}>{pct}% · {grams}g</span>
     </div>
     <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
       <div className={`h-full rounded-full ${bg} transition-all duration-700`} style={{ width: `${pct}%` }} />
@@ -225,20 +227,345 @@ const MealCard = ({ meal }) => {
           <Icon size={18} className={meal.color} />
         </div>
         <div>
-          <p className="font-['Gilroy_Bold'] text-gray-800 text-sm">{meal.label}</p>
-          <p className="text-[11px] font-['Gilroy_Medium'] text-gray-400 flex items-center gap-1">
+          <p className="font-bold text-gray-800 text-sm">{meal.label}</p>
+          <p className="text-[11px] font-medium text-gray-400 flex items-center gap-1">
             <Clock size={10} /> {meal.time}
           </p>
         </div>
       </div>
       <ul className="space-y-2">
         {meal.items.map((item, i) => (
-          <li key={i} className="flex items-start gap-2 text-xs font-['Gilroy_Medium'] text-gray-600">
+          <li key={i} className="flex items-start gap-2 text-xs font-medium text-gray-600">
             <span className="mt-1.5 w-1.5 h-1.5 bg-orange-400 rounded-full shrink-0" />
             {item}
           </li>
         ))}
       </ul>
+    </div>
+  );
+};
+
+const SPORT_KEYWORDS = {
+  football: ['football', 'soccer'],
+  basketball: ['basketball'],
+  swimming: ['swimming', 'swim', 'swimmer'],
+  athletics: ['athletics', 'running', 'runner', 'sprinter'],
+  cricket: ['cricket', 'cricketer'],
+  badminton: ['badminton'],
+  volleyball: ['volleyball'],
+  rugby: ['rugby'],
+  tennis: ['tennis'],
+  gym: ['gym', 'bodybuilding', 'weight training'],
+  cycling: ['cycling', 'cyclist', 'bike'],
+  martial_arts: ['martial arts', 'karate', 'taekwondo', 'boxing'],
+};
+
+const findSportFromQuestion = (text) => {
+  const lower = text.toLowerCase();
+  for (const [sportKey, keywords] of Object.entries(SPORT_KEYWORDS)) {
+    if (keywords.some((keyword) => lower.includes(keyword))) {
+      return sportKey;
+    }
+  }
+  return null;
+};
+
+const getHydrationTarget = (sportKey) => {
+  if (!sportKey) return '2.5 – 3.5 L';
+  if (sportKey === 'swimming' || sportKey === 'cycling') return '3.5 – 4.5 L';
+  if (sportKey === 'rugby' || sportKey === 'football') return '3.0 – 4.0 L';
+  return '2.5 – 3.5 L';
+};
+
+const getLocalBotReply = (message, selectedSport, selectedAgeGroup) => {
+  const text = message.toLowerCase().trim();
+  const sportFromQuestion = findSportFromQuestion(text);
+  const activeSport = sportFromQuestion || selectedSport;
+  const sportLabel = activeSport ? SPORTS[activeSport].label : 'your sport';
+  const plan = activeSport ? MEAL_PLANS[activeSport] : null;
+  const ageMultiplier = selectedAgeGroup ? AGE_GROUPS[selectedAgeGroup]?.multiplier : null;
+  const calories = activeSport && ageMultiplier
+    ? Math.round(BASE_CALORIES[activeSport] * ageMultiplier)
+    : null;
+
+  if (text.includes('hello') || text.includes('hi') || text.includes('hey')) {
+    return `Hi! I can answer meal plans, hydration, pre-workout, post-workout, recovery, and match-day nutrition for ${sportLabel}.`;
+  }
+
+  if (text.includes('pre workout') || text.includes('before training') || text.includes('before workout') || text.includes('before match')) {
+    if (!plan) return 'Select a sport and I will give your exact pre-workout meal timing and food list.';
+    return `For ${sportLabel}, pre-workout (${plan.preWorkout.time}): ${plan.preWorkout.items.join(', ')}.`;
+  }
+
+  if (text.includes('post workout') || text.includes('after training') || text.includes('recovery')) {
+    if (!plan) return 'Select a sport and I will provide your post-workout recovery meal.';
+    return `For ${sportLabel}, post-workout (${plan.postWorkout.time}): ${plan.postWorkout.items.join(', ')}.`;
+  }
+
+  if (text.includes('hydration') || text.includes('water') || text.includes('drink')) {
+    const hydration = getHydrationTarget(activeSport);
+    return `Hydration target for ${sportLabel}: ${hydration} per day. Add around 500ml extra per training hour and include electrolytes for long sessions.`;
+  }
+
+  if (text.includes('calorie') || text.includes('kcal') || text.includes('energy')) {
+    if (!calories) return 'Choose sport + age group and I can calculate your estimated daily calorie target.';
+    return `Estimated daily calories for ${sportLabel} (${AGE_GROUPS[selectedAgeGroup].label}) is about ${calories.toLocaleString()} kcal/day.`;
+  }
+
+  if (text.includes('protein') || text.includes('carb') || text.includes('fat') || text.includes('macro')) {
+    if (!activeSport) return 'Pick a sport and I can give protein, carbs, and fat targets for your daily plan.';
+    const macro = SPORTS[activeSport].macros;
+    return `Macro target for ${sportLabel}: Protein ${macro.protein}%, Carbs ${macro.carbs}%, Fat ${macro.fat}%.`;
+  }
+
+  if (text.includes('breakfast') || text.includes('lunch') || text.includes('dinner') || text.includes('snack')) {
+    if (!plan) return 'Select a sport and I will list meal timing with breakfast, lunch, dinner, and snacks.';
+    const summary = plan.meals
+      .slice(0, 3)
+      .map((meal) => `${meal.label}: ${meal.items[0]}`)
+      .join(' | ');
+    return `Quick meal examples for ${sportLabel}: ${summary}.`;
+  }
+
+  if (text.includes('tip') || text.includes('advice') || text.includes('suggest')) {
+    if (!plan) return 'Select a sport to get practical nutrition tips.';
+    return `Top tips for ${sportLabel}: 1) ${plan.tips[0]} 2) ${plan.tips[1]}`;
+  }
+
+  if (text.includes('lose weight') || text.includes('fat loss') || text.includes('cut')) {
+    return 'For fat loss, keep a small calorie deficit, maintain high protein, and keep carbs around training so your performance does not drop.';
+  }
+
+  if (text.includes('gain muscle') || text.includes('bulk') || text.includes('muscle gain')) {
+    return 'For muscle gain, use a small calorie surplus, include protein in every meal, and prioritize post-workout carbs + protein.';
+  }
+
+  if (text.includes('match day') || text.includes('game day')) {
+    if (!plan) return 'Select a sport and I will provide a match-day meal strategy.';
+    return `Match-day approach for ${sportLabel}: pre-workout ${plan.preWorkout.time}, avoid heavy fried meals, and hydrate steadily throughout.`;
+  }
+
+  if (plan) {
+    return `For ${sportLabel}, start with this: ${plan.tips[0]} Ask me specifically about pre-workout, post-workout, hydration, calories, or match-day nutrition.`;
+  }
+
+  return 'Tell me your sport and age group, and I will give a personalized answer for meals, hydration, recovery, and performance.';
+};
+
+// ── Real-time Chatbot ───────────────────────────────────────────────────────
+const HealthMealChatbot = ({ sport, ageGroup }) => {
+  const [messages, setMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionNotice, setConnectionNotice] = useState('');
+  const [useLocalBot, setUseLocalBot] = useState(false);
+  const socketRef = useRef(null);
+  const scrollRef = useRef(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    let hasConnected = false;
+    const baseCandidates = [
+      config.API_URL,
+      `http://${window.location.hostname}:5000`,
+      'http://localhost:5000',
+      'http://127.0.0.1:5000',
+    ].filter(Boolean);
+    const candidates = [...new Set(baseCandidates)];
+
+    const connectToCandidate = (index) => {
+      if (!isMounted) return;
+
+      if (index >= candidates.length) {
+        setConnectionNotice('Chat server not reachable. Please start backend and refresh this page.');
+        setIsConnected(false);
+        return;
+      }
+
+      const endpoint = candidates[index];
+      const socket = io(endpoint, {
+        withCredentials: true,
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        timeout: 5000,
+      });
+
+      socketRef.current = socket;
+
+      socket.on('connect', () => {
+        if (!isMounted) return;
+        hasConnected = true;
+        setUseLocalBot(false);
+        setIsConnected(true);
+        setConnectionNotice('');
+      });
+
+      socket.on('disconnect', () => {
+        if (!isMounted) return;
+        setIsConnected(false);
+        setConnectionNotice('Connection lost. Reconnecting to chat service...');
+      });
+
+      socket.on('connect_error', () => {
+        if (!isMounted) return;
+        socket.disconnect();
+
+        if (!hasConnected) {
+          if (index + 1 < candidates.length) {
+            connectToCandidate(index + 1);
+          } else {
+            setUseLocalBot(true);
+            setIsConnected(true);
+            setConnectionNotice('Using local chat mode. Start backend later for live server chat.');
+          }
+        }
+      });
+
+      socket.on('chat:botMessage', (message) => {
+        if (!isMounted) return;
+        setMessages(prev => [...prev, { ...message, sender: 'bot' }]);
+        setIsTyping(false);
+      });
+    };
+
+    connectToCandidate(0);
+
+    return () => {
+      isMounted = false;
+      socketRef.current?.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages, isTyping]);
+
+  const sendMessage = () => {
+    const text = chatInput.trim();
+    if (!text) return;
+
+    if (useLocalBot) {
+      const userMessage = {
+        id: `${Date.now()}-user`,
+        sender: 'user',
+        text,
+        timestamp: new Date().toISOString(),
+      };
+
+      const botMessage = {
+        id: `${Date.now()}-bot`,
+        sender: 'bot',
+        text: getLocalBotReply(text, sport, ageGroup),
+        timestamp: new Date().toISOString(),
+      };
+
+      setMessages(prev => [...prev, userMessage, botMessage]);
+      setChatInput('');
+      setIsTyping(false);
+      setConnectionNotice('Local mode reply generated instantly.');
+      return;
+    }
+
+    if (!socketRef.current || !isConnected) {
+      setConnectionNotice('Chat service is offline. Please wait while reconnecting.');
+      socketRef.current?.connect();
+      return;
+    }
+
+    const userMessage = {
+      id: `${Date.now()}-user`,
+      sender: 'user',
+      text,
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setChatInput('');
+
+    setIsTyping(true);
+    setConnectionNotice('');
+    socketRef.current.emit('chat:message', {
+      text,
+      sport,
+      ageGroup,
+      timestamp: new Date().toISOString(),
+    });
+  };
+
+  return (
+    <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-7">
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <h2 className="font-bold text-gray-800 flex items-center gap-2">
+          <MessageCircle size={16} className="text-orange-500" /> Real-time Sports Chatbot
+        </h2>
+        <span className={`text-[11px] font-bold px-3 py-1 rounded-full ${isConnected ? 'bg-green-50 text-green-600 border border-green-200' : 'bg-amber-50 text-amber-600 border border-amber-200'}`}>
+          {isConnected ? 'Live' : 'Connecting...'}
+        </span>
+      </div>
+
+      <p className="text-xs font-medium text-gray-500 mb-4">
+        Ask about hydration, pre-workout meals, recovery, protein, or daily meal timing for SLIIT athletes.
+        {sport ? ` Current sport context: ${SPORTS[sport].label}.` : ' Select a sport for more specific answers.'}
+      </p>
+
+      <div ref={scrollRef} className="h-72 overflow-y-auto rounded-2xl bg-gray-50 border border-gray-100 p-4 space-y-3">
+        {messages.length === 0 && (
+          <div className="text-xs font-medium text-gray-400 text-center py-16">
+            Start chatting to get sport nutrition guidance instantly.
+          </div>
+        )}
+
+        {messages.map((message) => (
+          <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-medium leading-relaxed ${message.sender === 'user' ? 'bg-orange-500 text-white' : 'bg-white text-gray-700 border border-gray-200'}`}>
+              {message.text}
+            </div>
+          </div>
+        ))}
+
+        {isTyping && (
+          <div className="flex justify-start">
+            <div className="max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-medium bg-white text-gray-500 border border-gray-200">
+              Assistant is typing...
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 flex items-center gap-2">
+        <input
+          type="text"
+          value={chatInput}
+          onChange={(e) => setChatInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
+          placeholder="Ask a nutrition question..."
+          className="flex-1 rounded-2xl border-2 border-gray-100 focus:border-orange-500 px-4 py-3 text-sm font-medium outline-none"
+        />
+        <button
+          type="button"
+          onClick={sendMessage}
+          className="rounded-2xl bg-orange-500 text-white px-4 py-3 font-bold text-sm hover:bg-orange-600 transition-colors flex items-center gap-2"
+        >
+          <Send size={14} /> Send
+        </button>
+      </div>
+
+      {connectionNotice && (
+        <p className="mt-2 text-[11px] font-medium text-amber-600">{connectionNotice}</p>
+      )}
+      {useLocalBot && (
+        <p className="mt-1 text-[11px] font-medium text-blue-600">Local mode is active, so you can still chat without backend.</p>
+      )}
     </div>
   );
 };
@@ -271,20 +598,20 @@ const HealthMealPlanPage = () => {
       {/* ── Header ── */}
       <div className="flex items-start justify-between flex-wrap gap-4">
         <div>
-          <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900">Sports Meal Planner</h1>
-          <p className="text-gray-400 font-['Gilroy_Medium'] mt-1">
+          <h1 className="text-3xl font-extrabold text-gray-900">Sports Meal Planner</h1>
+          <p className="text-gray-400 font-medium mt-1">
             SLIIT athlete nutrition guide — select your sport and age to get your personalised daily meal plan.
           </p>
         </div>
         <div className="flex items-center gap-2 bg-orange-50 text-orange-600 px-4 py-2 rounded-2xl border border-orange-100">
           <Trophy size={16} />
-          <span className="text-xs font-['Gilroy_Bold']">SLIIT Sport Programme</span>
+          <span className="text-xs font-bold">SLIIT Sport Programme</span>
         </div>
       </div>
 
       {/* ── Dropdowns ── */}
       <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-7">
-        <p className="text-sm font-['Gilroy_Bold'] text-gray-700 mb-5 flex items-center gap-2">
+        <p className="text-sm font-bold text-gray-700 mb-5 flex items-center gap-2">
           <Target size={16} className="text-orange-500" /> Choose your sport and age group
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
@@ -309,12 +636,14 @@ const HealthMealPlanPage = () => {
           <div className={`mt-5 flex items-start gap-3 p-4 rounded-2xl border ${sportMeta.border} ${sportMeta.bg}`}>
             <span className="text-3xl leading-none">{sportMeta.emoji}</span>
             <div>
-              <p className={`font-['Gilroy_Bold'] text-sm ${sportMeta.color}`}>{sportMeta.label}</p>
-              <p className="text-xs font-['Gilroy_Medium'] text-gray-500 mt-0.5">{sportMeta.desc}</p>
+              <p className={`font-bold text-sm ${sportMeta.color}`}>{sportMeta.label}</p>
+              <p className="text-xs font-medium text-gray-500 mt-0.5">{sportMeta.desc}</p>
             </div>
           </div>
         )}
       </div>
+
+      <HealthMealChatbot sport={sport} ageGroup={ageGroup} />
 
       {/* ── Results ── */}
       {calories && macros && plan && sportMeta && ageMeta ? (
@@ -332,9 +661,9 @@ const HealthMealPlanPage = () => {
                 <div key={s.label} className={`${s.bg} rounded-2xl p-5 border border-gray-100`}>
                   <div className="flex items-center gap-2 mb-2">
                     <SIcon size={15} className={s.color} />
-                    <p className="text-xs font-['Gilroy_Bold'] text-gray-400">{s.label}</p>
+                    <p className="text-xs font-bold text-gray-400">{s.label}</p>
                   </div>
-                  <p className={`text-xl font-['Gilroy_Heavy'] ${s.color}`}>{s.value}</p>
+                  <p className={`text-xl font-extrabold ${s.color}`}>{s.value}</p>
                 </div>
               );
             })}
@@ -342,9 +671,9 @@ const HealthMealPlanPage = () => {
 
           {/* ── Macro Breakdown ── */}
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-7">
-            <h2 className="font-['Gilroy_Bold'] text-gray-800 mb-5 flex items-center gap-2">
+            <h2 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
               <Zap size={16} className="text-orange-500" /> Macro Breakdown
-              <span className="ml-auto text-xs font-['Gilroy_Medium'] text-gray-400">
+              <span className="ml-auto text-xs font-medium text-gray-400">
                 {ageMeta.tag} · {ageMeta.label}
               </span>
             </h2>
@@ -362,11 +691,11 @@ const HealthMealPlanPage = () => {
               { label: '💪 Post-Workout', sub: plan.postWorkout.time, items: plan.postWorkout.items, bg: 'bg-green-50',  border: 'border-green-200',  color: 'text-green-700' },
             ].map(w => (
               <div key={w.label} className={`${w.bg} rounded-2xl border ${w.border} p-6`}>
-                <p className={`font-['Gilroy_Bold'] text-sm ${w.color} mb-1`}>{w.label}</p>
-                <p className="text-[11px] text-gray-400 font-['Gilroy_Medium'] mb-4 flex items-center gap-1"><Clock size={10}/> {w.sub}</p>
+                <p className={`font-bold text-sm ${w.color} mb-1`}>{w.label}</p>
+                <p className="text-[11px] text-gray-400 font-medium mb-4 flex items-center gap-1"><Clock size={10}/> {w.sub}</p>
                 <ul className="space-y-2">
                   {w.items.map((it, i) => (
-                    <li key={i} className="flex items-start gap-2 text-xs font-['Gilroy_Medium'] text-gray-600">
+                    <li key={i} className="flex items-start gap-2 text-xs font-medium text-gray-600">
                       <span className="mt-1.5 w-1.5 h-1.5 bg-orange-400 rounded-full shrink-0" />
                       {it}
                     </li>
@@ -378,7 +707,7 @@ const HealthMealPlanPage = () => {
 
           {/* ── Daily Meal Schedule ── */}
           <div>
-            <h2 className="font-['Gilroy_Bold'] text-gray-800 mb-4 flex items-center gap-2">
+            <h2 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
               <Sun size={16} className="text-orange-500" /> Daily Meal Schedule
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -392,11 +721,11 @@ const HealthMealPlanPage = () => {
               <Droplets size={18} className="text-blue-500" />
             </div>
             <div>
-              <p className="font-['Gilroy_Bold'] text-blue-700 text-sm">Daily Hydration Target</p>
-              <p className="text-2xl font-['Gilroy_Heavy'] text-blue-600 mt-1">
+              <p className="font-bold text-blue-700 text-sm">Daily Hydration Target</p>
+              <p className="text-2xl font-extrabold text-blue-600 mt-1">
                 {sport === 'swimming' || sport === 'cycling' ? '3.5 – 4.5 L' : sport === 'rugby' || sport === 'football' ? '3.0 – 4.0 L' : '2.5 – 3.5 L'}
               </p>
-              <p className="text-xs font-['Gilroy_Medium'] text-blue-500 mt-1">
+              <p className="text-xs font-medium text-blue-500 mt-1">
                 Drink consistently throughout the day. Add 500ml extra per hour of training. Coconut water is excellent for electrolyte replacement.
               </p>
             </div>
@@ -404,23 +733,23 @@ const HealthMealPlanPage = () => {
 
           {/* ── Sport Tips ── */}
           <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-7">
-            <h2 className="font-['Gilroy_Bold'] text-gray-800 mb-5 flex items-center gap-2">
+            <h2 className="font-bold text-gray-800 mb-5 flex items-center gap-2">
               <Trophy size={16} className="text-orange-500" /> Nutrition Tips for {sportMeta.label}
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {plan.tips.map((tip, i) => (
                 <div key={i} className="flex items-start gap-3 p-4 bg-gray-50 rounded-2xl">
-                  <span className={`w-7 h-7 ${sportMeta.tag} text-white rounded-xl flex items-center justify-center text-xs font-['Gilroy_Heavy'] shrink-0`}>
+                  <span className={`w-7 h-7 ${sportMeta.tag} text-white rounded-xl flex items-center justify-center text-xs font-extrabold shrink-0`}>
                     {i + 1}
                   </span>
-                  <p className="text-xs font-['Gilroy_Medium'] text-gray-600 leading-relaxed">{tip}</p>
+                  <p className="text-xs font-medium text-gray-600 leading-relaxed">{tip}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* ── Disclaimer ── */}
-          <p className="text-center text-[11px] font-['Gilroy_Medium'] text-gray-300 pb-4">
+          <p className="text-center text-[11px] font-medium text-gray-300 pb-4">
             Meal plans are general nutritional guidelines for SLIIT student athletes. Consult the SLIIT Sports Unit or a registered dietitian for personalised advice.
           </p>
         </>
@@ -430,8 +759,8 @@ const HealthMealPlanPage = () => {
           <div className="w-20 h-20 bg-orange-50 rounded-[30px] flex items-center justify-center mb-5">
             <Salad size={36} className="text-orange-400" />
           </div>
-          <p className="font-['Gilroy_Bold'] text-gray-700 text-lg">Select your sport and age group</p>
-          <p className="text-sm font-['Gilroy_Medium'] text-gray-400 mt-1 max-w-sm">
+          <p className="font-bold text-gray-700 text-lg">Select your sport and age group</p>
+          <p className="text-sm font-medium text-gray-400 mt-1 max-w-sm">
             Your personalised daily meal plan with calorie targets and macro breakdown will appear here.
           </p>
         </div>

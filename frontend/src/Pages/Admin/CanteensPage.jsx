@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Store, PlusCircle, Edit3, Trash2, ImageIcon } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Store, PlusCircle, Edit3, Trash2, ImageIcon, UploadCloud, XCircle } from 'lucide-react';
 import { toast } from 'react-toastify';
 import api from '../../services/api';
 
@@ -20,6 +20,7 @@ const AdminCanteensPage = () => {
   const [form, setForm] = useState(initialForm);
   const [loading, setLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const fileInputRef = useRef(null);
 
   const fetchCanteens = async () => {
     try {
@@ -59,6 +60,7 @@ const AdminCanteensPage = () => {
   const resetForm = () => {
     setForm(initialForm);
     setIsEditing(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleSubmit = async (e) => {
@@ -116,6 +118,16 @@ const AdminCanteensPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleRemoveImage = () => {
+    setForm((s) => ({ ...s, photo: '' }));
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    toast.info('Image removed. Save to apply changes.');
+  };
+
+  const handleChooseImage = () => {
+    fileInputRef.current?.click();
+  };
+
   const handleDelete = async (id) => {
     if (!window.confirm('Delete this canteen?')) return;
     try {
@@ -127,33 +139,75 @@ const AdminCanteensPage = () => {
     }
   };
 
-  const handleFileUpload = (event) => {
+  const resizeImageFile = (file, maxDimension = 1280, quality = 0.82) => new Promise((resolve, reject) => {
+    const imageUrl = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      try {
+        const scale = Math.min(1, maxDimension / Math.max(img.width, img.height));
+        const targetWidth = Math.max(1, Math.round(img.width * scale));
+        const targetHeight = Math.max(1, Math.round(img.height * scale));
+
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) throw new Error('Canvas context unavailable');
+
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+        const outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+        const dataUrl = canvas.toDataURL(outputType, outputType === 'image/png' ? undefined : quality);
+        URL.revokeObjectURL(imageUrl);
+        resolve(dataUrl);
+      } catch (error) {
+        URL.revokeObjectURL(imageUrl);
+        reject(error);
+      }
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(imageUrl);
+      reject(new Error('Unable to read image'));
+    };
+
+    img.src = imageUrl;
+  });
+
+  const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      setForm((s) => ({ ...s, photo: reader.result }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      const compressedDataUrl = await resizeImageFile(file);
+      setForm((s) => ({ ...s, photo: compressedDataUrl }));
+      toast.success('Image uploaded and optimized');
+    } catch {
+      toast.error('Could not process selected image');
+    }
   };
 
   return (
     <div className="max-w-7xl mx-auto py-10 px-4 space-y-8">
-      <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-['Gilroy_Bold'] text-gray-900">Canteen Management</h1>
-          <p className="text-sm text-gray-500">Admin can add/update/delete canteens that students can view.</p>
-        </div>
-        <div className="inline-flex items-center gap-2 text-sm text-gray-500">
-          <Store size={18} />
-          <span>{canteens.length} canteen(s) loaded</span>
+      <header className="relative overflow-hidden rounded-[30px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6 md:p-8">
+        <div className="absolute -top-20 -right-20 h-56 w-56 rounded-full bg-orange-100/70 blur-3xl" />
+        <div className="absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-amber-100/70 blur-3xl" />
+        <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-900">Canteen Management</h1>
+            <p className="text-sm text-gray-600 mt-1">Add, edit, and curate canteens with better image control.</p>
+          </div>
+          <div className="inline-flex items-center gap-2 text-sm text-gray-600 bg-white/80 border border-orange-100 rounded-xl px-3 py-2">
+            <Store size={18} />
+            <span>{canteens.length} canteen(s) loaded</span>
+          </div>
         </div>
       </header>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
         <div>
-          <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Canteen Name</label>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Canteen Name</label>
           <input
             value={form.name}
             onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))}
@@ -166,7 +220,7 @@ const AdminCanteensPage = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Owner Name</label>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Owner Name</label>
           <input
             value={form.owner}
             onChange={(e) => setForm((s) => ({ ...s, owner: e.target.value }))}
@@ -179,7 +233,7 @@ const AdminCanteensPage = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Email</label>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Email</label>
           <input
             value={form.email}
             onChange={(e) => setForm((s) => ({ ...s, email: e.target.value }))}
@@ -191,7 +245,7 @@ const AdminCanteensPage = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Canteen Password</label>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Canteen Password</label>
           <input
             value={form.canteenPassword}
             onChange={(e) => setForm((s) => ({ ...s, canteenPassword: e.target.value }))}
@@ -202,7 +256,7 @@ const AdminCanteensPage = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Open Hours</label>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Open Hours</label>
           <input
             value={form.openHours}
             onChange={(e) => setForm((s) => ({ ...s, openHours: e.target.value }))}
@@ -214,7 +268,7 @@ const AdminCanteensPage = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Rating</label>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Rating</label>
           <input
             value={form.ratings}
             onChange={(e) => setForm((s) => ({ ...s, ratings: e.target.value }))}
@@ -226,24 +280,67 @@ const AdminCanteensPage = () => {
           />
         </div>
 
-        <div className="md:col-span-2">
-          <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Photo URL</label>
-          <input
-            value={form.photo}
-            onChange={(e) => setForm((s) => ({ ...s, photo: e.target.value }))}
-            type="url"
-            className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-orange-400"
-            placeholder="https://example.com/image.jpg"
-          />
-          <div className="flex items-center gap-3 pt-2">
-            <input type="file" accept="image/*" onChange={handleFileUpload} className="text-sm text-gray-500" />
-            <ImageIcon size={16} className="text-gray-400" />
-            <span className="text-xs text-gray-400">Or upload to use Base64 string</span>
+        <div className="md:col-span-2 rounded-2xl border border-orange-100 bg-orange-50/40 p-4">
+          <div className="flex items-center justify-between mb-3">
+            <label className="text-sm font-bold text-gray-800">Canteen Image</label>
+            {form.photo ? (
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold bg-red-50 text-red-600 hover:bg-red-100"
+              >
+                <XCircle size={14} /> Remove image
+              </button>
+            ) : null}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+            <div className="lg:col-span-2 space-y-3">
+              <input
+                value={form.photo}
+                onChange={(e) => setForm((s) => ({ ...s, photo: e.target.value }))}
+                type="url"
+                className="w-full rounded-xl border border-gray-200 px-3 py-2 outline-none focus:border-orange-400"
+                placeholder="https://example.com/image.jpg"
+              />
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleChooseImage}
+                  className="inline-flex items-center gap-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 text-sm font-bold"
+                >
+                  <UploadCloud size={16} /> {form.photo ? 'Replace image' : 'Upload image'}
+                </button>
+                <span className="text-xs text-gray-500 inline-flex items-center gap-1">
+                  <ImageIcon size={14} className="text-gray-400" />
+                  Auto-optimized before upload
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-2">
+              {form.photo ? (
+                <img src={form.photo} alt="Canteen preview" className="w-full h-32 object-cover rounded-xl" />
+              ) : (
+                <div className="w-full h-32 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-semibold">
+                  No image selected
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="md:col-span-2">
-          <label className="block text-sm font-['Gilroy_Bold'] text-gray-700 mb-1">Description</label>
+          <label className="block text-sm font-bold text-gray-700 mb-1">Description</label>
           <textarea
             value={form.description}
             onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))}
@@ -253,20 +350,20 @@ const AdminCanteensPage = () => {
           />
         </div>
 
-        <div className="md:col-span-2 text-right">
+        <div className="md:col-span-2 flex items-center justify-end gap-2">
           {isEditing && (
-            <button type="button" onClick={resetForm} className="px-5 py-2 mr-3 bg-gray-100 rounded-xl text-gray-600 hover:bg-gray-200">
+            <button type="button" onClick={resetForm} className="px-5 py-2 bg-gray-100 rounded-xl text-gray-600 hover:bg-gray-200 font-semibold">
               Cancel
             </button>
           )}
-          <button type="submit" className="px-6 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 flex items-center gap-2">
+          <button type="submit" className="px-6 py-2 bg-orange-600 text-white rounded-xl hover:bg-orange-700 inline-flex items-center gap-2 font-semibold">
             <PlusCircle size={16} /> {isEditing ? 'Update Canteen' : 'Add Canteen'}
           </button>
         </div>
       </form>
 
       <section className="bg-white rounded-3xl border border-gray-100 p-6 shadow-sm">
-        <h2 className="text-xl font-['Gilroy_Bold'] text-gray-900 mb-4">Canteen List</h2>
+        <h2 className="text-xl font-bold text-gray-900 mb-4">Canteen List</h2>
         <div className="overflow-x-auto">
           <table className="min-w-full text-left text-sm">
             <thead className="text-gray-500 uppercase text-xs border-b border-gray-100">

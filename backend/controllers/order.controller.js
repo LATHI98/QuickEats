@@ -2,6 +2,7 @@ import Order from '../models/Order.model.js';
 import Cart from '../models/Cart.model.js';
 import QueueSlot from '../models/QueueSlot.model.js';
 import GroupSession from '../models/GroupSession.model.js';
+import MenuItem from '../models/MenuItem.model.js';
 import { sendCancellationEmail } from '../services/email.service.js';
 
 const SLOT_INTERVAL_MINUTES = 10;
@@ -9,6 +10,13 @@ const MAX_ORDERS_PER_SLOT = 10;
 
 const isAdminRole = (role) => ['admin', 'superAdmin'].includes(role);
 const isElevatedOpsRole = (role) => ['admin', 'superAdmin', 'canteenManager'].includes(role);
+
+const localDateStr = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const resolveRequestCanteenId = (req) => {
   const bodyCanteenId = req.body?.canteenId;
@@ -28,6 +36,55 @@ const appendActivity = (order, { action, actor = null, actorRole = null, note = 
   });
 };
 
+const getItemCanteenId = (item) => {
+  if (!item) return null;
+  if (item.canteen && typeof item.canteen === 'object' && item.canteen._id) return item.canteen._id.toString();
+  if (item.canteen) return item.canteen.toString();
+  if (item.menuItem && typeof item.menuItem === 'object' && item.menuItem.canteen) {
+    const menuCanteen = item.menuItem.canteen;
+    if (typeof menuCanteen === 'object' && menuCanteen._id) return menuCanteen._id.toString();
+    return menuCanteen.toString();
+  }
+  return null;
+};
+
+const filterItemsByCanteen = (items = [], canteenId) => {
+  const target = canteenId ? canteenId.toString() : null;
+  return items.filter((item) => getItemCanteenId(item) === target);
+};
+
+const removeItemsByCanteen = (items = [], canteenId) => {
+  const target = canteenId ? canteenId.toString() : null;
+  return items.filter((item) => getItemCanteenId(item) !== target);
+};
+
+const hydrateCartItemCanteens = async (cart) => {
+  if (!cart?.items?.length) return;
+
+  const missing = cart.items.filter((item) => !getItemCanteenId(item));
+  if (!missing.length) return;
+
+  const menuItemIds = [...new Set(missing.map((item) => item.menuItem?.toString()).filter(Boolean))];
+  if (!menuItemIds.length) return;
+
+  const menuItems = await MenuItem.find({ _id: { $in: menuItemIds } }).select('_id canteen');
+  const menuMap = new Map(menuItems.map((item) => [item._id.toString(), item.canteen?.toString() || null]));
+
+  let changed = false;
+  for (const item of cart.items) {
+    if (getItemCanteenId(item)) continue;
+    const resolved = menuMap.get(item.menuItem?.toString()) || null;
+    if (resolved) {
+      item.canteen = resolved;
+      changed = true;
+    }
+  }
+
+  if (changed) {
+    await cart.save();
+  }
+};
+
 // Helper: get or create next available queue slot for a canteen
 async function assignQueueSlot(canteenId, preferredSlotTime = null) {
   const now = new Date();
@@ -35,7 +92,7 @@ async function assignQueueSlot(canteenId, preferredSlotTime = null) {
   // If user picked a specific vibe/slot
   if (preferredSlotTime) {
     const slotTime = new Date(preferredSlotTime);
-    const dateStr = slotTime.toISOString().split('T')[0];
+    const dateStr = localDateStr(slotTime);
     let slot = await QueueSlot.findOne({ canteen: canteenId, slotTime });
     if (!slot) {
       slot = await QueueSlot.create({
@@ -54,7 +111,7 @@ async function assignQueueSlot(canteenId, preferredSlotTime = null) {
     // If preferred is full, fallback to auto-assign
   }
 
-  const dateStr = now.toISOString().split('T')[0]; // 'YYYY-MM-DD'
+  const dateStr = localDateStr(now); // 'YYYY-MM-DD'
 
   // Round up to next slot boundary
   const roundedMinutes = Math.ceil((now.getMinutes() + 1) / SLOT_INTERVAL_MINUTES) * SLOT_INTERVAL_MINUTES;
@@ -63,7 +120,7 @@ async function assignQueueSlot(canteenId, preferredSlotTime = null) {
 
   // Find slot with remaining capacity (try up to 48 slots = 8 hours)
   for (let i = 0; i < 48; i++) {
-    const slotDateStr = slotTime.toISOString().split('T')[0];
+    const slotDateStr = localDateStr(slotTime);
     let slot = await QueueSlot.findOne({ canteen: canteenId, slotTime });
 
     if (!slot) {
@@ -111,6 +168,7 @@ export const placeOrder = async (req, res) => {
     console.log(`Placing order. User: ${req.user._id}, PreferredSlot: ${preferredSlotTime}`);
 
     let cart = await Cart.findOne({ student: req.user._id });
+    if (cart) await hydrateCartItemCanteens(cart);
     let session = null;
     let cartsToClear = [req.user._id];
 
@@ -127,19 +185,23 @@ export const placeOrder = async (req, res) => {
           return res.status(403).json({ success: false, message: 'Only the session creator can place a pay_together order' });
         }
 
-        // Merge all member carts
-        const memberCarts = await Cart.find({ student: { $in: session.members }, canteen: session.canteen });
+        // Merge all member carts for this session canteen
+        const memberCarts = await Cart.find({ student: { $in: session.members } });
         const allItems = [];
-        memberCarts.forEach(c => {
+        for (const c of memberCarts) {
+          await hydrateCartItemCanteens(c);
+
           // Convert to plain objects to avoid subdocument conflicts
-          const items = c.items.map(item => ({
+          const sessionItems = filterItemsByCanteen(c.items, session.canteen);
+          const items = sessionItems.map(item => ({
             menuItem: item.menuItem,
+            canteen: session.canteen,
             name: item.name,
             unitPrice: item.unitPrice,
             quantity: item.quantity
           }));
           allItems.push(...items);
-        });
+        }
 
         if (allItems.length === 0) {
           return res.status(400).json({ success: false, message: 'Group members have no items in their carts for this canteen' });
@@ -168,20 +230,26 @@ export const placeOrder = async (req, res) => {
       const members = session.members;
       
       // Calculate start queue number for the block
-      let currentQueueNumber = await getNextQueueNumber(cart.canteen);
+      const sessionCanteenId = session.canteen.toString();
+      let currentQueueNumber = await getNextQueueNumber(sessionCanteenId);
       const slotPreference = instantPickup ? new Date() : preferredSlotTime;
-      const { slotTime } = await assignQueueSlot(cart.canteen, slotPreference);
+      const { slotTime } = await assignQueueSlot(sessionCanteenId, slotPreference);
 
       for (const memberId of members) {
-        const memberCart = await Cart.findOne({ student: memberId, canteen: cart.canteen });
+        const memberCart = await Cart.findOne({ student: memberId });
         if (!memberCart || !memberCart.items || memberCart.items.length === 0) continue;
 
-        const memberTotal = memberCart.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+        await hydrateCartItemCanteens(memberCart);
+
+        const memberItems = filterItemsByCanteen(memberCart.items, sessionCanteenId);
+        if (memberItems.length === 0) continue;
+
+        const memberTotal = memberItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
         
         const orderPayload = {
           student: memberId,
-          canteen: cart.canteen,
-          items: memberCart.items,
+          canteen: sessionCanteenId,
+          items: memberItems,
           totalPrice: memberTotal,
           queueNumber: currentQueueNumber++,
           estimatedPickupTime: slotTime,
@@ -202,7 +270,13 @@ export const placeOrder = async (req, res) => {
 
         const newOrder = await Order.create(orderPayload);
         results.push(newOrder);
-        await Cart.deleteOne({ _id: memberCart._id });
+
+        memberCart.items = removeItemsByCanteen(memberCart.items, sessionCanteenId);
+        if (memberCart.items.length === 0) {
+          await Cart.deleteOne({ _id: memberCart._id });
+        } else {
+          await memberCart.save();
+        }
       }
 
       const creatorOrder = results.find(o => o.student.toString() === req.user._id.toString());
@@ -214,18 +288,73 @@ export const placeOrder = async (req, res) => {
       });
     }
 
-    // Standard ordering (Individual or Pay Together)
-    const totalPrice = cart.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+    // Standard ordering (individual checkout from one canteen at a time)
+    const requestedCanteenId = req.body?.canteenId || null;
+    const targetCanteenId = session
+      ? session.canteen.toString()
+      : (requestedCanteenId || getItemCanteenId(cart.items?.[0]));
+
+    if (!targetCanteenId) {
+      return res.status(400).json({ success: false, message: 'No canteen selected for checkout' });
+    }
+
+    let orderItems = filterItemsByCanteen(cart.items, targetCanteenId);
+
+    // Backward-compatibility fallback for legacy cart items without canteen metadata
+    if (!orderItems.length) {
+      const unknownCanteenItems = (cart.items || []).filter((item) => !getItemCanteenId(item));
+      if (unknownCanteenItems.length) {
+        for (const item of unknownCanteenItems) {
+          item.canteen = targetCanteenId;
+        }
+        if (typeof cart.save === 'function') {
+          await cart.save();
+        }
+        orderItems = unknownCanteenItems;
+      }
+    }
+
+    // Fallback for stale canteen tags: resolve from selected payload items
+    if (!orderItems.length && requestedCanteenId && Array.isArray(req.body?.items)) {
+      const requestedMenuIds = new Set(
+        req.body.items
+          .map((item) => item?.menuItem)
+          .filter(Boolean)
+          .map((id) => id.toString())
+      );
+
+      if (requestedMenuIds.size > 0) {
+        const matchedItems = (cart.items || []).filter((item) => requestedMenuIds.has(item.menuItem?.toString()));
+
+        if (matchedItems.length) {
+          for (const item of matchedItems) {
+            if (!getItemCanteenId(item)) {
+              item.canteen = targetCanteenId;
+            }
+          }
+          if (typeof cart.save === 'function') {
+            await cart.save();
+          }
+          orderItems = matchedItems;
+        }
+      }
+    }
+
+    if (!orderItems.length) {
+      return res.status(400).json({ success: false, message: 'No cart items found for the selected canteen' });
+    }
+
+    const totalPrice = orderItems.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
 
     // Assign queue slot + number
     const slotPreference = instantPickup ? new Date() : preferredSlotTime;
-    const { slotTime } = await assignQueueSlot(cart.canteen, slotPreference);
-    const queueNumber = await getNextQueueNumber(cart.canteen);
+    const { slotTime } = await assignQueueSlot(targetCanteenId, slotPreference);
+    const queueNumber = await getNextQueueNumber(targetCanteenId);
 
     const orderPayload = {
       student: req.user._id,
-      canteen: cart.canteen,
-      items: cart.items, // These are now plain objects if from pay_together, or Mongoose subdocs if from single cart
+      canteen: targetCanteenId,
+      items: orderItems,
       totalPrice,
       queueNumber,
       estimatedPickupTime: slotTime,
@@ -240,7 +369,7 @@ export const placeOrder = async (req, res) => {
           actor: req.user._id,
           actorRole: req.user.role,
           note: instantPickup ? 'Order placed by student (instant pickup requested)' : 'Order placed by student',
-          metadata: { totalPrice, itemCount: cart.items.length, instantPickup: !!instantPickup },
+          metadata: { totalPrice, itemCount: orderItems.length, instantPickup: !!instantPickup },
           createdAt: new Date(),
         },
       ],
@@ -250,8 +379,17 @@ export const placeOrder = async (req, res) => {
     const order = await Order.create(orderPayload);
     console.log(`Order created: ${order._id}`);
 
-    // Clear cart(s)
-    await Cart.deleteMany({ student: { $in: cartsToClear } });
+    // Remove checked-out canteen items from cart(s)
+    if (cartsToClear.length > 1) {
+      await Cart.deleteMany({ student: { $in: cartsToClear } });
+    } else {
+      cart.items = removeItemsByCanteen(cart.items, targetCanteenId);
+      if (!cart.items.length) {
+        await Cart.deleteOne({ _id: cart._id });
+      } else {
+        await cart.save();
+      }
+    }
 
     res.status(201).json({ success: true, data: order });
   } catch (err) {
@@ -336,12 +474,13 @@ export const getMyOrderById = async (req, res) => {
 export const getCanteenOrders = async (req, res) => {
   try {
     const isElevated = isElevatedOpsRole(req.user.role);
+    const isGlobalViewer = isAdminRole(req.user.role);
 
-    // Staff must use their assigned canteen; elevated roles must provide canteen context
+    // Staff must use their assigned canteen; admins can optionally view all canteens.
     let canteenId;
     if (isElevated) {
       canteenId = req.query.canteen || null;
-      if (!canteenId) {
+      if (!canteenId && !isGlobalViewer) {
         return res.status(400).json({
           success: false,
           code: 'CANTEEN_CONTEXT_REQUIRED',
@@ -352,6 +491,8 @@ export const getCanteenOrders = async (req, res) => {
       const assignedCanteenId = req.user.canteen ? req.user.canteen.toString() : '';
       const requestedCanteenId = req.query.canteen || '';
 
+      // For non-elevated staff, always lock listing to assigned canteen when available.
+      // This avoids stale UI context accidentally hiding newly placed orders.
       canteenId = assignedCanteenId || requestedCanteenId || null;
 
       if (!canteenId) {
@@ -362,12 +503,8 @@ export const getCanteenOrders = async (req, res) => {
         });
       }
 
-      if (assignedCanteenId && requestedCanteenId && assignedCanteenId !== requestedCanteenId) {
-        return res.status(403).json({
-          success: false,
-          code: 'STAFF_CANTEEN_MISMATCH',
-          message: 'You are not authorized for the selected canteen.',
-        });
+      if (assignedCanteenId) {
+        canteenId = assignedCanteenId;
       }
     }
 
@@ -386,6 +523,7 @@ export const getCanteenOrders = async (req, res) => {
       .populate('student', 'name studentId email')
       .populate('canteen', 'name')
       .populate('groupSession', 'shareCode paymentMode')
+      .populate('payment.verifiedBy', 'name email role')
       .populate('activityLogs.actor', 'name email role')
       .sort({ createdAt: -1 });
 
@@ -398,7 +536,7 @@ export const getCanteenOrders = async (req, res) => {
 // PATCH /api/orders/:orderId/status  { status, reason }
 export const updateOrderStatus = async (req, res) => {
   try {
-    const { status, reason } = req.body;
+    const { status, reason, canteenId: bodyCanteenId } = req.body;
     const validTransitions = {
       pending: ['preparing', 'cancelled'],
       preparing: ['ready'],
@@ -409,9 +547,13 @@ export const updateOrderStatus = async (req, res) => {
     if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
 
     const isElevated = isElevatedOpsRole(req.user.role);
+    const orderCanteenId = order.canteen?._id?.toString() || order.canteen?.toString();
+    const assignedCanteenId = req.user?.canteen?.toString() || '';
+    const requestCanteenId = bodyCanteenId || resolveRequestCanteenId(req) || '';
+    const actorCanteenId = assignedCanteenId || requestCanteenId;
 
     // Enforce canteen ownership for non-elevated staff
-    if (!isElevated && order.canteen._id.toString() !== req.user.canteen?.toString()) {
+    if (!isElevated && (!actorCanteenId || orderCanteenId !== actorCanteenId)) {
       return res.status(403).json({ success: false, message: 'Not authorized for this canteen' });
     }
 
@@ -556,3 +698,108 @@ export const pickupByCode = async (req, res) => {
   }
 };
 
+
+// GET /api/orders/canteen/stale — pending/preparing, payment unverified, older than 24h
+export const getStaleOrders = async (req, res) => {
+  try {
+    const isElevated = isElevatedOpsRole(req.user.role);
+    const isGlobalViewer = isAdminRole(req.user.role);
+
+    let canteenId;
+    if (isElevated) {
+      canteenId = req.query.canteen || null;
+      if (!canteenId && !isGlobalViewer) {
+        return res.status(400).json({ success: false, code: 'CANTEEN_CONTEXT_REQUIRED', message: 'Select a canteen context first.' });
+      }
+    } else {
+      canteenId = req.user.canteen ? req.user.canteen.toString() : null;
+      if (!canteenId) {
+        return res.status(403).json({ success: false, code: 'STAFF_CANTEEN_NOT_ASSIGNED', message: 'No canteen assigned to your account.' });
+      }
+    }
+
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const filter = {
+      status: { $in: ['pending', 'preparing'] },
+      'payment.status': { $nin: ['verified'] },
+      createdAt: { $lt: oneDayAgo },
+    };
+    if (canteenId) filter.canteen = canteenId;
+
+    const orders = await Order.find(filter)
+      .populate('student', 'name studentId email')
+      .populate('canteen', 'name')
+      .sort({ createdAt: 1 });
+
+    return res.json({ success: true, count: orders.length, data: orders });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/orders/canteen/bulk-cancel — cancel multiple stale orders with a shared reason
+export const bulkCancelOrders = async (req, res) => {
+  try {
+    const { orderIds, reason } = req.body;
+    if (!Array.isArray(orderIds) || orderIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'No order IDs provided.' });
+    }
+    const trimmedReason = String(reason || '').trim();
+    if (trimmedReason.length < 5) {
+      return res.status(400).json({ success: false, message: 'Cancellation reason must be at least 5 characters.' });
+    }
+
+    const isElevated = isElevatedOpsRole(req.user.role);
+    const assignedCanteenId = req.user.canteen ? req.user.canteen.toString() : null;
+
+    const orders = await Order.find({
+      _id: { $in: orderIds },
+      status: { $in: ['pending', 'preparing'] },
+    }).populate('student', 'email name').populate('canteen', 'name');
+
+    if (orders.length === 0) {
+      return res.status(404).json({ success: false, message: 'No eligible orders found to cancel.' });
+    }
+
+    let cancelledCount = 0;
+    for (const order of orders) {
+      const orderCanteenId = order.canteen?._id?.toString() || order.canteen?.toString();
+      if (!isElevated && assignedCanteenId && orderCanteenId !== assignedCanteenId) continue;
+
+      const prevStatus = order.status;
+      order.status = 'cancelled';
+      appendActivity(order, {
+        action: 'order_status_updated',
+        actor: req.user._id,
+        actorRole: req.user.role,
+        note: `Bulk cancelled by staff. Reason: ${trimmedReason}`,
+        metadata: { previousStatus: prevStatus, newStatus: 'cancelled', reason: trimmedReason },
+      });
+      await order.save();
+
+      if (order.student?.email) {
+        sendCancellationEmail(order.student.email, order, trimmedReason).catch((e) =>
+          console.error('Bulk cancel email failed:', e)
+        );
+      }
+      cancelledCount++;
+    }
+
+    return res.json({ success: true, cancelledCount, message: `${cancelledCount} order(s) cancelled.` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// DELETE /api/orders/canteen/cancelled — permanently remove all cancelled orders (admin only)
+export const deleteCancelledOrders = async (req, res) => {
+  try {
+    const filter = { status: 'cancelled' };
+    if (req.query.canteen) filter.canteen = req.query.canteen;
+
+    const result = await Order.deleteMany(filter);
+    return res.json({ success: true, deletedCount: result.deletedCount, message: `${result.deletedCount} cancelled order(s) permanently deleted.` });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};

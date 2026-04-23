@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { CreditCard, Banknote, CheckCircle, ArrowLeft, Lock, AlertCircle, Info } from 'lucide-react';
+import { CreditCard, Banknote, CheckCircle, ArrowLeft, Lock, AlertCircle, Info, RefreshCw, Sparkles } from 'lucide-react';
 import { orderAPI, paymentAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
@@ -123,7 +123,7 @@ const CardForm = ({ orderId, amount, onSuccess }) => {
       <button
         type="submit"
         disabled={!stripe || processing || !!cardError}
-        className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-['Gilroy_Heavy'] transition-colors text-sm"
+        className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-extrabold transition-colors text-sm"
       >
         {processing ? (
           <span className="flex items-center gap-2">
@@ -168,8 +168,8 @@ const CashForm = ({ orderId, amount, onSuccess }) => {
           <div className="w-12 h-12 bg-orange-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
             <Banknote size={24} className="text-orange-600" />
           </div>
-          <p className="text-base font-['Gilroy_Heavy'] text-gray-900 mb-1">Confirm Cash Payment?</p>
-          <p className="text-2xl font-['Gilroy_Heavy'] text-orange-600 mb-2">LKR {amount?.toLocaleString()}</p>
+          <p className="text-base font-extrabold text-gray-900 mb-1">Confirm Cash Payment?</p>
+          <p className="text-2xl font-extrabold text-orange-600 mb-2">LKR {amount?.toLocaleString()}</p>
           <p className="text-xs text-gray-500 leading-relaxed">
             By confirming, you agree to bring <strong>LKR {amount?.toLocaleString()}</strong> to the canteen counter.
             Staff will verify your payment before preparing your order.
@@ -180,14 +180,14 @@ const CashForm = ({ orderId, amount, onSuccess }) => {
           <button
             onClick={() => setStep('review')}
             disabled={submitting}
-            className="py-3 rounded-xl border border-gray-200 text-gray-600 font-['Gilroy_Heavy'] text-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            className="py-3 rounded-xl border border-gray-200 text-gray-600 font-extrabold text-sm hover:bg-gray-50 disabled:opacity-50 transition-colors"
           >
             Go Back
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-['Gilroy_Heavy'] text-sm disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            className="py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-extrabold text-sm disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
           >
             {submitting ? (
               <>
@@ -206,7 +206,7 @@ const CashForm = ({ orderId, amount, onSuccess }) => {
   return (
     <div className="space-y-5">
       <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 text-sm text-amber-700 leading-relaxed">
-        <p className="font-['Gilroy_Heavy'] mb-1">How cash payment works</p>
+        <p className="font-extrabold mb-1">How cash payment works</p>
         <ol className="list-decimal list-inside space-y-1 text-amber-600">
           <li>Tap the button below to submit your cash payment intent</li>
           <li>Go to the canteen counter and pay <strong>LKR {amount?.toLocaleString()}</strong> in cash</li>
@@ -218,12 +218,12 @@ const CashForm = ({ orderId, amount, onSuccess }) => {
       {/* Amount display */}
       <div className="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3 flex items-center justify-between">
         <span className="text-sm text-gray-500 font-medium">Amount to Bring</span>
-        <span className="text-lg font-['Gilroy_Heavy'] text-gray-900">LKR {amount?.toLocaleString()}</span>
+        <span className="text-lg font-extrabold text-gray-900">LKR {amount?.toLocaleString()}</span>
       </div>
 
       <button
         onClick={() => setStep('confirm')}
-        className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-xl font-['Gilroy_Heavy'] transition-colors text-sm"
+        className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 text-white py-3.5 rounded-xl font-extrabold transition-colors text-sm"
       >
         <Banknote size={16} />
         Submit Cash Payment · LKR {amount?.toLocaleString()}
@@ -234,12 +234,22 @@ const CashForm = ({ orderId, amount, onSuccess }) => {
 
 // ─── Success Screen ───────────────────────────────────────────────────────────
 
-const SuccessScreen = ({ method, navigate, verificationCode, checkingStatus, onCheckStatus, instantPickup }) => (
+const SuccessScreen = ({
+  method,
+  navigate,
+  verificationCode,
+  checkingStatus,
+  onCheckStatus,
+  instantPickup,
+  onRegenerateCode,
+  regeneratingCode,
+  refreshRemaining,
+}) => (
   <div className="text-center py-10">
     <div className="w-20 h-20 bg-green-50 rounded-[30px] flex items-center justify-center mx-auto mb-5 text-green-500">
       <CheckCircle size={40} />
     </div>
-    <h2 className="text-2xl font-['Gilroy_Heavy'] text-gray-900 mb-2">
+    <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
       {method === 'card'
         ? 'Payment Confirmed!'
         : method === 'card_pending'
@@ -260,11 +270,31 @@ const SuccessScreen = ({ method, navigate, verificationCode, checkingStatus, onC
 
     {method === 'cash' && verificationCode && (
       <div className="mb-6 rounded-2xl border border-orange-100 bg-orange-50 px-4 py-4 text-center">
-        <p className="text-[10px] uppercase tracking-widest text-orange-500 font-['Gilroy_Heavy'] mb-1">Cash Verification Code</p>
-        <p className="text-4xl tracking-[0.18em] text-orange-700 font-['Gilroy_Heavy'] mt-1">{verificationCode}</p>
+        <p className="text-[10px] uppercase tracking-widest text-orange-500 font-extrabold mb-1">Cash Verification Code</p>
+        <p className="text-4xl tracking-[0.18em] text-orange-700 font-extrabold mt-1">{verificationCode}</p>
         <p className="text-xs text-orange-600 mt-3 leading-relaxed">
           Show this 6-digit code to canteen staff to verify your cash payment. Do not share it with others.
         </p>
+
+        <div className="mt-4 rounded-xl border border-orange-200 bg-white px-3 py-3 text-left">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold mb-2">Quick access</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs text-gray-500">
+              {refreshRemaining > 0
+                ? `New code available in ${refreshRemaining}s`
+                : 'Need a fresh code? Generate a new one now.'}
+            </p>
+            <button
+              type="button"
+              onClick={onRegenerateCode}
+              disabled={regeneratingCode || refreshRemaining > 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-extrabold transition-colors"
+            >
+              {regeneratingCode ? <RefreshCw size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+              Get New Code
+            </button>
+          </div>
+        </div>
       </div>
     )}
 
@@ -272,7 +302,7 @@ const SuccessScreen = ({ method, navigate, verificationCode, checkingStatus, onC
       <button
         onClick={onCheckStatus}
         disabled={checkingStatus}
-        className="mb-3 px-6 py-2.5 border border-gray-200 hover:bg-gray-50 rounded-xl text-sm font-['Gilroy_Heavy'] text-gray-700 disabled:opacity-50"
+        className="mb-3 px-6 py-2.5 border border-gray-200 hover:bg-gray-50 rounded-xl text-sm font-extrabold text-gray-700 disabled:opacity-50"
       >
         {checkingStatus ? 'Checking...' : 'Check Verification Status'}
       </button>
@@ -281,7 +311,7 @@ const SuccessScreen = ({ method, navigate, verificationCode, checkingStatus, onC
     <br />
     <button
       onClick={() => navigate(instantPickup ? '/dashboard/order-tracking' : '/dashboard/orders')}
-      className="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-['Gilroy_Heavy'] transition-colors text-sm"
+      className="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-extrabold transition-colors text-sm"
     >
       {instantPickup ? 'Track Instant Pickup' : 'View My Orders'}
     </button>
@@ -295,27 +325,27 @@ const AlreadyPaidScreen = ({ order, navigate }) => (
     <div className="w-20 h-20 bg-green-50 rounded-[30px] flex items-center justify-center mx-auto mb-5 text-green-500">
       <CheckCircle size={40} />
     </div>
-    <h2 className="text-2xl font-['Gilroy_Heavy'] text-gray-900 mb-2">Already Paid</h2>
+    <h2 className="text-2xl font-extrabold text-gray-900 mb-2">Already Paid</h2>
     <p className="text-gray-400 text-sm mb-6 max-w-xs mx-auto">
       Payment for order <strong>#{order?.queueNumber}</strong> has already been verified.
-      Your order status is <span className="font-['Gilroy_Heavy'] text-gray-700 capitalize">{order?.status}</span>.
+      Your order status is <span className="font-extrabold text-gray-700 capitalize">{order?.status}</span>.
     </p>
     <div className="rounded-2xl bg-green-50 border border-green-100 px-4 py-3 mb-8 text-left">
-      <p className="text-xs text-green-600 font-['Gilroy_Heavy'] uppercase tracking-widest mb-2">Payment Summary</p>
+      <p className="text-xs text-green-600 font-extrabold uppercase tracking-widest mb-2">Payment Summary</p>
       {order?.items?.map((item, i) => (
         <div key={i} className="flex justify-between text-sm mb-1">
           <span className="text-gray-600">{item.name} × {item.quantity}</span>
           <span className="text-gray-700">LKR {(item.unitPrice * item.quantity).toLocaleString()}</span>
         </div>
       ))}
-      <div className="flex justify-between text-sm font-['Gilroy_Heavy'] mt-2 pt-2 border-t border-green-100">
+      <div className="flex justify-between text-sm font-extrabold mt-2 pt-2 border-t border-green-100">
         <span>Total Paid</span>
         <span className="text-green-700">LKR {order?.totalPrice?.toLocaleString()}</span>
       </div>
     </div>
     <button
       onClick={() => navigate('/dashboard/orders')}
-      className="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-['Gilroy_Heavy'] transition-colors text-sm"
+      className="px-8 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-extrabold transition-colors text-sm"
     >
       View My Orders
     </button>
@@ -333,10 +363,29 @@ const PaymentPage = () => {
   const [success, setSuccess] = useState(null); // 'card' | 'card_pending' | 'cash'
   const [alreadyPaid, setAlreadyPaid] = useState(false);
   const [cashVerificationCode, setCashVerificationCode] = useState('');
+  const [cashCodeIssuedAt, setCashCodeIssuedAt] = useState(null);
+  const [refreshRemaining, setRefreshRemaining] = useState(0);
+  const [regeneratingCode, setRegeneratingCode] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const paymentStatus = order?.payment?.status || 'unpaid';
   const isPayableState = ['unpaid', 'rejected'].includes(paymentStatus);
+
+  const updateRefreshCountdown = (issuedAtValue) => {
+    if (!issuedAtValue) {
+      setRefreshRemaining(0);
+      return;
+    }
+
+    const issuedAtMs = new Date(issuedAtValue).getTime();
+    if (Number.isNaN(issuedAtMs)) {
+      setRefreshRemaining(0);
+      return;
+    }
+
+    const remainingMs = Math.max(0, 30000 - (Date.now() - issuedAtMs));
+    setRefreshRemaining(Math.ceil(remainingMs / 1000));
+  };
 
   const waitForPaymentVerification = async () => {
     for (let i = 0; i < 8; i++) {
@@ -362,6 +411,7 @@ const PaymentPage = () => {
         }
         if (ps === 'pending_verification') {
           setCashVerificationCode(o.payment?.cashVerificationCode || '');
+          setCashCodeIssuedAt(o.payment?.cashVerificationCodeIssuedAt || null);
           setSuccess(o.payment?.method === 'stripe' ? 'card_pending' : 'cash');
           return;
         }
@@ -380,6 +430,20 @@ const PaymentPage = () => {
     };
     fetch();
   }, [orderId, navigate]);
+
+  useEffect(() => {
+    if (!cashCodeIssuedAt || success !== 'cash') {
+      setRefreshRemaining(0);
+      return;
+    }
+
+    updateRefreshCountdown(cashCodeIssuedAt);
+    const timer = setInterval(() => {
+      updateRefreshCountdown(cashCodeIssuedAt);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [cashCodeIssuedAt, success]);
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
@@ -401,6 +465,7 @@ const PaymentPage = () => {
         setAlreadyPaid(false);
       } else {
         setCashVerificationCode(payment?.cashVerificationCode || cashVerificationCode);
+        setCashCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || cashCodeIssuedAt);
         toast.info('Payment is still pending verification by staff.');
       }
     } catch (err) {
@@ -410,14 +475,36 @@ const PaymentPage = () => {
     }
   };
 
+  const handleRegenerateCashCode = async () => {
+    setRegeneratingCode(true);
+    try {
+      const res = await paymentAPI.regenerateCashCode(orderId);
+      const payment = res.data?.data?.payment;
+      if (payment?.cashVerificationCode) {
+        setCashVerificationCode(payment.cashVerificationCode);
+      }
+      setCashCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || new Date().toISOString());
+      setSuccess('cash');
+      toast.success('New verification code generated. Share this latest code with staff.');
+    } catch (err) {
+      const remaining = err?.response?.data?.data?.remainingSeconds;
+      if (typeof remaining === 'number' && remaining > 0) {
+        setRefreshRemaining(remaining);
+      }
+      toast.error(err?.response?.data?.message || 'Could not regenerate verification code');
+    } finally {
+      setRegeneratingCode(false);
+    }
+  };
+
   if (alreadyPaid) return (
-    <div className="max-w-md mx-auto py-8 px-4">
+    <div className="max-w-3xl mx-auto py-8 px-4 md:px-6">
       <AlreadyPaidScreen order={order} navigate={navigate} />
     </div>
   );
 
   if (success) return (
-    <div className="max-w-md mx-auto py-8 px-4">
+    <div className="max-w-3xl mx-auto py-8 px-4 md:px-6">
       <SuccessScreen
         method={success}
         navigate={navigate}
@@ -425,22 +512,42 @@ const PaymentPage = () => {
         checkingStatus={checkingStatus}
         onCheckStatus={checkVerificationStatus}
         instantPickup={!!order?.instantPickupRequested}
+        onRegenerateCode={handleRegenerateCashCode}
+        regeneratingCode={regeneratingCode}
+        refreshRemaining={refreshRemaining}
       />
     </div>
   );
 
   return (
-    <div className="max-w-md mx-auto py-8 px-4">
+    <div className="max-w-3xl mx-auto py-8 px-4 md:px-6">
       {/* Back */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 mb-6 transition-colors"
+        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-6 transition-colors"
       >
         <ArrowLeft size={16} /> Back
       </button>
 
-      <h1 className="text-3xl font-['Gilroy_Heavy'] text-gray-900 mb-1">Payment</h1>
-      <p className="text-gray-400 text-sm mb-6">Choose how you'd like to pay for order #{order?.queueNumber}</p>
+      <div className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6 md:p-7 mb-6 shadow-sm">
+        <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-orange-100/70 blur-3xl" />
+        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-amber-100/70 blur-3xl" />
+
+        <div className="relative flex items-start justify-between gap-3">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-orange-100 bg-white/80 text-[10px] font-extrabold uppercase tracking-wider text-orange-700">
+              <Sparkles size={12} /> Secure Checkout
+            </div>
+            <h1 className="text-3xl font-extrabold text-gray-900 mt-3">Payment</h1>
+            <p className="text-gray-500 text-sm mt-1">Choose how you'd like to pay for order #{order?.queueNumber}</p>
+          </div>
+
+          <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-right">
+            <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Payable Total</p>
+            <p className="text-xl font-extrabold text-orange-700">LKR {order?.totalPrice?.toLocaleString()}</p>
+          </div>
+        </div>
+      </div>
 
       {/* Status/rejection message */}
       {statusMessage && (
@@ -458,7 +565,7 @@ const PaymentPage = () => {
       )}
 
       {/* Order summary card */}
-      <div className="bg-orange-50 rounded-2xl p-4 mb-6">
+      <div className="bg-white border border-gray-100 rounded-2xl p-4 mb-6 shadow-sm">
         <p className="text-xs text-gray-500 mb-2 font-medium">Order Summary</p>
         {order?.items?.map((item, i) => (
           <div key={i} className="flex justify-between text-sm mb-1">
@@ -466,7 +573,7 @@ const PaymentPage = () => {
             <span className="text-gray-700">LKR {(item.unitPrice * item.quantity).toLocaleString()}</span>
           </div>
         ))}
-        <div className="flex justify-between text-sm font-['Gilroy_Heavy'] mt-2 pt-2 border-t border-orange-100">
+        <div className="flex justify-between text-sm font-extrabold mt-2 pt-2 border-t border-gray-100">
           <span>Total</span>
           <span className="text-orange-600">LKR {order?.totalPrice?.toLocaleString()}</span>
         </div>
@@ -498,36 +605,42 @@ const PaymentPage = () => {
       {/* Tab content */}
       {!isPayableState ? (
         <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
-          Payment cannot be submitted while order payment status is <span className="font-['Gilroy_Heavy']">{paymentStatus}</span>.
+          Payment cannot be submitted while order payment status is <span className="font-extrabold">{paymentStatus}</span>.
         </div>
       ) : tab === 'cash' ? (
-        <CashForm
-          orderId={orderId}
-          amount={order?.totalPrice}
-          onSuccess={(response) => {
-            const code = response?.data?.data?.payment?.cashVerificationCode || '';
-            setCashVerificationCode(code);
-            setSuccess('cash');
-          }}
-        />
+        <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+          <CashForm
+            orderId={orderId}
+            amount={order?.totalPrice}
+            onSuccess={(response) => {
+              const payment = response?.data?.data?.payment || {};
+              const code = payment?.cashVerificationCode || '';
+              setCashVerificationCode(code);
+              setCashCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || null);
+              setSuccess('cash');
+            }}
+          />
+        </div>
       ) : (
         isStripeConfigured && stripePromise ? (
-          <Elements stripe={stripePromise}>
-            <CardForm
-              orderId={orderId}
-              amount={order?.totalPrice}
-              onSuccess={async () => {
-                try {
-                  const verified = await waitForPaymentVerification();
-                  setSuccess(verified ? 'card' : 'card_pending');
-                  if (!verified) toast.info('Payment is submitted. Waiting for final confirmation from server.');
-                } catch {
-                  setSuccess('card_pending');
-                  toast.info('Payment is submitted. Waiting for final confirmation from server.');
-                }
-              }}
-            />
-          </Elements>
+          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+            <Elements stripe={stripePromise}>
+              <CardForm
+                orderId={orderId}
+                amount={order?.totalPrice}
+                onSuccess={async () => {
+                  try {
+                    const verified = await waitForPaymentVerification();
+                    setSuccess(verified ? 'card' : 'card_pending');
+                    if (!verified) toast.info('Payment is submitted. Waiting for final confirmation from server.');
+                  } catch {
+                    setSuccess('card_pending');
+                    toast.info('Payment is submitted. Waiting for final confirmation from server.');
+                  }
+                }}
+              />
+            </Elements>
+          </div>
         ) : (
           <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
             Card payment is unavailable. Please use cash payment for this order.

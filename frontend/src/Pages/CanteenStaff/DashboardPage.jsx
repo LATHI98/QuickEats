@@ -34,6 +34,12 @@ const normalizeList = (data) => {
 
 const formatMoney = (value) => `LKR ${Number(value || 0).toLocaleString()}`;
 
+const resolveCanteenId = (canteen) => {
+    if (!canteen) return '';
+    if (typeof canteen === 'string') return canteen;
+    return canteen._id || canteen.id || '';
+};
+
 const getGreeting = (hour) => {
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
@@ -82,8 +88,8 @@ const StatCard = ({ icon: Icon, label, value, note, tone }) => (
 const CanteenStaffDashboard = () => {
     const navigate = useNavigate();
     const { user, selectedCanteenId, selectedCanteenName } = useAuth();
-    const assignedCanteenId = typeof user?.canteen === 'object' ? user?.canteen?._id : user?.canteen;
-    const activeCanteenId = selectedCanteenId || assignedCanteenId || '';
+    const assignedCanteenId = resolveCanteenId(user?.canteen);
+    const activeCanteenId = assignedCanteenId || selectedCanteenId || '';
     const [canteen, setCanteen] = useState(null);
     const [orders, setOrders] = useState([]);
     const [tables, setTables] = useState([]);

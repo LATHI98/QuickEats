@@ -43,8 +43,16 @@ const CartPage = () => {
 
       if (activeSession && isCreator && activeSession.paymentMode === 'pay_together') {
         const mergedRes = await groupSessionAPI.getMergedCart(activeSession._id);
-        currentCart = mergedRes.data?.data || { items: [], totalPrice: 0 };
-        currentCart.canteen = activeSession.canteen;
+        const mergedCart = mergedRes.data?.data || { items: [], totalPrice: 0 };
+
+        // If merged group cart is empty, fall back to the student's own cart so
+        // newly added individual items are still visible in Cart.
+        if (Array.isArray(mergedCart.items) && mergedCart.items.length > 0) {
+          currentCart = mergedCart;
+          currentCart.canteen = activeSession.canteen;
+        } else {
+          currentCart = cartRes.data?.data || { items: [], totalPrice: 0 };
+        }
       } else {
         currentCart = cartRes.data?.data || { items: [], totalPrice: 0 };
       }
@@ -191,12 +199,17 @@ const CartPage = () => {
       };
       const isCreator = session && session.creator._id === JSON.parse(localStorage.getItem('user')).id;
       const isPaySeparately = session && session.paymentMode === 'pay_separately';
+      const checkoutCanteenId = String(payload.canteenId || '');
+      const sessionCanteenId = String(session?.canteen?._id || session?.canteen || '');
+      const isSessionAlignedWithCheckout = !!session && !!checkoutCanteenId && checkoutCanteenId === sessionCanteenId;
       
-      if (session) {
+      if (isSessionAlignedWithCheckout) {
         payload.groupSessionId = session._id;
         if (isCreator && isPaySeparately && isBulk) {
            payload.submitGroup = true;
         }
+      } else if (session) {
+        toast.info('Active group session belongs to a different canteen. Proceeding with individual checkout for this cart.');
       }
 
       const res = await orderAPI.placeOrder(payload);

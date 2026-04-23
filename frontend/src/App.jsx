@@ -23,6 +23,8 @@ import AdminSettings from './Pages/Admin/SettingsPage';
 import StaffDashboardPage from './Pages/Admin/StaffDashboardPage';
 import AdminReservations from './Pages/Admin/ReservationsPage';
 import TablesManagement from './Pages/Admin/TablesPage';
+import SelectCanteenPage from './Pages/Admin/SelectCanteenPage';
+import SupportCenterPage from './Pages/SupportCenterPage';
 
 // Canteen Staff pages
 import CanteenStaffDashboard from './Pages/CanteenStaff/DashboardPage';
@@ -33,10 +35,16 @@ import StudentDashboard from './Pages/Student/DashboardPage';
 import StudentCanteens from './Pages/Student/CanteensPage';
 import StudentOrders from './Pages/Student/OrdersPage';
 import ProfilePage from './Pages/Student/ProfilePage';
+import StudentSettings from './Pages/Student/SettingsPage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
 import HealthMealPlanPage from './Pages/Student/HealthMealPlanPage';
+import GroupOrderHub from './Pages/Student/GroupOrderHub';
+import EventCateringRequestPage from './Pages/Student/EventCateringRequestPage';
+import EventCateringTrackingPage from './Pages/Student/EventCateringTrackingPage';
+import EventCateringPaymentPage from './Pages/Student/EventCateringPaymentPage';
+import EventCateringDashboardPage from './Pages/Admin/EventCateringDashboardPage';
 
 const AdminDashboardSelector = () => {
   const { user } = useAuth();
@@ -66,6 +74,12 @@ function App() {
             <Route path="budget" element={<MealBudgetPage />} />
             <Route path="meal-plan" element={<HealthMealPlanPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="settings" element={<StudentSettings />} />
+            <Route path="group-order" element={<GroupOrderHub />} />
+            <Route path="event-catering" element={<EventCateringRequestPage />} />
+            <Route path="event-catering/tracking" element={<EventCateringTrackingPage />} />
+            <Route path="event-catering/payment/:requestId" element={<EventCateringPaymentPage />} />
+            <Route path="help" element={<SupportCenterPage />} />
           </Route>
         </Route>
 
@@ -83,6 +97,8 @@ function App() {
             <Route path="settings" element={<AdminSettings />} />
             <Route path="staff" element={<StaffDashboardPage />} />
             <Route path="meal-pass" element={<MealPassStaffPage />} />
+            <Route path="event-catering" element={<EventCateringDashboardPage />} />
+            <Route path="help" element={<SupportCenterPage />} />
           </Route>
         </Route>
 

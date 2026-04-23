@@ -23,39 +23,26 @@ import AdminSettings from './Pages/Admin/SettingsPage';
 import StaffDashboardPage from './Pages/Admin/StaffDashboardPage';
 import AdminReservations from './Pages/Admin/ReservationsPage';
 import TablesManagement from './Pages/Admin/TablesPage';
-import SelectCanteenPage from './Pages/Admin/SelectCanteenPage';
 
 // Canteen Staff pages
 import CanteenStaffDashboard from './Pages/CanteenStaff/DashboardPage';
 import MealPassStaffPage from './Pages/CanteenStaff/MealPassPage';
-import AdminMealPass from './Pages/Admin/MealPassManagementPage';
-import AdminApprovals from './Pages/Admin/MealPassApprovalsPage';
-
-
 
 // Student pages
 import StudentDashboard from './Pages/Student/DashboardPage';
 import StudentCanteens from './Pages/Student/CanteensPage';
 import StudentOrders from './Pages/Student/OrdersPage';
-import OrderTrackingPage from './Pages/Student/OrderTrackingPage';
-import PaymentPage from './Pages/Student/PaymentPage';
-import CartPage from './Pages/Student/CartPage';
-import CanteenMenuPage from './Pages/Student/CanteenMenuPage';
 import ProfilePage from './Pages/Student/ProfilePage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
-import MyMealPasses from './Pages/Student/MyMealPassesPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
 import HealthMealPlanPage from './Pages/Student/HealthMealPlanPage';
-import GroupOrderHub from './Pages/Student/GroupOrderHub';
 
 const AdminDashboardSelector = () => {
   const { user } = useAuth();
   if (user?.role === 'canteenStaff') return <CanteenStaffDashboard />;
   return <AdminDashboard />;
 };
-import CanteenReviewPage from './Pages/Student/CanteenReviewPage';
-
 
 function App() {
   return (
@@ -73,20 +60,12 @@ function App() {
           <Route path="/dashboard" element={<StudentLayout />}>
             <Route index element={<StudentDashboard />} />
             <Route path="canteens" element={<StudentCanteens />} />
-            <Route path="canteens/:canteenId/menu" element={<CanteenMenuPage />} />
-            <Route path="cart" element={<CartPage />} />
             <Route path="orders" element={<StudentOrders />} />
-            <Route path="payment/:orderId" element={<PaymentPage />} />
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="meal-pass" element={<MealPassPage />} />
-            <Route path="order-tracking" element={<OrderTrackingPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
             <Route path="meal-plan" element={<HealthMealPlanPage />} />
-            <Route path="my-passes" element={<MyMealPasses />} />
-            <Route path="reviews" element={<CanteenReviewPage />} />
-
             <Route path="profile" element={<ProfilePage />} />
-            <Route path="group-order" element={<GroupOrderHub />} />
           </Route>
         </Route>
 
@@ -101,18 +80,10 @@ function App() {
             <Route path="orders" element={<AdminOrders />} />
             <Route path="reservations" element={<AdminReservations />} />
             <Route path="users" element={<AdminUsers />} />
-            <Route path="meal-pass" element={<AdminMealPass />} />
-            <Route path="approvals" element={<AdminApprovals />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="staff" element={<StaffDashboardPage />} />
             <Route path="meal-pass" element={<MealPassStaffPage />} />
-
-
           </Route>
-        </Route>
-
-        <Route element={<ProtectedRoute allowedRoles={['canteenStaff', 'canteenManager']} />}>
-          <Route path="/admin/select-canteen" element={<SelectCanteenPage />} />
         </Route>
 
         {/* Catch-all */}

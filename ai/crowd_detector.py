@@ -8,7 +8,7 @@ from ultralytics import YOLO
 # API endpoint that receives crowd count updates.
 API_URL = 'http://localhost:5000/api/crowd'
 # Send count updates every 2 seconds.
-SEND_INTERVAL_SECONDS = 2
+SEND_INTERVAL_SECONDS = 0.25
 # Confidence threshold to reduce weak detections.
 CONFIDENCE_THRESHOLD = 0.35
 

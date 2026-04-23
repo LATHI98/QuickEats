@@ -3,7 +3,7 @@ import CrowdCount from '../models/CrowdCount.model.js';
 // POST /api/crowd
 export const createCrowdCount = async (req, res) => {
   try {
-    const { count, timestamp } = req.body;
+    const { count, timestamp, canteenId } = req.body;
 
     // Validate incoming people count to avoid storing invalid values.
     if (!Number.isInteger(count) || count < 0) {
@@ -13,6 +13,7 @@ export const createCrowdCount = async (req, res) => {
     const crowdCount = await CrowdCount.create({
       count,
       timestamp: timestamp ? new Date(timestamp) : new Date(),
+      canteen: canteenId || null,
     });
 
     return res.status(201).json({
@@ -26,10 +27,22 @@ export const createCrowdCount = async (req, res) => {
 };
 
 // GET /api/crowd
-export const getLatestCrowdCount = async (_req, res) => {
+export const getLatestCrowdCount = async (req, res) => {
   try {
+    const { canteenId } = req.query;
+    
     // Return the most recent crowd reading.
-    const latest = await CrowdCount.findOne().sort({ timestamp: -1 });
+    const query = {};
+    if (canteenId) {
+      query.canteen = canteenId;
+    }
+    let latest = await CrowdCount.findOne(query).sort({ timestamp: -1 });
+
+    // If no specific canteen data is found, fallback to the absolute latest camera reading
+    // This ensures the real-time camera feed still shows up if the python script hasn't specified a canteen.
+    if (!latest) {
+      latest = await CrowdCount.findOne().sort({ timestamp: -1 });
+    }
 
     if (!latest) {
       return res.json({ count: 0, timestamp: null, status: 'Low' });

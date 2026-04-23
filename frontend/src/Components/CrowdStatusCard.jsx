@@ -13,7 +13,7 @@ const statusStyles = {
   High: 'bg-red-100 text-red-700 border-red-200',
 };
 
-const CrowdStatusCard = () => {
+const CrowdStatusCard = ({ canteenId, canteenName }) => {
   const [count, setCount] = useState(0);
   const [timestamp, setTimestamp] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +26,8 @@ const CrowdStatusCard = () => {
 
     const fetchLatestCrowd = async () => {
       try {
-        const response = await api.get('/api/crowd');
+        const url = canteenId ? `/api/crowd?canteenId=${canteenId}` : '/api/crowd';
+        const response = await api.get(url);
         if (!isMounted) return;
 
         // Support both direct object and wrapped payload responses.
@@ -36,7 +37,7 @@ const CrowdStatusCard = () => {
         setError('');
       } catch (err) {
         if (!isMounted) return;
-        console.error('Failed to fetch latest crowd count:', err);
+        console.error(`Failed to fetch latest crowd count for ${canteenName || 'global'}:`, err);
         setError('Unable to fetch live crowd data right now.');
       } finally {
         if (isMounted) setLoading(false);
@@ -50,13 +51,15 @@ const CrowdStatusCard = () => {
       isMounted = false;
       clearInterval(intervalId);
     };
-  }, []);
+  }, [canteenId, canteenName]);
 
   return (
     <div className="rounded-[28px] border border-orange-100 bg-white p-6 shadow-sm">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Live Crowd Monitor</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-gray-400">
+            {canteenName ? `${canteenName} Live Monitor` : 'Live Crowd Monitor'}
+          </p>
           <h3 className="mt-2 text-2xl font-['Gilroy_Heavy'] text-gray-900">
             {loading ? 'Loading...' : `${count} People`}
           </h3>

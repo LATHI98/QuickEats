@@ -3,19 +3,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Star, X, MessageSquare, User, Calendar, Quote } from 'lucide-react';
 import api from '../services/api';
 
-const ReviewListModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', initialViewMode = 'ratings' }) => {
+const ReviewListModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', initialMode = 'ratings' }) => {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState(initialViewMode);
+  const [viewMode, setViewMode] = useState(initialMode);
 
   useEffect(() => {
-    setViewMode(initialViewMode);
-  }, [initialViewMode, isOpen]);
+    setViewMode(initialMode);
+  }, [initialMode, isOpen]);
 
   const filteredReviews = React.useMemo(() => {
     if (viewMode === 'reviews') {
       return reviews.filter(r => r.comment && r.comment.trim() !== '');
     }
+    // In ratings mode, we show everything but focus on stars
     return reviews;
   }, [reviews, viewMode]);
 
@@ -58,28 +59,23 @@ const ReviewListModal = ({ isOpen, onClose, targetId, targetName, type = 'cantee
             <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-orange-50/30">
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-2xl bg-white shadow-sm flex items-center justify-center text-orange-500">
-                  <MessageSquare size={24} />
+                  {viewMode === 'ratings' ? <Star size={24} className="fill-orange-500" /> : <MessageSquare size={24} />}
                 </div>
                 <div>
                   <h3 className="text-xl font-black text-gray-900 tracking-tight">{targetName}</h3>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">User Reviews & Ratings</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                    {viewMode === 'ratings' ? 'Student Ratings' : 'Student Reviews'}
+                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => {
-                    window.dispatchEvent(new CustomEvent('openReviewSubmit', { 
-                      detail: { 
-                        targetId, 
-                        targetName, 
-                        type, 
-                        mode: viewMode === 'ratings' ? 'rating' : 'review' 
-                      } 
-                    }));
+                    window.dispatchEvent(new CustomEvent('openReviewSubmit', { detail: { targetId, targetName, type, mode: viewMode } }));
                   }}
                   className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-orange-200"
                 >
-                  Add {viewMode === 'ratings' ? 'Rating' : 'Review'}
+                  {viewMode === 'ratings' ? 'Add Rating' : 'Add Review'}
                 </button>
                 <button
                   onClick={onClose}
@@ -88,6 +84,24 @@ const ReviewListModal = ({ isOpen, onClose, targetId, targetName, type = 'cantee
                   <X size={20} />
                 </button>
               </div>
+            </div>
+
+            {/* Content Header (Hidden if forced) */}
+            <div className="hidden border-b border-gray-100 bg-white sticky top-0 z-20">
+               <button 
+                 onClick={() => setViewMode('ratings')}
+                 className={`py-4 px-6 text-xs font-black uppercase tracking-widest transition-all relative ${viewMode === 'ratings' ? 'text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}
+               >
+                 Ratings
+                 {viewMode === 'ratings' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-t-full" />}
+               </button>
+               <button 
+                 onClick={() => setViewMode('reviews')}
+                 className={`py-4 px-6 text-xs font-black uppercase tracking-widest transition-all relative ${viewMode === 'reviews' ? 'text-orange-600' : 'text-gray-400 hover:text-gray-600'}`}
+               >
+                 Reviews
+                 {viewMode === 'reviews' && <motion.div layoutId="tab" className="absolute bottom-0 left-0 right-0 h-1 bg-orange-600 rounded-t-full" />}
+               </button>
             </div>
 
             {/* Content */}

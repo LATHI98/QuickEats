@@ -125,7 +125,7 @@ const CanteensPage = () => {
   const [canteens, setCanteens] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '', mode: 'review' });
+  const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '', mode: 'ratings' });
   const [viewReviewsModal, setViewReviewsModal] = useState({ isOpen: false, targetId: null, targetName: '', mode: 'ratings' });
 
   useEffect(() => {
@@ -143,7 +143,7 @@ const CanteensPage = () => {
         isOpen: true,
         targetId: e.detail.targetId,
         targetName: e.detail.targetName,
-        mode: e.detail.mode || 'review'
+        mode: e.detail.mode || 'ratings'
       });
     };
 
@@ -242,6 +242,7 @@ const CanteensPage = () => {
         onReviewSubmitted={() => {
           // Re-fetch canteens
           api.get('/api/canteens').then(res => setCanteens(res.data));
+          setViewReviewsModal({ ...viewReviewsModal, isOpen: false });
         }}
       />
       <ReviewListModal
@@ -250,7 +251,7 @@ const CanteensPage = () => {
         targetId={viewReviewsModal.targetId}
         targetName={viewReviewsModal.targetName}
         type="canteen"
-        initialViewMode={viewReviewsModal.mode}
+        initialMode={viewReviewsModal.mode}
       />
     </div>
   );

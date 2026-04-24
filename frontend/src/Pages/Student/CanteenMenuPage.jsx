@@ -21,7 +21,7 @@ const CanteenMenuPage = () => {
   const [addingId, setAddingId] = useState(null);
   const [recommendedSlots, setRecommendedSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '', mode: 'review' });
+  const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '', mode: 'ratings' });
   const [viewReviewsModal, setViewReviewsModal] = useState({ isOpen: false, targetId: null, targetName: '', mode: 'ratings' });
   const [crossCanteenPrompt, setCrossCanteenPrompt] = useState({ isOpen: false, item: null });
   const [switchingCart, setSwitchingCart] = useState(false);
@@ -34,7 +34,7 @@ const CanteenMenuPage = () => {
           isOpen: true,
           targetId: e.detail.targetId,
           targetName: e.detail.targetName,
-          mode: e.detail.mode || 'review'
+          mode: e.detail.mode || 'ratings'
         });
       }
     };
@@ -460,7 +460,7 @@ const CanteenMenuPage = () => {
         targetId={viewReviewsModal.targetId}
         targetName={viewReviewsModal.targetName}
         type="food"
-        initialViewMode={viewReviewsModal.mode}
+        initialMode={viewReviewsModal.mode}
       />
     </div>
   );

@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 
-const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', onReviewSubmitted, mode = 'review' }) => {
+const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', onReviewSubmitted, mode = 'ratings' }) => {
   const { user } = useAuth();
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
@@ -15,6 +15,12 @@ const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (mode === 'ratings' && rating === 0) {
+      return toast.error('Please provide a rating');
+    }
+    if (mode === 'reviews' && !comment.trim()) {
+      return toast.error('Please provide a review comment');
+    }
     if (rating === 0 && !comment.trim()) {
       return toast.error('Please provide at least a rating or a comment');
     }
@@ -74,37 +80,51 @@ const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', 
                 <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-green-50 text-green-500">
                   <CheckCircle2 size={48} />
                 </div>
-                <h3 className="text-2xl font-['Gilroy_Heavy'] text-gray-900">Review Submitted!</h3>
+                <h3 className="text-2xl font-['Gilroy_Heavy'] text-gray-900">
+                  {mode === 'ratings' ? 'Rating' : 'Review'} Submitted!
+                </h3>
                 <p className="mt-2 text-gray-500">Thank you for sharing your feedback on {targetName}.</p>
               </div>
             ) : (
               <div className="space-y-8">
+                <div>
+                  <h3 className="text-2xl font-['Gilroy_Heavy'] text-gray-900">
+                    {mode === 'ratings' ? 'Rate' : 'Review'} {targetName}
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {mode === 'ratings' 
+                      ? 'Select your star rating for this canteen.' 
+                      : 'Share your detailed experience with us.'}
+                  </p>
+                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-                  <div className="space-y-3">
-                    <label className="text-xs font-['Gilroy_Bold'] uppercase tracking-widest text-gray-400 text-center block">Rating</label>
-                    <div className="flex justify-center gap-2">
-                      {[1, 2, 3, 4, 5].map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onMouseEnter={() => setHoveredRating(s)}
-                          onMouseLeave={() => setHoveredRating(0)}
-                          onClick={() => setRating(s)}
-                          className="p-1 transition-transform hover:scale-110 active:scale-95"
-                        >
-                          <Star
-                            size={36}
-                            fill={(hoveredRating || rating) >= s ? '#f97316' : 'transparent'}
-                            className={(hoveredRating || rating) >= s ? 'text-orange-500 drop-shadow-md' : 'text-gray-200'}
-                            strokeWidth={1.5}
-                          />
-                        </button>
-                      ))}
+                  {mode === 'ratings' && (
+                    <div className="space-y-3">
+                      <label className="text-xs font-['Gilroy_Bold'] uppercase tracking-widest text-gray-400 text-center block">Rating</label>
+                      <div className="flex justify-center gap-2">
+                        {[1, 2, 3, 4, 5].map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onMouseEnter={() => setHoveredRating(s)}
+                            onMouseLeave={() => setHoveredRating(0)}
+                            onClick={() => setRating(s)}
+                            className="p-1 transition-transform hover:scale-110 active:scale-95"
+                          >
+                            <Star
+                              size={36}
+                              fill={(hoveredRating || rating) >= s ? '#f97316' : 'transparent'}
+                              className={(hoveredRating || rating) >= s ? 'text-orange-500 drop-shadow-md' : 'text-gray-200'}
+                              strokeWidth={1.5}
+                            />
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {mode !== 'rating' && (
+                  {mode !== 'ratings' && (
                     <div className="space-y-3">
                       <label className="text-xs font-['Gilroy_Bold'] uppercase tracking-widest text-gray-400 block">Your Comments</label>
                       <textarea
@@ -121,7 +141,7 @@ const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', 
                     disabled={loading}
                     className="flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-600 py-4 font-['Gilroy_Heavy'] text-white shadow-xl shadow-orange-500/20 transition-all hover:bg-orange-700 hover:translate-y-[-2px] disabled:opacity-50"
                   >
-                    {loading ? 'Submitting...' : 'Post Review'}
+                    {loading ? 'Submitting...' : (mode === 'ratings' ? 'Post Rating' : 'Post Review')}
                     {!loading && <Send size={18} />}
                   </button>
                 </form>

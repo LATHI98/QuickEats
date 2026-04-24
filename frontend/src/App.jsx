@@ -24,7 +24,10 @@ import StaffDashboardPage from './Pages/Admin/StaffDashboardPage';
 import AdminReservations from './Pages/Admin/ReservationsPage';
 import TablesManagement from './Pages/Admin/TablesPage';
 import SelectCanteenPage from './Pages/Admin/SelectCanteenPage';
+import AdminMealPassPage from './Pages/Admin/MealPassManagementPage';
+import MealPassRecordsPage from './Pages/Admin/MealPassApprovalsPage';
 import SupportCenterPage from './Pages/SupportCenterPage';
+import RatingsReviewsManagementPage from './Pages/Admin/RatingsReviewsManagementPage';
 
 // Canteen Staff pages
 import CanteenStaffDashboard from './Pages/CanteenStaff/DashboardPage';
@@ -108,8 +111,10 @@ function App() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="staff" element={<StaffDashboardPage />} />
-            <Route path="meal-pass" element={<MealPassStaffPage />} />
+            <Route path="meal-pass" element={<AdminMealPassPage />} />
+            <Route path="approvals" element={<MealPassRecordsPage />} />
             <Route path="event-catering" element={<EventCateringDashboardPage />} />
+            <Route path="reviews" element={<RatingsReviewsManagementPage />} />
             <Route path="help" element={<SupportCenterPage />} />
           </Route>
         </Route>

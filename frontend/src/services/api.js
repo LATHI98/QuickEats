@@ -152,6 +152,7 @@ export const reviewAPI = {
   create: (data) => api.post('/api/reviews', data),
   getByTarget: (type, targetId) => api.get(`/api/reviews/${type}/${targetId}`),
   getAll: (params) => api.get('/api/reviews', { params }),
+  delete: (id) => api.delete(`/api/reviews/${id}`),
 };
 
 export default api;

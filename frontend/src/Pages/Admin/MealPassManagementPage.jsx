@@ -18,7 +18,7 @@ const CATEGORIES = [
 ];
 
 const AdminMealPassPage = () => {
-  const { selectedCanteenName } = useAuth();
+  const { user, selectedCanteenName } = useAuth();
   const [mealPasses, setMealPasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -155,9 +155,15 @@ const AdminMealPassPage = () => {
   };
 
   const filteredPasses = mealPasses.filter(pass => {
+    // 1. Filter by canteen if staff/manager
+    const userRole = user?.role;
+    if (userRole !== 'superAdmin' && userRole !== 'admin') {
+      if (pass.canteen !== selectedCanteenName) return false;
+    }
+
     const matchesSearch =
-      pass.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pass.canteen?.toLowerCase().includes(searchQuery.toLowerCase());
+      (pass.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (pass.canteen || '').toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCategory = selectedCategory === 'all' || pass.category?.toLowerCase() === selectedCategory.toLowerCase();
 

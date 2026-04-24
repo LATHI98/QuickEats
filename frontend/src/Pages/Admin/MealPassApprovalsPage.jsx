@@ -8,8 +8,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 import purchasedPassService from '../../services/purchasedPassService';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MealPassRecordsPage = () => {
+  const { user, selectedCanteenName } = useAuth();
   const [allPasses, setAllPasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,11 +63,24 @@ const MealPassRecordsPage = () => {
   };
 
   const filteredPasses = allPasses.filter(p => {
-    const matches = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.studentId.toLowerCase().includes(searchQuery.toLowerCase());
-    if (activeTab === 'pending') return matches && p.status === 'pending';
-    if (activeTab === 'verified') return matches && p.status === 'approved';
-    return matches;
+    // 1. Filter by canteen if staff/manager
+    const userRole = user?.role;
+    if (userRole !== 'superAdmin' && userRole !== 'admin') {
+      if (p.canteen !== selectedCanteenName) return false;
+    }
+
+    // 2. Filter by search query
+    const name = p.name || '';
+    const sid = p.studentId || '';
+    const matches = name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      sid.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matches) return false;
+
+    // 3. Filter by tab
+    if (activeTab === 'pending') return p.status === 'pending';
+    if (activeTab === 'verified') return p.status === 'approved';
+    return true;
   });
 
   return (

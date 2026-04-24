@@ -21,6 +21,7 @@ import {
   Calendar,
   BriefcaseBusiness,
   LifeBuoy,
+  Star,
 } from 'lucide-react';
 
 import { useAuth } from '../../contexts/AuthContext';
@@ -33,6 +34,9 @@ const superAdminNav = [
   { label: 'Menu Items', path: '/admin/menu', icon: UtensilsCrossed },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
   { label: 'Users', path: '/admin/users', icon: Users },
+  { label: 'Meal Pass', path: '/admin/meal-pass', icon: Ticket },
+  { label: 'Meal Pass Records', path: '/admin/approvals', icon: Clock },
+  { label: 'Ratings & Reviews', path: '/admin/reviews', icon: Star },
   { label: 'Settings', path: '/admin/settings', icon: Settings },
 ];
 
@@ -43,6 +47,9 @@ const managerNav = [
   { label: 'Reservations', path: '/admin/reservations', icon: Calendar },
   { label: 'Menu', path: '/admin/menu', icon: UtensilsCrossed },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
+  { label: 'Meal Pass', path: '/admin/meal-pass', icon: Ticket },
+  { label: 'Meal Pass Records', path: '/admin/approvals', icon: Clock },
+  { label: 'Ratings & Reviews', path: '/admin/reviews', icon: Star },
 ];
 
 const canteenStaffNav = [
@@ -52,6 +59,7 @@ const canteenStaffNav = [
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
   { label: 'Meal Pass', path: '/admin/meal-pass', icon: Ticket },
   { label: 'Menu Management', path: '/admin/menu', icon: UtensilsCrossed },
+  { label: 'Ratings & Reviews', path: '/admin/reviews', icon: Star },
 ];
 
 const roleConfig = {
@@ -233,6 +241,12 @@ const AdminLayout = () => {
                   icon={Clock}
                   label="Meal Pass Records"
                   active={location.pathname === '/admin/approvals'}
+                />
+                <MenuLink
+                  to="/admin/reviews"
+                  icon={Star}
+                  label="Ratings & Reviews"
+                  active={location.pathname === '/admin/reviews'}
                 />
               </nav>
             </div>

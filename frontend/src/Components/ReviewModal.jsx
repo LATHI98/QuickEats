@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { toast } from 'react-toastify';
 
-const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', onReviewSubmitted }) => {
+const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', onReviewSubmitted, mode = 'review' }) => {
   const { user } = useAuth();
   const [rating, setRating] = useState(0);
   const [hoveredRating, setHoveredRating] = useState(0);
@@ -47,7 +47,7 @@ const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -79,10 +79,6 @@ const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', 
               </div>
             ) : (
               <div className="space-y-8">
-                <div>
-                  <h3 className="text-2xl font-['Gilroy_Heavy'] text-gray-900">Rate & Review</h3>
-                  <p className="mt-1 text-sm text-gray-500">How was your experience at {targetName}?</p>
-                </div>
 
                 <form onSubmit={handleSubmit} className="space-y-6">
                   <div className="space-y-3">
@@ -108,15 +104,17 @@ const ReviewModal = ({ isOpen, onClose, targetId, targetName, type = 'canteen', 
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <label className="text-xs font-['Gilroy_Bold'] uppercase tracking-widest text-gray-400 block">Your Comments</label>
-                    <textarea
-                      value={comment}
-                      onChange={(e) => setComment(e.target.value)}
-                      placeholder="Share your thoughts about the service and taste..."
-                      className="h-32 w-full rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm font-medium outline-none transition-all focus:border-orange-200 focus:bg-white focus:ring-4 focus:ring-orange-500/5"
-                    />
-                  </div>
+                  {mode !== 'rating' && (
+                    <div className="space-y-3">
+                      <label className="text-xs font-['Gilroy_Bold'] uppercase tracking-widest text-gray-400 block">Your Comments</label>
+                      <textarea
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        placeholder="Share your thoughts about the service and taste..."
+                        className="h-32 w-full rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm font-medium outline-none transition-all focus:border-orange-200 focus:bg-white focus:ring-4 focus:ring-orange-500/5"
+                      />
+                    </div>
+                  )}
 
                   <button
                     type="submit"

@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ShoppingCart, Plus, Minus, Search, UtensilsCrossed, CheckCircle, Star, AlertCircle, Clock3, Sparkles, MapPin, ChefHat } from 'lucide-react';
 import { canteenAPI, cartAPI, queueAPI } from '../../services/api';
 import ReviewModal from '../../Components/ReviewModal';
+import ReviewListModal from '../../Components/ReviewListModal';
 import { toast } from 'react-toastify';
+import { MessageCircle } from 'lucide-react';
 
 const CanteenMenuPage = () => {
   const { canteenId } = useParams();
@@ -19,11 +21,27 @@ const CanteenMenuPage = () => {
   const [addingId, setAddingId] = useState(null);
   const [recommendedSlots, setRecommendedSlots] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
-  const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '' });
+  const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '', mode: 'review' });
+  const [viewReviewsModal, setViewReviewsModal] = useState({ isOpen: false, targetId: null, targetName: '', mode: 'ratings' });
   const [crossCanteenPrompt, setCrossCanteenPrompt] = useState({ isOpen: false, item: null });
   const [switchingCart, setSwitchingCart] = useState(false);
 
   // Fetch canteen info + menu + recommendations
+  useEffect(() => {
+    const handleOpenSubmit = (e) => {
+      if (e.detail.type === 'food') {
+        setReviewModal({
+          isOpen: true,
+          targetId: e.detail.targetId,
+          targetName: e.detail.targetName,
+          mode: e.detail.mode || 'review'
+        });
+      }
+    };
+    window.addEventListener('openReviewSubmit', handleOpenSubmit);
+    return () => window.removeEventListener('openReviewSubmit', handleOpenSubmit);
+  }, []);
+
   useEffect(() => {
     const fetch = async () => {
       setLoading(true);
@@ -65,7 +83,7 @@ const CanteenMenuPage = () => {
     const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const matchCat = !selectedCategory || item.category === selectedCategory;
     return matchSearch && matchCat;
-  });
+  }).sort((a, b) => (b.ratings || 0) - (a.ratings || 0));
 
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
 
@@ -207,12 +225,12 @@ const CanteenMenuPage = () => {
             <Sparkles size={13} /> Recommended Pickup Times
           </p>
           <div className="flex flex-wrap gap-2">
-            {recommendedSlots.slice(0, 5).map((slot) => {
+            {recommendedSlots.slice(0, 5).map((slot, idx) => {
               const active = selectedSlot === slot.time;
               return (
                 <button
                   type="button"
-                  key={slot.time}
+                  key={`${slot.time}-${idx}`}
                   onClick={() => setSelectedSlot(slot.time)}
                   className={`px-3 py-1.5 rounded-full text-xs font-extrabold transition-colors ${active ? 'bg-emerald-600 text-white' : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-100'}`}
                 >
@@ -265,10 +283,14 @@ const CanteenMenuPage = () => {
             const isAdding = addingId === item._id;
             const unavailable = item.isAvailable === false;
             return (
-              <div key={item._id} className={`group relative bg-white border rounded-2xl overflow-hidden shadow-sm transition-all ${unavailable ? 'border-gray-200 opacity-80' : 'border-gray-100 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-orange-100/60'}`}>
-                <div className="relative h-44 bg-gradient-to-br from-orange-50 to-amber-50">
+              <div key={item._id} className={`group relative bg-white border rounded-[24px] overflow-hidden transition-all flex flex-col ${
+                item.ratings >= 4.5 
+                  ? 'border-orange-200 shadow-[0_0_20px_rgba(249,115,22,0.1)] ring-1 ring-orange-100' 
+                  : 'border-gray-100 shadow-sm hover:shadow-xl hover:shadow-orange-100/30'
+              }`}>
+                <div className="relative h-44 bg-gradient-to-br from-orange-50 to-amber-50 shrink-0">
                   {item.image ? (
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                    <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
                       <UtensilsCrossed size={30} className="text-orange-200" />
@@ -284,25 +306,41 @@ const CanteenMenuPage = () => {
                       Unavailable
                     </span>
                   )}
+                  {item.ratings >= 4.5 && (
+                    <span className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-orange-600 text-white text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1 shadow-lg">
+                      <Sparkles size={10} /> Top Rated
+                    </span>
+                  )}
                 </div>
 
-                <div className="p-4">
+                <div className="p-4 flex flex-col flex-1">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <h3 className="font-extrabold text-gray-900 leading-tight line-clamp-2">{item.name}</h3>
-                    {qty > 0 && <CheckCircle size={16} className="text-orange-500 shrink-0 mt-0.5" />}
+                    <div className="flex items-center gap-1 shrink-0">
+                        <Star size={10} className="text-orange-500 fill-orange-500" />
+                        <span className="text-[10px] font-black text-gray-900">{Number(item.ratings || 0).toFixed(1)}</span>
+                    </div>
                   </div>
 
-                  {item.description && <p className="text-xs text-gray-500 mb-3 line-clamp-2 min-h-[2.25rem]">{item.description}</p>}
+                  {item.description && <p className="text-xs text-gray-500 mb-4 line-clamp-2 min-h-[2.25rem] leading-relaxed">{item.description}</p>}
 
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="font-extrabold text-lg text-orange-700">{formatLKR(item.price)}</p>
-                    <button
-                      onClick={() => setReviewModal({ isOpen: true, targetId: item._id, targetName: item.name })}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold uppercase tracking-wider text-amber-600 bg-amber-50 hover:bg-amber-100 transition-colors"
-                    >
-                      <Star size={12} fill="currentColor" /> Rate
-                    </button>
-                  </div>
+                    <div className="flex items-center justify-between mb-4 mt-auto">
+                      <p className="font-extrabold text-lg text-orange-700">{formatLKR(item.price)}</p>
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => setViewReviewsModal({ isOpen: true, targetId: item._id, targetName: item.name, mode: 'ratings' })}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider text-orange-600 bg-orange-50 hover:bg-orange-100 transition-colors border border-orange-100"
+                        >
+                          <Star size={10} fill="currentColor" /> Rate
+                        </button>
+                        <button
+                          onClick={() => setViewReviewsModal({ isOpen: true, targetId: item._id, targetName: item.name, mode: 'reviews' })}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider text-gray-500 bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-100"
+                        >
+                          <MessageCircle size={10} /> Reviews
+                        </button>
+                      </div>
+                    </div>
 
                   {qty === 0 ? (
                     <button
@@ -360,6 +398,7 @@ const CanteenMenuPage = () => {
         targetId={reviewModal.targetId}
         targetName={reviewModal.targetName}
         type="food"
+        mode={reviewModal.mode}
       />
 
       {crossCanteenPrompt.isOpen && (
@@ -415,6 +454,14 @@ const CanteenMenuPage = () => {
           </div>
         </div>
       )}
+      <ReviewListModal
+        isOpen={viewReviewsModal.isOpen}
+        onClose={() => setViewReviewsModal({ ...viewReviewsModal, isOpen: false })}
+        targetId={viewReviewsModal.targetId}
+        targetName={viewReviewsModal.targetName}
+        type="food"
+        initialViewMode={viewReviewsModal.mode}
+      />
     </div>
   );
 };

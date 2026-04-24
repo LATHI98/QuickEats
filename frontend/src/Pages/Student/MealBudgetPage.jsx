@@ -97,6 +97,7 @@ const MealBudgetPage = () => {
       'Canteen Passes': 0.4, 'Breakfast': 0.1, 'Lunch': 0.2,
       'Dinner': 0.2, 'Snacks': 0.05, 'Other Expense': 0.05
     };
+
     const categoryMapping = [
       { name: 'Canteen Passes', id: 'Canteen Passes', icon: '🎫' },
       { name: 'Breakfast',      id: 'Breakfast',      icon: '🌅' },
@@ -104,24 +105,45 @@ const MealBudgetPage = () => {
       { name: 'Dinner',         id: 'Dinner',         icon: '🌙' },
       { name: 'Snacks',         id: 'Snacks',         icon: '🍕' },
       { name: 'Other',          id: 'Other Expense',  icon: '📦' }
-    ].map(cat => ({
-      ...cat,
-      budget: categoryTargets[cat.id] != null
-        ? Number(categoryTargets[cat.id])
-        : budget.amount * (DEFAULT_SPLITS[cat.id] ?? 0)
-    }));
+    ];
 
-    const processedCategories = categoryMapping.map(cat => {
+    // Calculate dynamic budgets with rounding error handling
+    const manualCatIds = Object.keys(categoryTargets);
+    const totalManualBudget = manualCatIds.reduce((sum, id) => sum + Number(categoryTargets[id] || 0), 0);
+    const remainingBudget = Math.max(0, budget.amount - totalManualBudget);
+    
+    const autoCategories = categoryMapping.filter(cat => !manualCatIds.includes(cat.id));
+    const remainingWeight = autoCategories.reduce((sum, cat) => sum + (DEFAULT_SPLITS[cat.id] || 0), 0);
+
+    let runningAutoTotal = 0;
+    const categoriesWithBudgets = categoryMapping.map((cat, index) => {
+      let catBudget = 0;
+      if (manualCatIds.includes(cat.id)) {
+        catBudget = Number(categoryTargets[cat.id]);
+      } else {
+        const isLastAuto = cat.id === autoCategories[autoCategories.length - 1]?.id;
+        if (isLastAuto) {
+          catBudget = remainingBudget - runningAutoTotal;
+        } else {
+          const weight = DEFAULT_SPLITS[cat.id] || 0;
+          catBudget = remainingWeight > 0 
+            ? Math.round(remainingBudget * (weight / remainingWeight))
+            : 0;
+          runningAutoTotal += catBudget;
+        }
+      }
+
       let spent = currentExpenses
         .filter(e => e.category === cat.id)
         .reduce((sum, e) => sum + (e.amount || 0), 0);
       if (cat.id === 'Canteen Passes') {
         spent += currentPasses.reduce((sum, p) => sum + (p.price || 0), 0);
       }
-      return { ...cat, spent };
+
+      return { ...cat, budget: catBudget, spent };
     });
 
-    return { totalSpent, balance, percentage, categories: processedCategories };
+    return { totalSpent, balance, percentage, categories: categoriesWithBudgets };
   }, [myPasses, manualExpenses, budget, categoryTargets]);
 
   const handleSaveBudget = async (e) => {
@@ -156,38 +178,49 @@ const MealBudgetPage = () => {
   const handleAddExpense = async (e) => {
     e.preventDefault();
 
-    // Validations
-    if (!newExpense.itemName || newExpense.itemName.trim().length <= 2) {
-      return toast.error('Description must be at least 3 characters');
-    }
-    
-    const amountNum = Number(newExpense.amount);
-    if (!newExpense.amount || isNaN(amountNum) || amountNum <= 0) {
-      return toast.error('Check your amount - it must be more than 0');
+    const targetNum = categoryTarget !== '' ? Number(categoryTarget) : null;
+    const amountNum = newExpense.amount !== '' ? Number(newExpense.amount) : 0;
+    const hasTarget = targetNum !== null;
+    const hasSpend = amountNum > 0;
+
+    if (!hasTarget && !hasSpend) {
+      return toast.error('Please enter a spending amount or set a category target');
     }
 
-    if (!newExpense.category) {
-      return toast.error('Select a category first!');
-    }
-
-    if (categoryTarget !== '') {
-      const targetNum = Number(categoryTarget);
+    // 1. Update Target if provided
+    if (hasTarget) {
       if (isNaN(targetNum) || targetNum < 0) {
-         return toast.error('Category target should be 0 or more');
+        return toast.error('Category target should be 0 or more');
       }
       const updated = { ...categoryTargets, [newExpense.category]: targetNum };
       setCategoryTargets(updated);
       localStorage.setItem('qe_cat_targets', JSON.stringify(updated));
     }
 
-    try {
-      const data = await expenseService.createExpense(newExpense);
-      setManualExpenses([data, ...manualExpenses]);
-      setIsAddingExpense(false);
-      setNewExpense({ itemName: '', amount: '', category: 'Breakfast' });
-      setCategoryTarget('');
-      toast.success('Recorded');
-    } catch (error) { toast.error(error.response?.data?.message || 'Recording failed'); }
+    // 2. Create Expense if provided
+    if (hasSpend) {
+      if (!newExpense.itemName || newExpense.itemName.trim().length <= 2) {
+        return toast.error('Description is required for recording expenses');
+      }
+      if (!newExpense.category) {
+        return toast.error('Select a category first!');
+      }
+
+      try {
+        const data = await expenseService.createExpense(newExpense);
+        setManualExpenses([data, ...manualExpenses]);
+        toast.success('Spending Recorded');
+      } catch (error) { 
+        toast.error(error.response?.data?.message || 'Recording failed');
+        return;
+      }
+    } else if (hasTarget) {
+      toast.success('Budget Section Adjusted');
+    }
+
+    setIsAddingExpense(false);
+    setNewExpense({ itemName: '', amount: '', category: 'Breakfast' });
+    setCategoryTarget('');
   };
 
   const handleDeleteExpense = async (id) => {
@@ -332,8 +365,8 @@ const MealBudgetPage = () => {
                      </div>
 
                      <div className="grid grid-cols-7 gap-0.5">
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(d => (
-                           <div key={d} className="text-center text-[10px] font-bold text-orange-500 py-2 uppercase tracking-widest">{d}</div>
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                           <div key={`${d}-${i}`} className="text-center text-[10px] font-bold text-orange-500 py-2 uppercase tracking-widest">{d}</div>
                         ))}
                         {calendarDays.map((d, i) => (
                            <div key={i} className={`h-11 rounded-xl border border-orange-100 flex flex-col items-center justify-center py-1 relative group transition-all ${!d ? 'bg-transparent border-none' : 'bg-white hover:border-orange-300 hover:shadow-sm'} ${d?.hasActivity ? 'bg-orange-50/20' : ''}`}>
@@ -452,15 +485,25 @@ const MealBudgetPage = () => {
             </Modal>
          )}
          {isAddingExpense && (
-            <Modal title="Add Expense" icon="✏️" onClose={() => setIsAddingExpense(false)}>
+            <Modal title={newExpense.amount > 0 || newExpense.itemName ? "Record Expense" : "Adjust Category Target"} icon="✏️" onClose={() => setIsAddingExpense(false)}>
                <form onSubmit={handleAddExpense} className="space-y-4">
-                  <div>
-                     <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Description</label>
-                     <input value={newExpense.itemName} onChange={e => setNewExpense({...newExpense, itemName: e.target.value})} className="w-full bg-gray-50 border border-gray-200 focus:border-[#f97316] focus:bg-white py-3 px-4 rounded-xl text-sm font-medium outline-none transition-all text-gray-900 placeholder-gray-400" placeholder="e.g. Chicken Rice Combo" />
+                  <div className="bg-orange-50/50 p-4 rounded-2xl border border-orange-100 mb-2">
+                     <label className="block text-[10px] font-black text-[#f97316] uppercase tracking-widest mb-2">Target Budget (RS)</label>
+                     <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#f97316] font-bold text-sm">RS</span>
+                        <input type="number" value={categoryTarget} onChange={e => setCategoryTarget(e.target.value)} className="w-full bg-white border border-orange-200 focus:border-[#f97316] py-3 pl-9 pr-3 rounded-xl text-sm font-black outline-none transition-all text-[#f97316]" placeholder="Set target for this section" />
+                     </div>
+                     <p className="text-[9px] text-orange-400 mt-2 font-medium italic">Setting this will auto-adjust other sections to match your total budget.</p>
                   </div>
+
+                  <div className="relative py-2">
+                     <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+                     <div className="relative flex justify-center text-[8px] font-black uppercase tracking-widest text-gray-300 bg-white px-2">OR RECORD SPEND</div>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-3">
                      <div>
-                        <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Amount (RS)</label>
+                        <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Spent Amount</label>
                         <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">RS</span><input type="number" value={newExpense.amount} onChange={e => setNewExpense({...newExpense, amount: e.target.value})} className="w-full bg-gray-50 border border-gray-200 focus:border-[#f97316] focus:bg-white py-3 pl-9 pr-3 rounded-xl text-sm font-semibold outline-none transition-all text-gray-900" placeholder="0" /></div>
                      </div>
                      <div>
@@ -478,12 +521,17 @@ const MealBudgetPage = () => {
                         </div>
                      </div>
                   </div>
-                  <div>
-                     <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Category Target (RS) <span className="normal-case font-normal text-gray-300">— optional</span></label>
-                     <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm">RS</span><input type="number" value={categoryTarget} onChange={e => setCategoryTarget(e.target.value)} className="w-full bg-orange-50 border border-orange-100 focus:border-[#f97316] focus:bg-white py-3 pl-9 pr-3 rounded-xl text-sm font-semibold outline-none transition-all text-[#f97316]" placeholder="Set a spending target" /></div>
-                     <p className="text-[10px] text-gray-400 mt-1 ml-1">Overrides the default budget split for this category.</p>
-                  </div>
-                  <button type="submit" className="w-full bg-[#f97316] text-white py-3 rounded-xl font-semibold text-sm hover:bg-orange-600 transition-all active:scale-95 shadow-md shadow-orange-200">Record Expense</button>
+                  
+                  {newExpense.amount > 0 && (
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}>
+                       <label className="block text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1.5">Spend Description</label>
+                       <input value={newExpense.itemName} onChange={e => setNewExpense({...newExpense, itemName: e.target.value})} className="w-full bg-gray-50 border border-gray-200 focus:border-[#f97316] focus:bg-white py-3 px-4 rounded-xl text-sm font-medium outline-none transition-all text-gray-900 placeholder-gray-400" placeholder="e.g. Chicken Rice Combo" />
+                    </motion.div>
+                  )}
+
+                  <button type="submit" className="w-full bg-[#f97316] text-white py-3 rounded-xl font-black uppercase tracking-widest text-[10px] hover:bg-orange-600 transition-all active:scale-95 shadow-md shadow-orange-200 mt-2">
+                     {newExpense.amount > 0 ? 'Confirm Spending' : 'Update Target'}
+                  </button>
                </form>
             </Modal>
          )}

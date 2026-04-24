@@ -49,6 +49,7 @@ import CrowdMonitorPage from './Pages/Student/CrowdMonitorPage';
 import EventCateringRequestPage from './Pages/Student/EventCateringRequestPage';
 import EventCateringTrackingPage from './Pages/Student/EventCateringTrackingPage';
 import EventCateringPaymentPage from './Pages/Student/EventCateringPaymentPage';
+import MyMealPassesPage from './Pages/Student/MyMealPassesPage';
 import EventCateringDashboardPage from './Pages/Admin/EventCateringDashboardPage';
 
 const AdminDashboardSelector = () => {
@@ -79,6 +80,7 @@ function App() {
             <Route path="payment/:orderId" element={<PaymentPage />} />
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="meal-pass" element={<MealPassPage />} />
+            <Route path="my-passes" element={<MyMealPassesPage />} />
             <Route path="order-tracking" element={<OrderTrackingPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
             <Route path="meal-plan" element={<HealthMealPlanPage />} />

@@ -1,541 +1,221 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
-import api, { cartAPI, canteenAPI } from '../../services/api';
-import { toast } from 'react-toastify';
-import {
-  ArrowRight,
-  Clock3,
-  MapPin,
-  ReceiptText,
-  Salad,
-  ShoppingBag,
-  Star,
-  Ticket,
-  TimerReset,
-  UtensilsCrossed,
-  BadgeCheck,
-  Sparkles,
-  ChevronRight,
-  Store,
-  CheckCircle2,
-  Image as ImageIcon,
-  RotateCcw,
-  RefreshCw,
+import { motion } from 'framer-motion';
+import { 
+  Utensils, 
+  Search, 
+  ShoppingBag, 
+  Ticket, 
+  Star, 
+  Clock, 
+  ChevronRight, 
+  Zap,
+  TrendingUp,
+  Heart,
+  Calendar,
+  Wallet
 } from 'lucide-react';
+import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
-import burgerImg from '../../assets/images/burger.png';
-import pizzaImg from '../../assets/images/pizza.png';
-import chickenImg from '../../assets/images/chicken.jpg';
-import noodleImg from '../../assets/images/noodle.jpg';
-import sushiImg from '../../assets/images/sushi.png';
-
-import ReviewModal from '../../Components/ReviewModal';
-import { reorderOrderToCart } from '../../utils/reorder';
-
-const heroImages = [burgerImg, pizzaImg, chickenImg, noodleImg, sushiImg];
-
-const quickActions = [
-  { title: 'Browse Canteens', description: 'See what is open now and jump straight to the menu.', icon: Store, path: '/dashboard/canteens', accent: 'from-orange-600 to-amber-500' },
-  { title: 'My Orders', description: 'Track pending, ready, and completed orders in one place.', icon: ReceiptText, path: '/dashboard/orders', accent: 'from-orange-500 to-rose-400' },
-  { title: 'Reservations', description: 'Reserve a table before lunch rush starts.', icon: BadgeCheck, path: '/dashboard/reservations', accent: 'from-amber-500 to-orange-400' },
-  { title: 'Meal Pass', description: 'Use your meal pass or follow your campus meal plan.', icon: Ticket, path: '/dashboard/meal-pass', accent: 'from-orange-400 to-amber-300' },
-];
-
-const flowSteps = [
-  { title: 'Pick a canteen', text: 'Explore canteens, compare ratings, and choose where you want to eat.' },
-  { title: 'Choose your meal', text: 'Open a menu, add items to cart, and keep everything in one order flow.' },
-  { title: 'Pay and track', text: 'Confirm payment, follow status updates, and pick up when the order is ready.' },
-];
-
-const normalizeList = (data) => {
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.data)) return data.data;
-  return [];
-};
-
-const formatMoney = (value) => `LKR ${Number(value || 0).toLocaleString()}`;
-
-const getGreeting = (hour) => {
-  if (hour < 12) return 'Good morning';
-  if (hour < 17) return 'Good afternoon';
-  return 'Good evening';
-};
-
-const CanteenCard = ({ canteen, onOpenMenu, onRate }) => (
-  <motion.div
-    whileHover={{ y: -6 }}
-    transition={{ duration: 0.25 }}
-    className="group overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-sm hover:shadow-2xl hover:shadow-orange-100/40 transition-all"
-  >
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onOpenMenu}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpenMenu();
-        }
-      }}
-      className="block w-full text-left cursor-pointer"
-    >
-      <div className="relative h-52 overflow-hidden">
-        {canteen.photo ? (
-          <img
-            src={canteen.photo}
-            alt={canteen.name}
-            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-orange-50 via-white to-amber-50 text-orange-400">
-            <Store size={56} />
-          </div>
-        )}
-
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent p-5 text-white">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-white/70">Canteen</p>
-              <h3 className="mt-1 text-2xl font-['Gilroy_Heavy'] leading-tight">{canteen.name || 'Untitled Canteen'}</h3>
-            </div>
-            <div className="rounded-2xl bg-white/15 px-3 py-2 backdrop-blur-md">
-              <div className="flex items-center gap-2 text-sm font-['Gilroy_Bold']">
-                <Star size={14} className="fill-amber-400 text-amber-400" />
-                {(canteen.ratings ?? 0).toFixed(1)}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-4 p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-['Gilroy_Bold'] text-gray-900">{canteen.owner || 'Owner not set'}</p>
-            <p className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-              <MapPin size={13} />
-              <span>{canteen.openHours || 'Open hours not set'}</span>
-            </p>
-          </div>
-          <ChevronRight size={16} className="mt-1 text-gray-300 transition-colors group-hover:text-orange-500" />
-        </div>
-
-        <p className="line-clamp-2 text-sm leading-6 text-gray-500">
-          {canteen.description || 'Browse menus, add to cart, and track orders from this canteen.'}
-        </p>
-
-        <p className="text-xs text-gray-400 mb-2">Contact: {canteen.email || 'No email set'}</p>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onRate(); }}
-          className="flex items-center gap-1.5 font-['Gilroy_Bold'] text-amber-600 hover:text-amber-700 mb-5 transition-colors text-xs"
-        >
-          <Star size={12} strokeWidth={2.5} /> Rate & Review
-        </button>
-
-        <button
-          type="button"
-          onClick={() => onOpenMenu()}
-          className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-[24px] font-['Gilroy_Heavy'] text-sm tracking-wide shadow-lg shadow-orange-600/10 transition-all active:scale-95 text-center"
-        >
-          Order Now & Menu
-        </button>
-      </div>
-    </div>
-  </motion.div>
-);
-
-const StatCard = ({ icon: Icon, label, value, tone, small, dark }) => (
-  <div className={`rounded-[28px] border ${dark ? 'border-white/20 bg-white/10' : 'border-white/60 bg-white/80'} ${small ? 'p-4' : 'p-5'} shadow-lg shadow-black/5 backdrop-blur-md ${tone}`}>
-    <div className="flex items-center justify-between gap-4">
-      <div>
-        <p className={`text-[10px] uppercase tracking-[0.2em] ${dark ? 'text-white/60' : 'text-gray-400'}`}>{label}</p>
-        <p className={`mt-1 ${small ? 'text-2xl' : 'text-3xl'} font-['Gilroy_Heavy'] ${dark ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-      </div>
-      <div className={`flex ${small ? 'h-10 w-10' : 'h-12 w-12'} items-center justify-center rounded-2xl ${dark ? 'bg-white/10 text-white' : 'bg-white text-orange-600 shadow-sm'}`}>
-        <Icon size={small ? 18 : 20} />
-      </div>
-    </div>
-  </div>
-);
-
-const StudentDashboard = () => {
+const DashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [canteens, setCanteens] = useState([]);
-  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [now, setNow] = useState(new Date());
-  const [heroIndex, setHeroIndex] = useState(0);
-  const [reorderingId, setReorderingId] = useState(null);
-  
-  // Review Modal State
-  const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '', type: 'canteen' });
+  const [stats, setStats] = useState({ orders: 0, budget: 0, passes: 0 });
 
   useEffect(() => {
-    const loadDashboard = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
         const [canteensRes, ordersRes] = await Promise.all([
           api.get('/api/canteens'),
-          api.get('/api/orders/my').catch(() => ({ data: [] })),
+          api.get('/api/orders/student/recent').catch(() => ({ data: [] }))
         ]);
-
-        setCanteens(normalizeList(canteensRes.data));
-        setOrders(normalizeList(ordersRes.data));
+        
+        setCanteens(canteensRes.data.slice(0, 4));
+        // Mock stats for now, replace with real API if available
+        setStats({
+          orders: ordersRes.data.length || 0,
+          budget: 1250,
+          passes: 2
+        });
       } catch (err) {
-        console.error('Failed to load student dashboard', err);
+        console.error('Error fetching dashboard data', err);
       } finally {
         setLoading(false);
       }
     };
-
-    loadDashboard();
+    fetchData();
   }, []);
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const heroTimer = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % heroImages.length);
-    }, 5000);
-    return () => clearInterval(heroTimer);
-  }, []);
-
-  const recentOrders = orders.slice(0, 3);
-  const latestCompletedOrder = orders.find((order) => order.status === 'completed');
-  const activeOrders = orders.filter((order) => !['completed', 'cancelled'].includes(order.status));
-  const readyOrders = orders.filter((order) => order.status === 'ready').length;
-  const totalSpent = orders.reduce((sum, order) => sum + Number(order.totalPrice || 0), 0);
-  const greeting = getGreeting(now.getHours());
-
-  const handleQuickReorder = async (order) => {
-    if (!order) return;
-
-    setReorderingId(order._id);
-    try {
-      const result = await reorderOrderToCart({ order, cartAPI, canteenAPI });
-      if (result.skippedItems.length > 0) {
-        toast.warn(`Added ${result.addedCount} item(s). Skipped unavailable items: ${result.skippedItems.join(', ')}`);
-      } else {
-        toast.success('Items moved to cart for a quick reorder');
-      }
-      navigate('/dashboard/cart');
-    } catch (err) {
-        toast.error(err?.message || 'Could not reorder this meal');
-    } finally {
-      setReorderingId(null);
-    }
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
   };
 
   return (
-    <div className="relative mx-auto max-w-7xl overflow-hidden pb-10">
-      <div className="absolute left-0 top-0 -z-10 h-72 w-72 rounded-full bg-orange-100/60 blur-3xl" />
-      <div className="absolute right-0 top-24 -z-10 h-96 w-96 rounded-full bg-amber-100/60 blur-3xl" />
-
-      <div className="space-y-10">
-        <section className="relative overflow-hidden rounded-[40px] border border-gray-100 bg-gray-900 text-white shadow-2xl shadow-orange-200/20 group">
-          {/* Hero Image Slider Background */}
-          <div className="absolute inset-0">
-            {heroImages.map((img, idx) => (
-              <motion.div
-                key={img}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: heroIndex === idx ? 1 : 0 }}
-                transition={{ duration: 1.5, ease: 'easeInOut' }}
-                className="absolute inset-0"
+    <div className="max-w-7xl mx-auto py-8 space-y-10">
+      {/* Hero Section */}
+      <section className="relative overflow-hidden rounded-[48px] bg-gradient-to-br from-gray-900 via-gray-800 to-orange-950 p-10 md:p-16 text-white shadow-2xl shadow-orange-900/20">
+        <div className="absolute top-0 right-0 w-1/2 h-full opacity-10 pointer-events-none">
+          <Utensils size={400} className="absolute -top-20 -right-20 rotate-12" />
+        </div>
+        
+        <div className="relative z-10 max-w-2xl">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <span className="inline-block px-4 py-1.5 rounded-full bg-orange-500/20 border border-orange-500/30 text-orange-400 text-[10px] font-black uppercase tracking-[0.2em] mb-6">
+              Platform Status: Live
+            </span>
+            <h1 className="text-4xl md:text-6xl font-black mb-6 leading-tight">
+              {getGreeting()}, <span className="text-orange-500">{user?.name?.split(' ')[0] || 'Foodie'}</span>!
+            </h1>
+            <p className="text-gray-400 text-lg mb-10 leading-relaxed font-medium">
+              Ready to explore SLIIT's finest cuisines? Your favorite meal is just a few taps away.
+            </p>
+            
+            <div className="flex flex-wrap gap-4">
+              <button 
+                onClick={() => navigate('/dashboard/canteens')}
+                className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-4 rounded-2xl font-black text-sm tracking-wide transition-all hover:translate-y-[-2px] flex items-center gap-2"
               >
-                <img
-                  src={img}
-                  alt="Delicious food background"
-                  className="h-full w-full object-cover scale-105 transition-transform duration-[10s] group-hover:scale-100"
-                />
+                Order Now <ChevronRight size={18} />
+              </button>
+              <button 
+                onClick={() => navigate('/dashboard/orders')}
+                className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-8 py-4 rounded-2xl font-black text-sm tracking-wide transition-all border border-white/10"
+              >
+                Track Orders
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* Stats Quick Grid */}
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <StatCard icon={ShoppingBag} label="Total Orders" value={stats.orders} color="orange" />
+        <StatCard icon={Wallet} label="Meal Budget" value={`LKR ${stats.budget}`} color="emerald" />
+        <StatCard icon={Ticket} label="Active Passes" value={stats.passes} color="indigo" />
+        <StatCard icon={Zap} label="Fast Track" value="Enabled" color="amber" />
+      </section>
+
+      {/* Main Content Grid */}
+      <div className="grid lg:grid-cols-3 gap-10">
+        {/* Left Column: Top Canteens */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-black text-gray-900">Recommended for You</h2>
+              <p className="text-sm text-gray-400 font-bold uppercase tracking-widest mt-1">Based on ratings & popularity</p>
+            </div>
+            <button onClick={() => navigate('/dashboard/canteens')} className="text-orange-600 font-black text-xs uppercase tracking-widest flex items-center gap-1 hover:gap-2 transition-all">
+              View All <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {loading ? (
+              [1, 2, 3, 4].map(i => <div key={i} className="h-64 rounded-3xl bg-gray-100 animate-pulse" />)
+            ) : canteens.map((canteen) => (
+              <motion.div
+                key={canteen._id}
+                whileHover={{ y: -5 }}
+                onClick={() => navigate(`/dashboard/canteens/${canteen._id}/menu`)}
+                className="bg-white rounded-[32px] overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all cursor-pointer group"
+              >
+                <div className="relative h-44 bg-gray-100">
+                  {canteen.photo ? (
+                    <img src={canteen.photo} alt={canteen.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-orange-200">
+                      <Utensils size={40} />
+                    </div>
+                  )}
+                  <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-xl flex items-center gap-1 shadow-sm border border-white/50">
+                    <Star size={12} className="text-orange-500 fill-orange-500" />
+                    <span className="text-xs font-black text-gray-900">{Number(canteen.ratings || 0).toFixed(1)}</span>
+                  </div>
+                </div>
+                <div className="p-6">
+                  <h3 className="text-lg font-black text-gray-900 group-hover:text-orange-600 transition-colors">{canteen.name}</h3>
+                  <div className="flex items-center gap-2 mt-2 text-xs text-gray-400 font-bold uppercase tracking-widest">
+                    <Clock size={12} className="text-orange-500" />
+                    <span>{canteen.openHours || 'Available Now'}</span>
+                  </div>
+                </div>
               </motion.div>
             ))}
-            {/* Dark Overlays for Readability */}
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
-            <div className="absolute inset-0 bg-black/20" />
           </div>
+        </div>
 
-          <div className="relative z-10 grid gap-6 px-10 py-6 lg:grid-cols-[1.2fr_0.8fr]">
-            <div className="space-y-4">
-
+        {/* Right Column: Mini Analytics / Activity */}
+        <div className="space-y-8">
+          <div className="bg-white rounded-[40px] border border-gray-100 p-8 shadow-sm">
+            <h3 className="text-xl font-black text-gray-900 mb-6 flex items-center gap-3">
+              <TrendingUp className="text-orange-600" size={24} />
+              Quick Actions
+            </h3>
             <div className="space-y-3">
-              <h1 className="max-w-3xl text-2xl font-['Gilroy_Heavy'] leading-tight tracking-tight md:text-3xl">
-                {greeting}, {user?.name || 'Student'}.
-                <span className="block text-orange-200">Your journey is ready.</span>
-              </h1>
-              <p className="max-w-2xl text-sm leading-6 text-white/70">
-                Explore canteens, open menus, add items to cart, follow order progress, and reserve a table when needed.
-              </p>
-            </div>
-
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-sm text-white/90 backdrop-blur">
-              <Clock3 size={14} />
-              <span>{now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-              <span className="text-white/50">·</span>
-              <span>{now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })}</span>
-            </div>
-
-            <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard/canteens')}
-                className="inline-flex items-center gap-2 rounded-2xl bg-orange-600 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white shadow-lg shadow-orange-600/30 transition-all hover:bg-orange-700 hover:scale-105 active:scale-95"
-              >
-                Order Now <ArrowRight size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard/orders')}
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white backdrop-blur-md transition-all hover:bg-white/20 active:scale-95"
-              >
-                Track status <ShoppingBag size={16} />
-              </button>
+              <ActionItem icon={Heart} label="Favorite Meals" onClick={() => {}} />
+              <ActionItem icon={Calendar} label="Reservations" onClick={() => navigate('/dashboard/reservations')} />
+              <ActionItem icon={Ticket} label="Buy Meal Pass" onClick={() => navigate('/dashboard/meal-pass')} />
+              <ActionItem icon={Wallet} label="Budget Master" onClick={() => navigate('/dashboard/budget')} />
             </div>
           </div>
 
-          <div className="grid gap-3">
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard icon={ReceiptText} label="Active" value={loading ? '—' : activeOrders.length} dark small />
-              <StatCard icon={BadgeCheck} label="Ready" value={loading ? '—' : readyOrders} dark small />
-            </div>
-            <StatCard icon={TimerReset} label="Total spent" value={loading ? '—' : formatMoney(totalSpent)} dark small />
-          </div>
-        </div>
-      </section>
-
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {quickActions.map((action) => {
-          const Icon = action.icon;
-          return (
-            <motion.button
-              key={action.title}
-              whileHover={{ y: -6, scale: 1.01 }}
-              transition={{ duration: 0.2 }}
-              type="button"
-              onClick={() => navigate(action.path)}
-              className="group relative overflow-hidden rounded-[32px] border border-orange-50 bg-white p-6 text-left shadow-sm transition-all hover:shadow-2xl hover:shadow-orange-100/50"
-            >
-              <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-orange-50/50 transition-transform group-hover:scale-150" />
-              <div className={`relative flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br ${action.accent} text-white shadow-lg shadow-orange-200/50`}>
-                <Icon size={24} />
-              </div>
-              <h3 className="relative mt-5 text-xl font-['Gilroy_Heavy'] text-gray-900 group-hover:text-orange-600 transition-colors">{action.title}</h3>
-              <p className="mt-2 min-h-[48px] text-sm leading-6 text-gray-500">{action.description}</p>
-              <div className="mt-5 flex items-center justify-between">
-                <span className="inline-flex items-center gap-2 text-sm font-['Gilroy_Bold'] text-orange-600">
-                  Open <ArrowRight size={15} />
-                </span>
-                <ChevronRight size={16} className="text-gray-200 group-hover:text-orange-300 group-hover:translate-x-1 transition-all" />
-              </div>
-            </motion.button>
-          );
-        })}
-      </section>
-
-      {latestCompletedOrder && (
-        <section>
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
-            className="flex flex-col gap-4 rounded-[36px] border border-orange-100 bg-gradient-to-r from-orange-50 via-white to-amber-50 p-6 shadow-sm md:flex-row md:items-center md:justify-between md:p-7"
-          >
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-600 text-white shadow-lg shadow-orange-200/50">
-                <RotateCcw size={24} />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.25em] text-orange-500">Quick reorder</p>
-                <h3 className="mt-2 text-2xl font-['Gilroy_Heavy'] text-gray-900">Reorder your last completed meal</h3>
-                <p className="mt-2 text-sm leading-6 text-gray-500">
-                  {latestCompletedOrder.canteen?.name || 'Your last canteen'} · Order #{latestCompletedOrder.queueNumber || '—'} · {latestCompletedOrder.items?.length || 0} item(s)
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => handleQuickReorder(latestCompletedOrder)}
-              disabled={reorderingId === latestCompletedOrder._id}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-orange-600 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white shadow-lg shadow-orange-600/25 transition-all hover:bg-orange-700 hover:scale-[1.01] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {reorderingId === latestCompletedOrder._id ? (
-                <RefreshCw size={16} className="animate-spin" />
-              ) : (
-                <RotateCcw size={16} />
-              )}
-              Reorder Again
-            </button>
-          </motion.div>
-        </section>
-      )}
-
-      <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-[36px] border border-gray-100 bg-white p-6 shadow-sm md:p-8">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Order flow</p>
-              <h2 className="mt-2 text-2xl font-['Gilroy_Heavy'] text-gray-900">How the system works</h2>
-            </div>
-            <div className="rounded-2xl bg-orange-50 px-3 py-2 text-sm font-['Gilroy_Bold'] text-orange-700">
-              Student journey
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4">
-            {flowSteps.map((step, index) => (
-              <div key={step.title} className="group flex gap-4 rounded-[28px] border border-orange-50 bg-white p-5 hover:border-orange-200 transition-colors">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-orange-600 text-sm font-['Gilroy_Heavy'] text-white transition-transform group-hover:scale-110">
-                  0{index + 1}
-                </div>
-                <div>
-                  <h3 className="text-lg font-['Gilroy_Heavy'] text-gray-900 group-hover:text-orange-600 transition-colors">{step.title}</h3>
-                  <p className="mt-1 text-sm leading-6 text-gray-500">{step.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard/order-tracking')}
-              className="flex items-center justify-between rounded-[26px] bg-orange-500 px-5 py-4 text-left text-white transition-colors hover:bg-orange-600"
-            >
-              <span>
-                <span className="block text-xs uppercase tracking-[0.2em] text-white/75">Track orders</span>
-                <span className="mt-1 block text-base font-['Gilroy_Heavy']">Live pickup progress</span>
-              </span>
-              <Clock3 size={20} />
-            </button>
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard/reservations')}
-              className="flex items-center justify-between rounded-[26px] border border-gray-200 bg-white px-5 py-4 text-left transition-colors hover:border-orange-200 hover:bg-orange-50"
-            >
-              <span>
-                <span className="block text-xs uppercase tracking-[0.2em] text-gray-400">Reserve seating</span>
-                <span className="mt-1 block text-base font-['Gilroy_Heavy'] text-gray-900">Book a table early</span>
-              </span>
-              <BadgeCheck size={20} className="text-orange-600" />
+          <div className="bg-orange-600 rounded-[40px] p-8 text-white shadow-xl shadow-orange-200 relative overflow-hidden group">
+            <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700" />
+            <h3 className="text-xl font-black mb-2 relative z-10">Healthy Living</h3>
+            <p className="text-orange-100 text-sm mb-6 relative z-10 font-medium">Get a personalized meal plan based on your diet.</p>
+            <button onClick={() => navigate('/dashboard/meal-plan')} className="w-full bg-white text-orange-600 py-3 rounded-2xl font-black text-xs uppercase tracking-widest relative z-10 hover:shadow-lg transition-all">
+              Go Healthy
             </button>
           </div>
         </div>
-
-        <div className="rounded-[36px] border border-gray-100 bg-white p-6 shadow-sm md:p-8">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Recent activity</p>
-              <h2 className="mt-2 text-2xl font-['Gilroy_Heavy'] text-gray-900">Your latest orders</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate('/dashboard/orders')}
-              className="text-sm font-['Gilroy_Bold'] text-orange-600"
-            >
-              See all
-            </button>
-          </div>
-
-          <div className="mt-6 space-y-4">
-            {loading ? (
-              <div className="rounded-[26px] border border-dashed border-gray-200 px-5 py-8 text-center text-sm text-gray-400">
-                Loading recent orders...
-              </div>
-            ) : recentOrders.length === 0 ? (
-              <div className="rounded-[26px] border border-dashed border-gray-200 px-5 py-8 text-center text-sm text-gray-400">
-                No orders yet. Place your first one from a canteen menu.
-              </div>
-            ) : (
-              recentOrders.map((order) => (
-                <button
-                  key={order._id}
-                  type="button"
-                  onClick={() => navigate('/dashboard/orders')}
-                  className="w-full rounded-[26px] border border-gray-100 bg-gray-50/60 px-5 py-4 text-left transition-all hover:border-orange-200 hover:bg-orange-50/50"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-sm font-['Gilroy_Heavy'] text-gray-900">Order #{order.queueNumber || '—'}</p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {order.canteen?.name || 'Canteen'} · {new Date(order.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span className="rounded-full bg-white px-3 py-1 text-[10px] font-['Gilroy_Heavy'] uppercase tracking-widest text-gray-600 shadow-sm">
-                      {order.status || 'pending'}
-                    </span>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
-                    <span>{(order.items?.length || 0)} item(s)</span>
-                    <span className="font-['Gilroy_Heavy'] text-gray-900">{formatMoney(order.totalPrice)}</span>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section className="space-y-5">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.25em] text-gray-400">Canteen network</p>
-            <h2 className="mt-2 text-2xl font-['Gilroy_Heavy'] text-gray-900">Choose where to eat</h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard/canteens')}
-            className="hidden items-center gap-2 text-sm font-['Gilroy_Bold'] text-orange-600 md:inline-flex"
-          >
-            View all canteens <ArrowRight size={15} />
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="rounded-[32px] border border-dashed border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-400">
-            Loading canteens...
-          </div>
-        ) : canteens.length === 0 ? (
-          <div className="rounded-[32px] border border-dashed border-gray-200 bg-white px-6 py-10 text-center text-sm text-gray-400">
-            No canteens available yet.
-          </div>
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-            {canteens.slice(0, 6).map((canteen) => (
-              <CanteenCard
-                key={canteen._id}
-                canteen={canteen}
-                onOpenMenu={() => navigate(`/dashboard/canteens/${canteen._id}/menu`)}
-                onRate={() => setReviewModal({ isOpen: true, targetId: canteen._id, targetName: canteen.name, type: 'canteen' })}
-              />
-            ))}
-          </div>
-        )}
-      </section>
       </div>
-
-      <ReviewModal
-        isOpen={reviewModal.isOpen}
-        onClose={() => setReviewModal({ ...reviewModal, isOpen: false })}
-        targetId={reviewModal.targetId}
-        targetName={reviewModal.targetName}
-        type={reviewModal.type}
-        onReviewSubmitted={() => {
-          // Re-fetch canteens to show updated stars
-          api.get('/api/canteens').then(res => setCanteens(res.data));
-        }}
-      />
     </div>
   );
 };
 
-export default StudentDashboard;
+const StatCard = ({ icon: Icon, label, value, color }) => {
+  const colors = {
+    orange: 'bg-orange-50 text-orange-600 border-orange-100',
+    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+    amber: 'bg-amber-50 text-amber-600 border-amber-100'
+  };
+  
+  return (
+    <div className={`p-6 rounded-[32px] border ${colors[color]} bg-white shadow-sm hover:shadow-md transition-all`}>
+      <div className={`w-10 h-10 rounded-xl ${colors[color]} flex items-center justify-center mb-4`}>
+        <Icon size={20} />
+      </div>
+      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{label}</p>
+      <p className="text-xl font-black text-gray-900">{value}</p>
+    </div>
+  );
+};
 
+const ActionItem = ({ icon: Icon, label, onClick }) => (
+  <button
+    onClick={onClick}
+    className="w-full flex items-center justify-between p-4 rounded-2xl bg-gray-50 hover:bg-white hover:shadow-lg border border-transparent hover:border-orange-100 transition-all group"
+  >
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 rounded-lg bg-white shadow-sm flex items-center justify-center text-gray-400 group-hover:text-orange-600 transition-colors">
+        <Icon size={16} />
+      </div>
+      <span className="text-sm font-black text-gray-700">{label}</span>
+    </div>
+    <ChevronRight size={14} className="text-gray-300 group-hover:text-orange-600 transition-all group-hover:translate-x-1" />
+  </button>
+);
+
+export default DashboardPage;

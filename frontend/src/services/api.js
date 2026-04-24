@@ -147,4 +147,11 @@ export const supportAPI = {
   broadcastStaffNotification: (payload) => api.post('/api/support/notify-staff', payload),
 };
 
+// ── Reviews ──────────────────────────────────────────────────────────────────
+export const reviewAPI = {
+  create: (data) => api.post('/api/reviews', data),
+  getByTarget: (type, targetId) => api.get(`/api/reviews/${type}/${targetId}`),
+  getAll: (params) => api.get('/api/reviews', { params }),
+};
+
 export default api;

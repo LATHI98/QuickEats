@@ -144,7 +144,6 @@ const StudentLayout = () => {
                 <MenuLink to="/dashboard/meal-pass" icon={Ticket} label="Meal Pass" active={location.pathname === '/dashboard/meal-pass'} badge="New" />
                 <MenuLink to="/dashboard/budget" icon={CreditCard} label="Meal Budget" active={location.pathname === '/dashboard/budget'} />
                 <MenuLink to="/dashboard/meal-plan" icon={Salad} label="Sports Meal Plan" active={location.pathname === '/dashboard/meal-plan'} badge="SLIIT" />
-                <MenuLink to="/dashboard/reviews" icon={MessageSquare} label="Reviews & Rating" active={location.pathname === '/dashboard/reviews'} />
               </nav>
             </div>
 

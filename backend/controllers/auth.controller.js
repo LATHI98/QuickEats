@@ -1,7 +1,9 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.model.js';
+import Food from '../models/Food.js';
 import { sendVerificationEmail, sendOTPEmail } from '../services/email.service.js';
+import { sendNotification } from '../services/socket.service.js';
 
 const generateToken = (id) =>
   jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
@@ -91,6 +93,23 @@ export const login = async (req, res) => {
     }
 
     res.json({ token: generateToken(user._id), user: userPayload(user) });
+
+    // Send Trending Notification for students
+    if (user.role === 'student') {
+      try {
+        const trendingMeal = await Food.findOne({ available: true }).sort({ ordersCount: -1 });
+        if (trendingMeal) {
+          sendNotification(
+            user._id,
+            '🔥 Trending Now',
+            `${trendingMeal.name} is super popular today! Why not try it for lunch?`,
+            'info'
+          );
+        }
+      } catch (err) {
+        console.error('Failed to send trending notification:', err);
+      }
+    }
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ message: 'Server error' });

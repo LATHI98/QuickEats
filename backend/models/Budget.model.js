@@ -21,6 +21,10 @@ const budgetSchema = new mongoose.Schema({
     type: String,
     default: 'RS'
   },
+  hasExceededNotificationSent: {
+    type: Boolean,
+    default: false
+  },
   lastResetAt: {
     type: Date,
     default: Date.now

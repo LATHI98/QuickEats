@@ -49,7 +49,12 @@ import expenseRoutes from './routes/expense.routes.js';
 
 
 
+import http from 'http';
+import { initSocket } from './services/socket.service.js';
+import notificationRoutes from './routes/notification.routes.js';
+
 const app = express();
+const server = http.createServer(app);
 
 const explicitAllowedOrigins = [process.env.CORS_ORIGIN].filter(Boolean);
 const isLocalDevOrigin = (origin) => /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(origin);
@@ -281,6 +286,7 @@ app.use('/api/order', legacyOrderRoutes);
 app.use('/api/orders', modernOrderRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/notifications', notificationRoutes);
 app.use('/api/canteens', canteenRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/group-sessions', groupSessionRoutes);
@@ -293,7 +299,11 @@ app.use('/api/support', supportRoutes);
 app.use('/api/system', systemRoutes);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+initSocket(server);
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📡 Socket.io path: http://localhost:${PORT}/socket.io/`);
+});
 
 mongoose.connect(process.env.MONGODBURL)
   .then(async () => {

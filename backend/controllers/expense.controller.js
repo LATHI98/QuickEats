@@ -1,4 +1,6 @@
 import Expense from '../models/Expense.model.js';
+import Budget from '../models/Budget.model.js';
+import { sendNotification } from '../services/socket.service.js';
 
 export const createExpense = async (req, res) => {
   try {
@@ -16,15 +18,38 @@ export const createExpense = async (req, res) => {
       return res.status(400).json({ message: 'Amount must be a positive number' });
     }
 
+    const amountNum = Number(amount);
+
     const newExpense = new Expense({
       userId,
       itemName: itemName.trim(),
-      amount: Number(amount),
+      amount: amountNum,
       date: date || new Date(),
       category: category || 'Other Expense'
     });
 
     await newExpense.save();
+
+    // Check budget
+    const budget = await Budget.findOne({ userId });
+    if (budget && budget.amount > 0 && !budget.hasExceededNotificationSent) {
+      const allExpenses = await Expense.find({ userId });
+      const totalSpent = allExpenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+      if (totalSpent > budget.amount) {
+        await sendNotification(
+          userId,
+          'Budget Exceeded!',
+          `Your total spending (${totalSpent} RS) has exceeded your budget (${budget.amount} RS).`,
+          'budget_exceeded'
+        );
+        
+        // Mark notification as sent
+        budget.hasExceededNotificationSent = true;
+        await budget.save();
+      }
+    }
+
     res.status(201).json(newExpense);
   } catch (error) {
     res.status(500).json({ message: error.message });

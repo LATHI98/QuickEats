@@ -155,4 +155,13 @@ export const reviewAPI = {
   delete: (id) => api.delete(`/api/reviews/${id}`),
 };
 
+// ── Notifications ────────────────────────────────────────────────────────────
+export const notificationAPI = {
+  getNotifications: () => api.get('/api/notifications'),
+  sendTestNotification: () => api.post('/api/notifications/test'),
+  markAsRead: (id) => api.put(`/api/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/api/notifications/read-all'),
+  deleteNotification: (id) => api.delete(`/api/notifications/${id}`),
+};
+
 export default api;

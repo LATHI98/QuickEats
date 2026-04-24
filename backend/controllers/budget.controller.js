@@ -21,7 +21,7 @@ export const setBudget = async (req, res) => {
 
     const budget = await Budget.findOneAndUpdate(
       { userId },
-      { amount: amountNum, period },
+      { amount: amountNum, period, hasExceededNotificationSent: false },
       { new: true, upsert: true }
     );
 
@@ -85,6 +85,7 @@ export const archiveAndResetBudget = async (req, res) => {
 
     // 6. Reset budget amount to 0 and record reset time
     budget.amount = 0;
+    budget.hasExceededNotificationSent = false;
     budget.lastResetAt = new Date();
     await budget.save();
 

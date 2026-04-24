@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -34,6 +34,12 @@ const normalizeList = (data) => {
 
 const formatMoney = (value) => `LKR ${Number(value || 0).toLocaleString()}`;
 
+const resolveCanteenId = (canteen) => {
+    if (!canteen) return '';
+    if (typeof canteen === 'string') return canteen;
+    return canteen._id || canteen.id || '';
+};
+
 const getGreeting = (hour) => {
     if (hour < 12) return 'Good morning';
     if (hour < 17) return 'Good afternoon';
@@ -62,6 +68,8 @@ const shiftChecklist = [
     'Check meal-pass and pickup codes before rush hour.',
 ];
 
+const DASHBOARD_POLL_INTERVAL_MS = 5000;
+
 const StatCard = ({ icon: Icon, label, value, note, tone }) => (
     <div className={`rounded-[28px] border border-white/70 bg-white/85 p-5 shadow-lg shadow-black/5 backdrop-blur ${tone || ''}`}>
         <div className="flex items-start justify-between gap-4">
@@ -80,7 +88,8 @@ const StatCard = ({ icon: Icon, label, value, note, tone }) => (
 const CanteenStaffDashboard = () => {
     const navigate = useNavigate();
     const { user, selectedCanteenId, selectedCanteenName } = useAuth();
-    const activeCanteenId = selectedCanteenId || user?.canteen || '';
+    const assignedCanteenId = resolveCanteenId(user?.canteen);
+    const activeCanteenId = assignedCanteenId || selectedCanteenId || '';
     const [canteen, setCanteen] = useState(null);
     const [orders, setOrders] = useState([]);
     const [tables, setTables] = useState([]);
@@ -89,35 +98,56 @@ const CanteenStaffDashboard = () => {
     const [now, setNow] = useState(new Date());
     const [heroIndex, setHeroIndex] = useState(0);
 
-    useEffect(() => {
-        const loadDashboard = async () => {
-            if (!activeCanteenId) {
-                setLoading(false);
-                return;
-            }
+    const fetchDashboard = useCallback(async (silent = false) => {
+        if (!activeCanteenId) {
+            setLoading(false);
+            return;
+        }
 
-            try {
-                setLoading(true);
-                const [canteenRes, ordersRes, tablesRes, reservationsRes] = await Promise.all([
-                    api.get(`/api/canteens/${activeCanteenId}`),
-                    api.get('/api/orders/canteen', { params: { canteen: activeCanteenId } }),
-                    api.get(`/api/tables/canteen/${activeCanteenId}`),
-                    api.get(`/api/reservations/admin/canteen/${activeCanteenId}`),
-                ]);
+        try {
+            if (!silent) setLoading(true);
+            const [canteenRes, ordersRes, tablesRes, reservationsRes] = await Promise.all([
+                api.get(`/api/canteens/${activeCanteenId}`),
+                api.get('/api/orders/canteen', { params: { canteen: activeCanteenId } }),
+                api.get(`/api/tables/canteen/${activeCanteenId}`),
+                api.get(`/api/reservations/admin/canteen/${activeCanteenId}`),
+            ]);
 
-                setCanteen(canteenRes.data);
-                setOrders(normalizeList(ordersRes.data));
-                setTables(normalizeList(tablesRes.data));
-                setReservations(normalizeList(reservationsRes.data));
-            } catch (err) {
+            setCanteen(canteenRes.data);
+            setOrders(normalizeList(ordersRes.data));
+            setTables(normalizeList(tablesRes.data));
+            setReservations(normalizeList(reservationsRes.data));
+        } catch (err) {
+            if (!silent) {
                 console.error('Failed to load staff dashboard', err);
-            } finally {
-                setLoading(false);
             }
+        } finally {
+            if (!silent) setLoading(false);
+        }
+    }, [activeCanteenId]);
+
+    useEffect(() => {
+        fetchDashboard();
+    }, [fetchDashboard]);
+
+    useEffect(() => {
+        if (!activeCanteenId) return;
+
+        const handleWindowFocus = () => fetchDashboard(true);
+        const handleVisibilityChange = () => {
+            if (!document.hidden) fetchDashboard(true);
         };
 
-        loadDashboard();
-    }, [activeCanteenId]);
+        const interval = setInterval(() => fetchDashboard(true), DASHBOARD_POLL_INTERVAL_MS);
+        window.addEventListener('focus', handleWindowFocus);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('focus', handleWindowFocus);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+        };
+    }, [activeCanteenId, fetchDashboard]);
 
     useEffect(() => {
         const timer = setInterval(() => setNow(new Date()), 60000);
@@ -343,11 +373,18 @@ const CanteenStaffDashboard = () => {
                         </button>
                     </div>
 
-                    <div className="mt-6 flex flex-wrap gap-2">
-                        {statusPills.map((pill) => (
-                            <div key={pill.label} className={`rounded-full px-4 py-2 text-sm font-bold ${pill.color}`}>
-                                {pill.label}: {pill.value}
-                            </div>
+                    <div className="mt-6 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        {statusPills.map((pill, index) => (
+                            <motion.div
+                                key={pill.label}
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.24, delay: 0.05 + index * 0.05 }}
+                                className={`rounded-2xl border border-gray-100 px-4 py-3 text-sm font-bold shadow-sm ${pill.color}`}
+                            >
+                                <p className="text-[10px] uppercase tracking-[0.18em] opacity-70">{pill.label}</p>
+                                <p className="mt-1 text-2xl font-extrabold text-gray-900">{pill.value}</p>
+                            </motion.div>
                         ))}
                     </div>
 
@@ -361,21 +398,24 @@ const CanteenStaffDashboard = () => {
                                 No orders yet for this canteen.
                             </div>
                         ) : (
-                            recentOrders.map((order) => (
-                                <button
+                            recentOrders.map((order, index) => (
+                                <motion.button
                                     key={order._id}
                                     type="button"
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.24, delay: 0.08 + index * 0.05 }}
                                     onClick={() => navigate('/admin/orders')}
-                                    className="w-full rounded-[26px] border border-gray-100 bg-gray-50/60 px-5 py-4 text-left transition-all hover:border-orange-200 hover:bg-orange-50/50"
+                                    className="w-full rounded-[26px] border border-gray-100 bg-gradient-to-r from-gray-50/60 to-white px-5 py-4 text-left transition-all hover:border-orange-200 hover:bg-orange-50/50"
                                 >
                                     <div className="flex items-start justify-between gap-4">
                                         <div>
                                             <p className="text-sm font-extrabold text-gray-900">Order #{order.queueNumber || '—'}</p>
-                                            <p className="mt-1 text-xs text-gray-500">
+                                            <p className="mt-1 text-xs text-gray-500 uppercase tracking-[0.12em]">
                                                 {order.payment?.status || 'unpaid'} · {order.status || 'pending'}
                                             </p>
                                         </div>
-                                        <span className="rounded-full bg-white px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-gray-600 shadow-sm">
+                                        <span className="rounded-full bg-white px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-orange-700 shadow-sm border border-orange-100">
                                             {formatMoney(order.totalPrice)}
                                         </span>
                                     </div>
@@ -386,7 +426,7 @@ const CanteenStaffDashboard = () => {
                                             Open order <ArrowRight size={14} />
                                         </span>
                                     </div>
-                                </button>
+                                </motion.button>
                             ))
                         )}
                     </div>

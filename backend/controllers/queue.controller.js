@@ -7,8 +7,14 @@ const SLOT_INTERVAL_MINUTES = 10;
 const SLOTS_TO_SHOW = 12; // show next 2 hours of slots
 const isElevatedOpsRole = (role) => ['admin', 'superAdmin', 'canteenManager', 'canteenStaff'].includes(role);
 
-// Helper: get today's date string
-const todayStr = () => new Date().toISOString().split('T')[0];
+// Helper: get today's date string in local time (YYYY-MM-DD)
+const todayStr = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 // Helper: get or create a CanteenQueue record for today
 async function getQueueRecord(canteenId) {

@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, ShoppingCart, Minus, Plus, Trash2, ArrowLeft, ClipboardList, Lock, Zap, Clock, X } from 'lucide-react';
+import { Users, ShoppingCart, Minus, Plus, Trash2, ArrowLeft, ClipboardList, Lock, Zap, Clock, X, Sparkles } from 'lucide-react';
 import { cartAPI, orderAPI, groupSessionAPI, queueAPI } from '../../services/api';
 import { toast } from 'react-toastify';
 
 const CartPage = () => {
   const navigate = useNavigate();
   const [cart, setCart] = useState(null);
+  const [cartGroups, setCartGroups] = useState([]);
+  const [selectedCanteenId, setSelectedCanteenId] = useState('');
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
   const [placing, setPlacing] = useState(false);
@@ -41,21 +43,40 @@ const CartPage = () => {
 
       if (activeSession && isCreator && activeSession.paymentMode === 'pay_together') {
         const mergedRes = await groupSessionAPI.getMergedCart(activeSession._id);
-        currentCart = mergedRes.data?.data || { items: [], totalPrice: 0 };
+        const mergedCart = mergedRes.data?.data || { items: [], totalPrice: 0 };
+
+        // If merged group cart is empty, fall back to the student's own cart so
+        // newly added individual items are still visible in Cart.
+        if (Array.isArray(mergedCart.items) && mergedCart.items.length > 0) {
+          currentCart = mergedCart;
+          currentCart.canteen = activeSession.canteen;
+        } else {
+          currentCart = cartRes.data?.data || { items: [], totalPrice: 0 };
+        }
       } else {
         currentCart = cartRes.data?.data || { items: [], totalPrice: 0 };
       }
 
-      setCart(currentCart);
+      const groupsFromApi = Array.isArray(currentCart?.groups)
+        ? currentCart.groups
+        : (currentCart?.items?.length ? [{
+          canteen: currentCart.canteen || null,
+          items: currentCart.items,
+          totalPrice: currentCart.totalPrice || 0,
+        }] : []);
 
-      // Fetch recommended slots if we have a canteen
-      if (currentCart?.canteen?._id) {
-        const slotsRes = await queueAPI.getRecommendedSlots(currentCart.canteen._id).catch(() => ({ data: { data: [] } }));
-        setRecommendedSlots(slotsRes.data.data);
-        if (slotsRes.data.data?.length > 0) {
-          setSelectedSlot(slotsRes.data.data[1].time); // Default to Optimized
-        }
-      }
+      setCartGroups(groupsFromApi);
+
+      const selectedStillExists = groupsFromApi.some((g) => (g.canteen?._id || g.canteen) === selectedCanteenId);
+      const nextSelectedCanteenId = selectedStillExists
+        ? selectedCanteenId
+        : (groupsFromApi[0]?.canteen?._id || groupsFromApi[0]?.canteen || '');
+
+      setSelectedCanteenId(nextSelectedCanteenId || '');
+
+      const activeGroup = groupsFromApi.find((g) => (g.canteen?._id || g.canteen) === (nextSelectedCanteenId || '')) || groupsFromApi[0] || null;
+      setCart(activeGroup);
+
       if (activeSession && isCreator && activeSession.paymentMode === 'pay_separately') {
         const statusRes = await groupSessionAPI.getMemberStatus(activeSession._id).catch(() => ({ data: { data: [] } }));
         setMemberStatuses(statusRes.data.data || []);
@@ -65,7 +86,7 @@ const CartPage = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedCanteenId]);
 
   useEffect(() => { 
     fetchData(); 
@@ -77,6 +98,43 @@ const CartPage = () => {
 
     return () => clearInterval(interval);
   }, [fetchData]);
+
+  useEffect(() => {
+    if (!cartGroups.length) {
+      setCart(null);
+      return;
+    }
+
+    const activeGroup = cartGroups.find((g) => (g.canteen?._id || g.canteen) === selectedCanteenId) || cartGroups[0];
+    setCart(activeGroup || null);
+  }, [cartGroups, selectedCanteenId]);
+
+  useEffect(() => {
+    const loadSlotsForSelectedCanteen = async () => {
+      if (!cart?.canteen) {
+        setRecommendedSlots([]);
+        setSelectedSlot(null);
+        return;
+      }
+
+      const canteenId = cart.canteen._id || cart.canteen;
+      const slotsRes = await queueAPI.getRecommendedSlots(canteenId).catch(() => ({ data: { data: [] } }));
+      const slots = slotsRes.data?.data || [];
+      setRecommendedSlots(slots);
+
+      if (!slots.length) {
+        setSelectedSlot(null);
+        return;
+      }
+
+      const stillValid = slots.some((slot) => slot.time === selectedSlot);
+      if (!stillValid) {
+        setSelectedSlot(slots[1]?.time || slots[0]?.time || null);
+      }
+    };
+
+    loadSlotsForSelectedCanteen();
+  }, [cart?.canteen, selectedSlot]);
 
   const handleUpdate = async (menuItemId, newQty) => {
     setUpdatingId(menuItemId);
@@ -141,12 +199,17 @@ const CartPage = () => {
       };
       const isCreator = session && session.creator._id === JSON.parse(localStorage.getItem('user')).id;
       const isPaySeparately = session && session.paymentMode === 'pay_separately';
+      const checkoutCanteenId = String(payload.canteenId || '');
+      const sessionCanteenId = String(session?.canteen?._id || session?.canteen || '');
+      const isSessionAlignedWithCheckout = !!session && !!checkoutCanteenId && checkoutCanteenId === sessionCanteenId;
       
-      if (session) {
+      if (isSessionAlignedWithCheckout) {
         payload.groupSessionId = session._id;
         if (isCreator && isPaySeparately && isBulk) {
            payload.submitGroup = true;
         }
+      } else if (session) {
+        toast.info('Active group session belongs to a different canteen. Proceeding with individual checkout for this cart.');
       }
 
       const res = await orderAPI.placeOrder(payload);
@@ -174,21 +237,42 @@ const CartPage = () => {
   const canPlaceOrder = !placing && !isEmpty && total > 0 && (pickupMode === 'scheduled' ? hasValidSlot : instantPickupConfirmed);
 
   return (
-    <div className="max-w-xl mx-auto py-8 px-4">
+    <div className="max-w-5xl mx-auto py-8 px-4 md:px-6">
       {/* Header */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-600 mb-5 transition-colors"
+        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 mb-5 transition-colors"
       >
         <ArrowLeft size={16} /> Back
       </button>
 
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-extrabold text-gray-900">My Cart</h1>
+      <div className="relative overflow-hidden rounded-[30px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6 md:p-7 mb-6 shadow-sm">
+        <div className="absolute -top-20 -right-16 h-56 w-56 rounded-full bg-orange-100/70 blur-3xl" />
+        <div className="absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-amber-100/70 blur-3xl" />
+
+        <div className="relative flex items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-orange-100 bg-white/90 px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-orange-700">
+              <Sparkles size={12} /> Checkout Ready
+            </div>
+            <h1 className="mt-3 text-3xl font-extrabold text-gray-900">My Cart</h1>
+            <p className="mt-1 text-sm text-gray-500">Review your items, pickup mode, and place your order.</p>
+          </div>
+
+          {!isEmpty && (
+            <div className="rounded-2xl border border-orange-100 bg-white px-4 py-3 text-right">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Current Total</p>
+              <p className="text-xl font-extrabold text-orange-700">LKR {total.toLocaleString()}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-end mb-6">
         {!isEmpty && (
           <button
             onClick={handleClear}
-            className="text-xs text-red-400 hover:text-red-600 font-medium transition-colors flex items-center gap-1"
+            className="text-xs text-red-500 hover:text-red-700 font-semibold transition-colors flex items-center gap-1"
           >
             <Trash2 size={13} /> Clear all
           </button>
@@ -196,8 +280,8 @@ const CartPage = () => {
       </div>
 
       {isEmpty ? (
-        <div className="text-center py-20">
-          <div className="w-20 h-20 bg-orange-50 rounded-[30px] flex items-center justify-center mx-auto mb-4 text-orange-300">
+        <div className="text-center py-24 bg-white border border-gray-100 rounded-[32px]">
+          <div className="w-20 h-20 bg-orange-50 rounded-[30px] flex items-center justify-center mx-auto mb-4 text-orange-400">
             <ShoppingCart size={40} />
           </div>
           <p className="text-gray-900 font-extrabold text-lg mb-1">Your cart is empty</p>
@@ -206,13 +290,38 @@ const CartPage = () => {
           </p>
           <button
             onClick={() => navigate('/dashboard/canteens')}
-            className="px-6 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-sm font-extrabold transition-colors"
+            className="px-6 py-2.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-sm font-extrabold transition-colors"
           >
             Browse Canteens
           </button>
         </div>
       ) : (
         <>
+          {cartGroups.length > 1 && (
+            <div className="mb-5 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 via-white to-amber-50 p-3 shadow-sm">
+              <p className="text-[11px] uppercase tracking-wider text-orange-500 font-extrabold mb-2">Canteens in your cart</p>
+              <div className="flex flex-wrap gap-2">
+                {cartGroups.map((group) => {
+                  const groupCanteenId = group.canteen?._id || group.canteen;
+                  const isActive = groupCanteenId === selectedCanteenId;
+                  return (
+                    <button
+                      key={groupCanteenId || group.canteen?.name || 'unknown-canteen'}
+                      type="button"
+                      onClick={() => setSelectedCanteenId(groupCanteenId || '')}
+                      className={`px-3 py-2 rounded-xl text-xs font-extrabold transition-colors ${isActive
+                        ? 'bg-orange-600 text-white shadow-lg shadow-orange-200'
+                        : 'bg-white border border-orange-100 text-orange-700 hover:bg-orange-100'
+                        }`}
+                    >
+                      {(group.canteen?.name || 'Canteen')} · {group.items.length} item{group.items.length !== 1 ? 's' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Canteen name */}
           {cart?.canteen?.name && (
             <div className="flex items-center gap-2 mb-4 text-sm text-gray-500">
@@ -222,12 +331,12 @@ const CartPage = () => {
           )}
 
           {session && (
-            <div className="mb-6 bg-blue-50 border border-blue-100 rounded-2xl p-4">
+            <div className="mb-6 bg-gradient-to-r from-blue-50 via-white to-indigo-50 border border-blue-100 rounded-2xl p-4 shadow-sm">
               <div className="flex items-start gap-3 mb-4">
                 <Users size={20} className="text-blue-500 mt-0.5" />
                 <div>
                   <p className="text-blue-900 font-extrabold">Part of Group Order</p>
-                  <p className="text-blue-600 text-xs mt-0.5">Share Code: {session.shareCode}</p>
+                  <p className="text-blue-600 text-xs mt-0.5">Share Code: <span className="font-mono tracking-widest font-bold">{session.shareCode}</span></p>
                 </div>
               </div>
               
@@ -235,12 +344,12 @@ const CartPage = () => {
               {session.paymentMode === 'pay_separately' && session.creator._id === JSON.parse(localStorage.getItem('user')).id && memberStatuses.length > 0 && (
                 <div className="mt-2 space-y-2">
                   <p className="text-[10px] uppercase tracking-widest text-blue-400 font-extrabold mb-1">Friends' Readiness</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {memberStatuses.map(m => (
-                      <div key={m._id} className="flex items-center gap-2 bg-white/50 border border-blue-100/50 rounded-xl px-2 py-1.5">
+                      <div key={m._id} className="flex items-center gap-2 bg-white border border-blue-100/70 rounded-xl px-2.5 py-2 shadow-sm">
                         <div className={`w-2 h-2 rounded-full ${m.hasItems ? 'bg-green-400' : 'bg-gray-300'}`} />
                         <span className="text-[11px] font-medium text-blue-800 truncate">{m.name}</span>
-                        {m.hasItems && <span className="text-[9px] bg-green-100 text-green-700 px-1 rounded-md ml-auto">Ready</span>}
+                        {m.hasItems && <span className="text-[9px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded-md ml-auto font-semibold">Ready</span>}
                       </div>
                     ))}
                   </div>
@@ -256,7 +365,7 @@ const CartPage = () => {
               const isUpdating = updatingId === item.menuItem?._id || updatingId === item.menuItem;
               const itemId = item.menuItem?._id || item.menuItem;
               return (
-                <div key={itemId} className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between shadow-sm">
+                <div key={itemId} className="bg-white border border-gray-100 rounded-2xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex-1 min-w-0 pr-4">
                     <p className="font-extrabold text-gray-900 truncate">{item.name}</p>
                     <p className="text-sm text-orange-600 font-medium mt-0.5">
@@ -290,7 +399,7 @@ const CartPage = () => {
           </div>
 
           {/* Pickup Mode Selection */}
-          <div className="mb-6">
+          <div className="mb-6 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
             <div className="flex items-center gap-2 mb-3">
               <Clock size={16} className="text-orange-500" />
               <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider">Pickup Mode</h3>
@@ -349,7 +458,7 @@ const CartPage = () => {
 
           {/* Pickup Vibe Selection */}
           {pickupMode === 'scheduled' && recommendedSlots.length > 0 && (
-            <div className="mb-6">
+            <div className="mb-6 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
                 <Users size={16} className="text-orange-500" />
                 <h3 className="text-sm font-extrabold text-gray-900 uppercase tracking-wider">Choose your Pickup Vibe</h3>
@@ -393,10 +502,10 @@ const CartPage = () => {
           )}
 
           {/* Total + Place Order */}
-          <div className="bg-white border border-gray-100 rounded-2xl p-5 shadow-sm">
+          <div className="bg-gray-900 border border-gray-800 rounded-2xl p-5 shadow-xl shadow-gray-900/10">
             <div className="flex justify-between items-center mb-4">
-              <span className="text-sm text-gray-500">{items.length} item{items.length !== 1 ? 's' : ''}</span>
-              <span className="font-extrabold text-lg text-gray-900">
+              <span className="text-sm text-gray-300">{items.length} item{items.length !== 1 ? 's' : ''}</span>
+              <span className="font-extrabold text-lg text-white">
                 LKR {total.toLocaleString()}
               </span>
             </div>
@@ -416,7 +525,7 @@ const CartPage = () => {
 
               if (session.status === 'open') {
                 return (
-                  <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 rounded-xl font-extrabold flex justify-center items-center gap-2">
+                  <button disabled className="w-full bg-gray-700 text-gray-200 py-3.5 rounded-xl font-extrabold flex justify-center items-center gap-2">
                     <Lock size={16} /> Lock Group Session First
                   </button>
                 );
@@ -426,7 +535,7 @@ const CartPage = () => {
 
               if (session.paymentMode === 'pay_together' && !isCreator) {
                 return (
-                  <button disabled className="w-full bg-gray-200 text-gray-500 py-3.5 rounded-xl font-extrabold text-sm">
+                  <button disabled className="w-full bg-gray-700 text-gray-200 py-3.5 rounded-xl font-extrabold text-sm">
                     Waiting for Creator to Pay
                   </button>
                 );
@@ -435,8 +544,8 @@ const CartPage = () => {
               if (isCreator) {
                 return (
                   <div className="space-y-4">
-                    <div className="bg-gray-50 p-3 rounded-xl border border-gray-200">
-                      <p className="text-xs font-medium text-gray-500 mb-2 uppercase tracking-wide">Group Payment Mode</p>
+                    <div className="bg-gray-800 p-3 rounded-xl border border-gray-700">
+                      <p className="text-xs font-medium text-gray-300 mb-2 uppercase tracking-wide">Group Payment Mode</p>
                       <div className="flex gap-2">
                         <button
                           onClick={async () => {
@@ -446,7 +555,7 @@ const CartPage = () => {
                               toast.success('Updated to Pay Separately');
                             } catch (err) { toast.error('Failed to update mode'); }
                           }}
-                          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${session.paymentMode === 'pay_separately' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${session.paymentMode === 'pay_separately' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-gray-900 text-gray-200 border border-gray-600 hover:bg-gray-700'}`}
                         >
                           Pay Separately
                         </button>
@@ -458,7 +567,7 @@ const CartPage = () => {
                               toast.success('Updated to Pay Together');
                             } catch (err) { toast.error('Failed to update mode'); }
                           }}
-                          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${session.paymentMode === 'pay_together' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-100'}`}
+                          className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${session.paymentMode === 'pay_together' ? 'bg-orange-100 text-orange-700 border border-orange-200' : 'bg-gray-900 text-gray-200 border border-gray-600 hover:bg-gray-700'}`}
                         >
                           Pay for Everyone
                         </button>
@@ -474,14 +583,14 @@ const CartPage = () => {
                         }
                       }}
                       disabled={!canPlaceOrder}
-                      className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-extrabold transition-all shadow-lg shadow-orange-100"
+                      className="w-full flex items-center justify-center gap-2 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white py-3.5 rounded-xl font-extrabold transition-all shadow-lg shadow-orange-500/20"
                     >
                       {placing ? 'Placing...' : (
                         session.paymentMode === 'pay_together' ? 'Pay for Everyone & Order' : 'Order'
                       )}
                     </button>
                     {session.paymentMode === 'pay_separately' && (
-                       <p className="text-[10px] text-gray-400 text-center mt-2 px-4">
+                       <p className="text-[10px] text-gray-300 text-center mt-2 px-4">
                          As creator, you can choose to order for the entire group or just yourself.
                        </p>
                     )}
@@ -500,7 +609,7 @@ const CartPage = () => {
               );
             })()}
 
-            <p className="text-xs text-gray-400 text-center mt-3">
+            <p className="text-xs text-gray-300 text-center mt-3">
               {pickupMode === 'instant'
                 ? 'You will pay now and can complete pickup in real-time at the counter'
                 : "You'll choose payment method on the next screen"}
@@ -518,8 +627,8 @@ const CartPage = () => {
       {/* Group Order Choice Modal */}
       {showGroupChoice && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
-            <div className="bg-orange-500 p-6 text-white">
+          <div className="bg-white rounded-3xl w-full max-w-md overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200 border border-gray-100">
+            <div className="bg-gradient-to-r from-orange-500 to-amber-500 p-6 text-white">
               <div className="flex justify-between items-center mb-2">
                 <Users size={24} />
                 <button onClick={() => setShowGroupChoice(false)}>
@@ -536,7 +645,7 @@ const CartPage = () => {
                   setShowGroupChoice(false);
                   handlePlaceOrder(true);
                 }}
-                className="w-full p-4 border-2 border-orange-500 rounded-2xl text-left hover:bg-orange-50 transition-colors group"
+                className="w-full p-4 border-2 border-orange-500 rounded-2xl text-left hover:bg-orange-50 transition-colors group shadow-sm"
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="font-extrabold text-orange-600">Submit for Everyone</span>

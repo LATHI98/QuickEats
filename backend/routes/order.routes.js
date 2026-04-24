@@ -9,10 +9,14 @@ import {
   updateOrderStatus,
   verifyPickup,
   pickupByCode,
+  getStaleOrders,
+  bulkCancelOrders,
+  deleteCancelledOrders,
 } from '../controllers/order.controller.js';
 import {
   createStripeIntent,
   submitCashPayment,
+  regenerateCashVerificationCode,
   getPaymentStatus,
   verifyPayment,
   rejectPayment,
@@ -30,6 +34,9 @@ router.get('/my/:orderId', protect, authorize('student'), getMyOrderById);
 
 // ── Staff + Admin: Order Status Management ───────────────────────────────────
 router.get('/canteen', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), getCanteenOrders);
+router.get('/canteen/stale', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), getStaleOrders);
+router.post('/canteen/bulk-cancel', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), bulkCancelOrders);
+router.delete('/canteen/cancelled', protect, authorize('admin', 'superAdmin'), deleteCancelledOrders);
 router.patch('/:orderId/status', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), updateOrderStatus);
 router.post('/:orderId/pickup-verify', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), verifyPickup);
 router.post('/pickup-by-code', protect, authorize('canteenStaff', 'canteenManager', 'admin', 'superAdmin'), pickupByCode);
@@ -39,6 +46,7 @@ router.post('/:orderId/payment/stripe/create-intent', protect, authorize('studen
 
 // ── Payment: Cash ─────────────────────────────────────────────────────────────
 router.post('/:orderId/payment/cash', protect, authorize('student'), submitCashPayment);
+router.post('/:orderId/payment/cash/regenerate', protect, authorize('student'), regenerateCashVerificationCode);
 router.patch('/:orderId/payment/verify', protect, authorize('canteenStaff', 'canteenManager'), verifyPayment);
 router.patch('/:orderId/payment/reject', protect, authorize('canteenStaff', 'canteenManager'), rejectPayment);
 

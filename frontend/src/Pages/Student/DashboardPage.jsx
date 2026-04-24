@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import api from '../../services/api';
+import api, { cartAPI, canteenAPI } from '../../services/api';
+import { toast } from 'react-toastify';
 import {
   ArrowRight,
   Clock3,
@@ -20,6 +21,8 @@ import {
   Store,
   CheckCircle2,
   Image as ImageIcon,
+  RotateCcw,
+  RefreshCw,
 } from 'lucide-react';
 
 import burgerImg from '../../assets/images/burger.png';
@@ -29,6 +32,7 @@ import noodleImg from '../../assets/images/noodle.jpg';
 import sushiImg from '../../assets/images/sushi.png';
 
 import ReviewModal from '../../Components/ReviewModal';
+import { reorderOrderToCart } from '../../utils/reorder';
 
 const heroImages = [burgerImg, pizzaImg, chickenImg, noodleImg, sushiImg];
 
@@ -65,7 +69,18 @@ const CanteenCard = ({ canteen, onOpenMenu, onRate }) => (
     transition={{ duration: 0.25 }}
     className="group overflow-hidden rounded-[32px] border border-gray-100 bg-white shadow-sm hover:shadow-2xl hover:shadow-orange-100/40 transition-all"
   >
-    <button type="button" onClick={onOpenMenu} className="block w-full text-left">
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpenMenu}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onOpenMenu();
+        }
+      }}
+      className="block w-full text-left cursor-pointer"
+    >
       <div className="relative h-52 overflow-hidden">
         {canteen.photo ? (
           <img
@@ -128,7 +143,7 @@ const CanteenCard = ({ canteen, onOpenMenu, onRate }) => (
           Order Now & Menu
         </button>
       </div>
-    </button>
+    </div>
   </motion.div>
 );
 
@@ -154,6 +169,7 @@ const StudentDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(new Date());
   const [heroIndex, setHeroIndex] = useState(0);
+  const [reorderingId, setReorderingId] = useState(null);
   
   // Review Modal State
   const [reviewModal, setReviewModal] = useState({ isOpen: false, targetId: null, targetName: '', type: 'canteen' });
@@ -192,10 +208,30 @@ const StudentDashboard = () => {
   }, []);
 
   const recentOrders = orders.slice(0, 3);
+  const latestCompletedOrder = orders.find((order) => order.status === 'completed');
   const activeOrders = orders.filter((order) => !['completed', 'cancelled'].includes(order.status));
   const readyOrders = orders.filter((order) => order.status === 'ready').length;
   const totalSpent = orders.reduce((sum, order) => sum + Number(order.totalPrice || 0), 0);
   const greeting = getGreeting(now.getHours());
+
+  const handleQuickReorder = async (order) => {
+    if (!order) return;
+
+    setReorderingId(order._id);
+    try {
+      const result = await reorderOrderToCart({ order, cartAPI, canteenAPI });
+      if (result.skippedItems.length > 0) {
+        toast.warn(`Added ${result.addedCount} item(s). Skipped unavailable items: ${result.skippedItems.join(', ')}`);
+      } else {
+        toast.success('Items moved to cart for a quick reorder');
+      }
+      navigate('/dashboard/cart');
+    } catch (err) {
+        toast.error(err?.message || 'Could not reorder this meal');
+    } finally {
+      setReorderingId(null);
+    }
+  };
 
   return (
     <div className="relative mx-auto max-w-7xl overflow-hidden pb-10">
@@ -302,6 +338,44 @@ const StudentDashboard = () => {
           );
         })}
       </section>
+
+      {latestCompletedOrder && (
+        <section>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="flex flex-col gap-4 rounded-[36px] border border-orange-100 bg-gradient-to-r from-orange-50 via-white to-amber-50 p-6 shadow-sm md:flex-row md:items-center md:justify-between md:p-7"
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-orange-600 text-white shadow-lg shadow-orange-200/50">
+                <RotateCcw size={24} />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.25em] text-orange-500">Quick reorder</p>
+                <h3 className="mt-2 text-2xl font-['Gilroy_Heavy'] text-gray-900">Reorder your last completed meal</h3>
+                <p className="mt-2 text-sm leading-6 text-gray-500">
+                  {latestCompletedOrder.canteen?.name || 'Your last canteen'} · Order #{latestCompletedOrder.queueNumber || '—'} · {latestCompletedOrder.items?.length || 0} item(s)
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => handleQuickReorder(latestCompletedOrder)}
+              disabled={reorderingId === latestCompletedOrder._id}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-orange-600 px-5 py-3 text-sm font-['Gilroy_Heavy'] text-white shadow-lg shadow-orange-600/25 transition-all hover:bg-orange-700 hover:scale-[1.01] active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {reorderingId === latestCompletedOrder._id ? (
+                <RefreshCw size={16} className="animate-spin" />
+              ) : (
+                <RotateCcw size={16} />
+              )}
+              Reorder Again
+            </button>
+          </motion.div>
+        </section>
+      )}
 
       <section className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="rounded-[36px] border border-gray-100 bg-white p-6 shadow-sm md:p-8">

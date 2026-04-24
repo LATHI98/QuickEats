@@ -55,6 +55,27 @@ const ensurePickupPass = async (order) => {
 };
 
 const generateCashVerificationCode = () => String(Math.floor(100000 + Math.random() * 900000));
+const CASH_CODE_REFRESH_MS = 30 * 1000;
+
+const getCashCodeRefreshRemainingMs = (order) => {
+  const issuedAt = order?.payment?.cashVerificationCodeIssuedAt ? new Date(order.payment.cashVerificationCodeIssuedAt).getTime() : 0;
+  if (!issuedAt) return 0;
+  return Math.max(0, CASH_CODE_REFRESH_MS - (Date.now() - issuedAt));
+};
+
+const issueCashVerificationCode = (order) => {
+  const previous = String(order.payment.cashVerificationCode || '').trim();
+  let nextCode = generateCashVerificationCode();
+  let attempts = 0;
+  while (nextCode === previous && attempts < 5) {
+    nextCode = generateCashVerificationCode();
+    attempts += 1;
+  }
+
+  order.payment.cashVerificationCode = nextCode;
+  order.payment.cashVerificationCodeIssuedAt = new Date();
+  return nextCode;
+};
 
 // POST /api/orders/:orderId/payment/stripe/create-intent
 export const createStripeIntent = async (req, res) => {
@@ -184,7 +205,7 @@ export const submitCashPayment = async (req, res) => {
 
     order.payment.method = 'cash';
     order.payment.status = 'pending_verification';
-    order.payment.cashVerificationCode = generateCashVerificationCode();
+    issueCashVerificationCode(order);
     order.payment.rejectionReason = null;
     appendActivity(order, {
       action: 'payment_submitted',
@@ -198,6 +219,55 @@ export const submitCashPayment = async (req, res) => {
     res.json({ success: true, message: 'Cash payment submitted. Awaiting staff verification.', data: order });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// POST /api/orders/:orderId/payment/cash/regenerate
+export const regenerateCashVerificationCode = async (req, res) => {
+  try {
+    const order = await Order.findOne({ _id: req.params.orderId, student: req.user._id });
+    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+
+    if (order.payment.method !== 'cash') {
+      return res.status(400).json({ success: false, message: 'Cash verification code is only available for cash payments' });
+    }
+    if (order.payment.status !== 'pending_verification') {
+      return res.status(400).json({ success: false, message: 'Payment is not pending verification' });
+    }
+
+    const remainingMs = getCashCodeRefreshRemainingMs(order);
+    if (remainingMs > 0) {
+      return res.status(429).json({
+        success: false,
+        code: 'CASH_CODE_REFRESH_TOO_EARLY',
+        message: `Please wait ${Math.ceil(remainingMs / 1000)} seconds before requesting a new code`,
+        data: {
+          remainingSeconds: Math.ceil(remainingMs / 1000),
+          cashVerificationCode: order.payment.cashVerificationCode,
+        },
+      });
+    }
+
+    issueCashVerificationCode(order);
+    appendActivity(order, {
+      action: 'cash_verification_code_regenerated',
+      actor: req.user._id,
+      actorRole: req.user.role,
+      note: 'Student requested a new cash verification code',
+      metadata: { refreshWindowSeconds: 30 },
+    });
+    await order.save();
+
+    return res.json({
+      success: true,
+      message: 'New verification code generated',
+      data: {
+        payment: order.payment,
+        refreshAvailableInSeconds: 30,
+      },
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
   }
 };
 
@@ -273,7 +343,12 @@ export const verifyPayment = async (req, res) => {
     if (normalizedVerificationCode !== String(order.payment.cashVerificationCode || '').trim()) {
       return res.status(400).json({
         success: false,
+        code: 'PAYMENT_VERIFICATION_CODE_MISMATCH',
         message: 'Payment verification code does not match',
+        data: {
+          cashVerificationCodeIssuedAt: order.payment.cashVerificationCodeIssuedAt || null,
+          remainingRefreshSeconds: Math.ceil(getCashCodeRefreshRemainingMs(order) / 1000),
+        },
       });
     }
 
@@ -287,6 +362,7 @@ export const verifyPayment = async (req, res) => {
     order.payment.cashChangeAmount = changeAmount;
     order.payment.verificationCodeUsed = normalizedVerificationCode;
     order.payment.cashVerificationCode = null;
+    order.payment.cashVerificationCodeIssuedAt = null;
     if (order.status === 'pending') {
       if (order.instantPickupRequested) {
         order.status = 'ready';
@@ -341,6 +417,7 @@ export const rejectPayment = async (req, res) => {
     order.payment.status = 'rejected';
     order.payment.rejectionReason = reason || 'No reason provided';
     order.payment.cashVerificationCode = null;
+    order.payment.cashVerificationCodeIssuedAt = null;
     appendActivity(order, {
       action: 'payment_rejected',
       actor: req.user._id,

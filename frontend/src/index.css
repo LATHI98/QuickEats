@@ -92,3 +92,22 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Shared settings page input style */
+.settings-input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.875rem 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  outline: none;
+  background-color: rgba(249, 250, 251, 0.3);
+  font-family: 'Gilroy_Medium', sans-serif;
+  transition: all 0.15s ease;
+}
+
+.settings-input:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1);
+}

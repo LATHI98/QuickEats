@@ -169,23 +169,29 @@ const OrderTrackingPage = () => {
   );
 
   return (
-    <div className="max-w-lg mx-auto py-8 px-4 pb-24">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Track Order</h1>
-          <p className="text-gray-400 text-sm mt-1 font-medium">Live updates from the kitchen</p>
-          {activeOrder?.instantPickupRequested && (
-            <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-orange-50 text-orange-600 text-[10px] font-extrabold uppercase tracking-widest">
-              <Zap size={10} /> Instant Pickup Mode
-            </span>
-          )}
+    <div className="max-w-3xl mx-auto py-8 px-4 md:px-6 pb-24">
+      <div className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-6 md:p-7 mb-8 shadow-sm">
+        <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-orange-100/70 blur-3xl" />
+        <div className="absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-amber-100/70 blur-3xl" />
+
+        <div className="relative flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight">Track Order</h1>
+            <p className="text-gray-500 text-sm mt-1 font-medium">Live updates from the kitchen and queue</p>
+            {activeOrder?.instantPickupRequested && (
+              <span className="inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-orange-50 text-orange-600 text-[10px] font-extrabold uppercase tracking-widest border border-orange-100">
+                <Zap size={10} /> Instant Pickup Mode
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={() => refresh(true)}
+            className={`p-3 rounded-2xl bg-white border border-orange-100 hover:bg-orange-50 transition-all ${refreshing ? 'animate-spin-slow' : ''}`}
+          >
+            <RefreshCw size={20} className="text-gray-600" />
+          </button>
         </div>
-        <button
-          onClick={() => refresh(true)}
-          className={`p-3 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-all ${refreshing ? 'animate-spin-slow' : ''}`}
-        >
-          <RefreshCw size={20} className="text-gray-600" />
-        </button>
       </div>
 
       {!activeOrder ? (
@@ -272,13 +278,13 @@ const OrderTrackingPage = () => {
           </AnimatePresence>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white border border-gray-100 rounded-[28px] p-6 text-center">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="bg-white border border-gray-100 rounded-[28px] p-6 text-center shadow-sm">
               <Hash size={20} className="text-orange-500 mx-auto mb-2" />
               <p className="text-4xl font-extrabold text-gray-900">{activeOrder.queueNumber}</p>
               <p className="text-[10px] text-gray-400 font-extrabold uppercase tracking-wider mt-1">Your Token</p>
             </div>
-            <div className="bg-white border border-gray-100 rounded-[28px] p-6 text-center">
+            <div className="bg-white border border-gray-100 rounded-[28px] p-6 text-center shadow-sm">
               <Users size={20} className="text-orange-500 mx-auto mb-2" />
               <p className="text-4xl font-extrabold text-gray-900">
                 {queuePosition !== null ? queuePosition : '—'}

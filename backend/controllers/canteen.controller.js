@@ -2,15 +2,27 @@ import Canteen from '../models/Canteen.model.js';
 import MenuItem from '../models/MenuItem.model.js';
 import bcrypt from 'bcryptjs';
 
+const normalizeOptionalString = (value, { lowerCase = false } = {}) => {
+  if (value === undefined || value === null) return undefined;
+  const trimmed = String(value).trim();
+  return lowerCase ? trimmed.toLowerCase() : trimmed;
+};
+
+const normalizeOptionalNumber = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+};
+
 const buildCanteenFromBody = (body) => ({
-  name: body.name?.trim(),
-  owner: body.owner?.trim(),
-  email: body.email?.trim().toLowerCase(),
-  ratings: Number(body.ratings ?? 0),
-  photo: body.photo?.trim() ?? '',
-  description: body.description?.trim() ?? '',
-  openHours: body.openHours?.trim() ?? '',
-  canteenPassword: body.canteenPassword?.trim() ?? '',
+  name: normalizeOptionalString(body.name),
+  owner: normalizeOptionalString(body.owner),
+  email: normalizeOptionalString(body.email, { lowerCase: true }),
+  ratings: normalizeOptionalNumber(body.ratings),
+  photo: normalizeOptionalString(body.photo),
+  description: normalizeOptionalString(body.description),
+  openHours: normalizeOptionalString(body.openHours),
+  canteenPassword: normalizeOptionalString(body.canteenPassword),
 });
 
 const stripPasswordHash = (canteenDoc) => {
@@ -43,7 +55,13 @@ export const createCanteen = async (req, res) => {
     }
 
     const canteen = await Canteen.create({
-      ...payload,
+      name: payload.name,
+      owner: payload.owner,
+      email: payload.email,
+      ratings: Number.isFinite(payload.ratings) ? payload.ratings : 0,
+      photo: payload.photo ?? '',
+      description: payload.description ?? '',
+      openHours: payload.openHours ?? '',
       accessPasswordHash: await hashPassword(payload.canteenPassword),
     });
     return res.status(201).json(stripPasswordHash(canteen));
@@ -229,5 +247,32 @@ export const deleteCanteen = async (req, res) => {
   } catch (err) {
     console.error('deleteCanteen error:', err);
     return res.status(500).json({ message: 'Could not delete canteen', error: err.message });
+  }
+};
+
+// PATCH /:id/settings — canteenManager updates their own canteen's operational fields
+export const updateCanteenSettings = async (req, res) => {
+  try {
+    const canteen = await Canteen.findById(req.params.id);
+    if (!canteen) return res.status(404).json({ message: 'Canteen not found' });
+
+    if (req.user.role === 'canteenManager') {
+      const assignedId = String(req.user.canteen?._id || req.user.canteen || '');
+      if (assignedId !== String(canteen._id)) {
+        return res.status(403).json({ message: 'You can only update your assigned canteen' });
+      }
+    }
+
+    const { openHours, description, notice, isOpen } = req.body;
+    if (openHours !== undefined) canteen.openHours = String(openHours).trim();
+    if (description !== undefined) canteen.description = String(description).trim();
+    if (notice !== undefined) canteen.notice = String(notice).trim();
+    if (isOpen !== undefined) canteen.isOpen = Boolean(isOpen);
+
+    await canteen.save();
+    return res.json({ success: true, canteen: stripPasswordHash(canteen) });
+  } catch (err) {
+    console.error('updateCanteenSettings error:', err);
+    return res.status(500).json({ message: 'Could not update canteen settings' });
   }
 };

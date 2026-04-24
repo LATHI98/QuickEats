@@ -24,14 +24,11 @@ import StaffDashboardPage from './Pages/Admin/StaffDashboardPage';
 import AdminReservations from './Pages/Admin/ReservationsPage';
 import TablesManagement from './Pages/Admin/TablesPage';
 import SelectCanteenPage from './Pages/Admin/SelectCanteenPage';
+import SupportCenterPage from './Pages/SupportCenterPage';
 
 // Canteen Staff pages
 import CanteenStaffDashboard from './Pages/CanteenStaff/DashboardPage';
 import MealPassStaffPage from './Pages/CanteenStaff/MealPassPage';
-import AdminMealPass from './Pages/Admin/MealPassManagementPage';
-import AdminApprovals from './Pages/Admin/MealPassApprovalsPage';
-
-
 
 // Student pages
 import StudentDashboard from './Pages/Student/DashboardPage';
@@ -42,20 +39,23 @@ import PaymentPage from './Pages/Student/PaymentPage';
 import CartPage from './Pages/Student/CartPage';
 import CanteenMenuPage from './Pages/Student/CanteenMenuPage';
 import ProfilePage from './Pages/Student/ProfilePage';
+import StudentSettings from './Pages/Student/SettingsPage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
-import MyMealPasses from './Pages/Student/MyMealPassesPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
 import HealthMealPlanPage from './Pages/Student/HealthMealPlanPage';
 import GroupOrderHub from './Pages/Student/GroupOrderHub';
+import CrowdMonitorPage from './Pages/Student/CrowdMonitorPage';
+import EventCateringRequestPage from './Pages/Student/EventCateringRequestPage';
+import EventCateringTrackingPage from './Pages/Student/EventCateringTrackingPage';
+import EventCateringPaymentPage from './Pages/Student/EventCateringPaymentPage';
+import EventCateringDashboardPage from './Pages/Admin/EventCateringDashboardPage';
 
 const AdminDashboardSelector = () => {
   const { user } = useAuth();
   if (user?.role === 'canteenStaff') return <CanteenStaffDashboard />;
   return <AdminDashboard />;
 };
-import CanteenReviewPage from './Pages/Student/CanteenReviewPage';
-
 
 function App() {
   return (
@@ -82,11 +82,14 @@ function App() {
             <Route path="order-tracking" element={<OrderTrackingPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
             <Route path="meal-plan" element={<HealthMealPlanPage />} />
-            <Route path="my-passes" element={<MyMealPasses />} />
-            <Route path="reviews" element={<CanteenReviewPage />} />
-
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="settings" element={<StudentSettings />} />
             <Route path="group-order" element={<GroupOrderHub />} />
+            <Route path="crowd" element={<CrowdMonitorPage />} />
+            <Route path="event-catering" element={<EventCateringRequestPage />} />
+            <Route path="event-catering/tracking" element={<EventCateringTrackingPage />} />
+            <Route path="event-catering/payment/:requestId" element={<EventCateringPaymentPage />} />
+            <Route path="help" element={<SupportCenterPage />} />
           </Route>
         </Route>
 
@@ -101,13 +104,11 @@ function App() {
             <Route path="orders" element={<AdminOrders />} />
             <Route path="reservations" element={<AdminReservations />} />
             <Route path="users" element={<AdminUsers />} />
-            <Route path="meal-pass" element={<AdminMealPass />} />
-            <Route path="approvals" element={<AdminApprovals />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="staff" element={<StaffDashboardPage />} />
             <Route path="meal-pass" element={<MealPassStaffPage />} />
-
-
+            <Route path="event-catering" element={<EventCateringDashboardPage />} />
+            <Route path="help" element={<SupportCenterPage />} />
           </Route>
         </Route>
 

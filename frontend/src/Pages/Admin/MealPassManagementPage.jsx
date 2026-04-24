@@ -169,7 +169,7 @@ const AdminMealPassPage = () => {
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold text-orange-600 tracking-tight">
-            Meal Pass Management
+            MEAL PASS MANAGEMENT
           </h1>
 
         </div>

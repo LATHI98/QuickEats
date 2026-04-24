@@ -224,7 +224,7 @@ const MealBudgetPage = () => {
 
       <div className="px-10 pt-12 space-y-8">
         <header>
-           <h1 className="text-3xl font-extrabold tracking-tight mb-6 text-[#f97316]">Meal Budget</h1>
+           <h1 className="text-3xl font-extrabold tracking-tight mb-6 text-[#f97316]">Meal budget</h1>
            <div className="flex gap-6 border-b border-gray-50 pb-0 overflow-x-auto scrollbar-hide">
               <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-2 text-[11px] font-black pb-3 shrink-0 uppercase tracking-widest transition-all border-b-2 ${activeTab === 'overview' ? 'border-[#f97316] text-[#f97316]' : 'border-transparent text-gray-300 hover:text-black'}`}>
                  <Activity size={14} /> Overview

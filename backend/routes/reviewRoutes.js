@@ -1,12 +1,13 @@
 import express from 'express';
 import Review from '../models/Review.js';
 import Canteen from '../models/Canteen.model.js';
+import MenuItem from '../models/MenuItem.model.js';
 
 const router = express.Router();
 
 router.post('/', async (req, res) => {
   try {
-    const { rating, comment, canteenId } = req.body;
+    const { rating, comment, canteenId, foodId } = req.body;
     if (!rating && !comment?.trim()) {
       return res.status(400).json({ message: 'Must provide either a rating or a comment' });
     }
@@ -19,6 +20,18 @@ router.post('/', async (req, res) => {
       if (allReviews.length > 0) {
         const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
         await Canteen.findByIdAndUpdate(canteenId, { ratings: Number(avg.toFixed(1)) });
+      }
+    }
+
+    // Automatically update Meal rating if it's a food review AND rating is provided
+    if (foodId && rating) {
+      const allReviews = await Review.find({ foodId, rating: { $ne: null } });
+      if (allReviews.length > 0) {
+        const avg = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+        await MenuItem.findByIdAndUpdate(foodId, { 
+          ratings: Number(avg.toFixed(1)),
+          numReviews: allReviews.length
+        });
       }
     }
     

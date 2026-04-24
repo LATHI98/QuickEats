@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import User from '../models/User.model.js';
-import Food from '../models/Food.js';
+import MenuItem from '../models/MenuItem.model.js';
 import { sendVerificationEmail, sendOTPEmail } from '../services/email.service.js';
 import { sendNotification } from '../services/socket.service.js';
 
@@ -97,12 +97,15 @@ export const login = async (req, res) => {
     // Send Trending Notification for students
     if (user.role === 'student') {
       try {
-        const trendingMeal = await Food.findOne({ available: true }).sort({ ordersCount: -1 });
+        const trendingMeal = await MenuItem.findOne({ isAvailable: true })
+          .sort({ ratings: -1, numReviews: -1 })
+          .populate('canteen', 'name');
+
         if (trendingMeal) {
           sendNotification(
             user._id,
             '🔥 Trending Now',
-            `${trendingMeal.name} is super popular today! Why not try it for lunch?`,
+            `Try the ${trendingMeal.name} at ${trendingMeal.canteen?.name || 'our canteen'}! It's currently the top-rated choice.`,
             'info'
           );
         }

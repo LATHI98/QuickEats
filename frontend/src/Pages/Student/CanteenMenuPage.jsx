@@ -64,7 +64,6 @@ const CanteenMenuPage = () => {
         }
         if (recommendRes.data.data?.length > 0) {
           setRecommendedSlots(recommendRes.data.data);
-          // Auto-select ASAP by default
           setSelectedSlot(recommendRes.data.data[0].time);
         }
       } catch {
@@ -75,6 +74,9 @@ const CanteenMenuPage = () => {
       }
     };
     fetch();
+
+    window.refreshMenu = fetch;
+    return () => { delete window.refreshMenu; };
   }, [canteenId, navigate]);
 
   const categories = ['', ...new Set(menuItems.map(i => i.category).filter(Boolean))];
@@ -83,7 +85,17 @@ const CanteenMenuPage = () => {
     const matchSearch = item.name.toLowerCase().includes(search.toLowerCase());
     const matchCat = !selectedCategory || item.category === selectedCategory;
     return matchSearch && matchCat;
-  }).sort((a, b) => (b.ratings || 0) - (a.ratings || 0));
+  }).sort((a, b) => {
+    // 1. Availability first
+    if (a.isAvailable !== b.isAvailable) return a.isAvailable ? -1 : 1;
+    // 2. High ratings (4.0+) first
+    const aTop = (a.ratings || 0) >= 4.0;
+    const bTop = (b.ratings || 0) >= 4.0;
+    if (aTop && !bTop) return -1;
+    if (!aTop && bTop) return 1;
+    // 3. Then by rating descending
+    return (b.ratings || 0) - (a.ratings || 0);
+  });
 
   const cartCount = Object.values(cart).reduce((a, b) => a + b, 0);
 
@@ -284,11 +296,19 @@ const CanteenMenuPage = () => {
             const unavailable = item.isAvailable === false;
             return (
               <div key={item._id} className={`group relative bg-white border rounded-[24px] overflow-hidden transition-all flex flex-col ${
-                item.ratings >= 4.5 
+                item.ratings >= 4.0 
                   ? 'border-orange-200 shadow-[0_0_20px_rgba(249,115,22,0.1)] ring-1 ring-orange-100' 
                   : 'border-gray-100 shadow-sm hover:shadow-xl hover:shadow-orange-100/30'
               }`}>
                 <div className="relative h-44 bg-gradient-to-br from-orange-50 to-amber-50 shrink-0">
+                  {/* Side Rating Badge */}
+                  <div className="absolute top-3 -left-1 z-10">
+                    <div className="bg-white px-2 py-1 rounded-r-lg shadow-md border-y border-r border-orange-100 flex items-center gap-1">
+                      <Star size={10} className="fill-orange-500 text-orange-500" />
+                      <span className="text-[10px] font-black text-gray-900">{Number(item.ratings || 0).toFixed(1)}</span>
+                    </div>
+                  </div>
+
                   {item.image ? (
                     <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   ) : (
@@ -297,7 +317,7 @@ const CanteenMenuPage = () => {
                     </div>
                   )}
                   {item.category && (
-                    <span className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-extrabold text-gray-700 uppercase tracking-wide">
+                    <span className="absolute top-3 left-14 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur text-[10px] font-extrabold text-gray-700 uppercase tracking-wide border border-gray-100">
                       {item.category}
                     </span>
                   )}
@@ -306,8 +326,8 @@ const CanteenMenuPage = () => {
                       Unavailable
                     </span>
                   )}
-                  {item.ratings >= 4.5 && (
-                    <span className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-orange-600 text-white text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1 shadow-lg">
+                  {item.ratings >= 4.0 && (
+                    <span className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-orange-600 text-white text-[10px] font-extrabold uppercase tracking-wide flex items-center gap-1 shadow-lg border border-orange-500">
                       <Sparkles size={10} /> Top Rated
                     </span>
                   )}
@@ -316,10 +336,6 @@ const CanteenMenuPage = () => {
                 <div className="p-4 flex flex-col flex-1">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <h3 className="font-extrabold text-gray-900 leading-tight line-clamp-2">{item.name}</h3>
-                    <div className="flex items-center gap-1 shrink-0">
-                        <Star size={10} className="text-orange-500 fill-orange-500" />
-                        <span className="text-[10px] font-black text-gray-900">{Number(item.ratings || 0).toFixed(1)}</span>
-                    </div>
                   </div>
 
                   {item.description && <p className="text-xs text-gray-500 mb-4 line-clamp-2 min-h-[2.25rem] leading-relaxed">{item.description}</p>}
@@ -399,6 +415,9 @@ const CanteenMenuPage = () => {
         targetName={reviewModal.targetName}
         type="food"
         mode={reviewModal.mode}
+        onReviewSubmitted={() => {
+          if (window.refreshMenu) window.refreshMenu();
+        }}
       />
 
       {crossCanteenPrompt.isOpen && (

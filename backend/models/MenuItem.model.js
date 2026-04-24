@@ -11,6 +11,8 @@ const menuItemSchema = new mongoose.Schema(
     description: { type: String, default: '' },
     category: { type: String, default: '' },
     image: { type: String, default: '' },
+    ratings: { type: Number, default: 0 },
+    numReviews: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

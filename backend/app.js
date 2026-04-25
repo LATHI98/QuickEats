@@ -15,7 +15,10 @@ import staffRoutes from './routes/StaffRoutes.js'
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const localEnvPath = join(__dirname, '.env');
 const rootEnvPath = join(__dirname, '..', '.env');
-dotenv.config({ path: existsSync(localEnvPath) ? localEnvPath : rootEnvPath });
+dotenv.config({ 
+  path: existsSync(localEnvPath) ? localEnvPath : rootEnvPath,
+  debug: true 
+});
 
 // Ensure uploads directory exists
 const uploadDir = join(__dirname, 'uploads');
@@ -303,6 +306,12 @@ initSocket(server);
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
   console.log(`📡 Socket.io path: http://localhost:${PORT}/socket.io/`);
+}).on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use. Please kill the process using this port or choose a different port.`);
+  } else {
+    console.error('❌ Server error:', err);
+  }
 });
 
 mongoose.connect(process.env.MONGODBURL)

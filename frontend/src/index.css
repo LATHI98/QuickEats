@@ -3,51 +3,111 @@
 @tailwind utilities;
 
 @font-face {
-  font-family: 'Gilroy Heavy';
+  font-family: 'Gilroy_Heavy';
   src: url('./Fonts/Gilroy-Heavy.ttf') format('truetype');
   font-weight: bolder;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Gilroy Bold';
+  font-family: 'Gilroy_Bold';
   src: url('./Fonts/Gilroy-Bold.ttf') format('truetype');
   font-weight: bolder;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Gilroy Regular';
+  font-family: 'Gilroy_Regular';
   src: url('./Fonts/Gilroy-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Gilroy Light';
+  font-family: 'Gilroy_Light';
   src: url('./Fonts/Gilroy-Light.ttf') format('truetype');
   font-weight: lighter;
   font-style: normal;
 }
 
 @font-face {
-  font-family: 'Gilroy Medium';
+  font-family: 'Gilroy_Medium';
   src: url('./Fonts/Gilroy-Medium.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
 }
 
+:root {
+  --font-sans: 'Gilroy_Regular', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-medium: 'Gilroy_Medium', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-bold: 'Gilroy_Bold', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-heavy: 'Gilroy_Heavy', Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --tracking-body: 0.012em;
+  --tracking-heading: -0.022em;
+  --tracking-wide-ui: 0.14em;
+  --word-spacing-body: 0.03em;
+}
+
 body {
   margin: 0;
-  font-family: 'Gilroy Regular', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--font-sans);
+  letter-spacing: var(--tracking-body);
+  word-spacing: var(--word-spacing-body);
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   background-color: white;
+  color: #111827;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  letter-spacing: var(--tracking-heading);
+  word-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+p,
+li,
+label,
+button,
+input,
+textarea,
+select {
+  letter-spacing: inherit;
+  word-spacing: inherit;
+}
+
+::selection {
+  background: rgba(249, 115, 22, 0.18);
+  color: #7c2d12;
 }
 
 code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
+}
+
+/* Shared settings page input style */
+.settings-input {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.875rem 1.25rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  outline: none;
+  background-color: rgba(249, 250, 251, 0.3);
+  font-family: 'Gilroy_Medium', sans-serif;
+  transition: all 0.15s ease;
+}
+
+.settings-input:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.1);
 }

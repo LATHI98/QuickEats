@@ -69,7 +69,7 @@ const HomePage = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white font-['Gilroy_Medium'] selection:bg-orange-100 selection:text-orange-900">
+    <div className="min-h-screen bg-white font-medium selection:bg-orange-100 selection:text-orange-900">
       <Navbar />
 
       {/* Hero Section: Modern Asymmetric Layout */}
@@ -87,24 +87,24 @@ const HomePage = () => {
               transition={{ duration: 0.8, ease: "easeOut" }}
               className="relative z-20"
             >
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-['Gilroy_Heavy'] text-gray-900 leading-[1.1] mb-6 tracking-tight">
-                QuickEats: <br />
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold text-gray-900 leading-[1.1] mb-6 tracking-tight">
+                QuickEats <br />
                 <span className="text-orange-600">Smart Campus Dining</span>
               </h1>
 
-              <p className="text-lg md:text-xl text-gray-500 mb-10 max-w-lg leading-relaxed font-['Gilroy_Medium']">
+              <p className="text-lg md:text-xl text-gray-500 mb-10 max-w-lg leading-relaxed font-medium">
                 Experience the future of campus meals. Pre-order, track spending, and skip queues with India's most advanced dining platform.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center justify-start gap-4">
                 <button
                   onClick={() => navigate('/register')}
-                  className="w-full sm:w-auto bg-orange-600 text-white px-10 py-5 rounded-3xl font-['Gilroy_Bold'] text-lg hover:bg-orange-700 transition-all shadow-xl shadow-orange-900/20 hover:-translate-y-1 active:scale-95 flex items-center justify-center group"
+                  className="w-full sm:w-auto bg-orange-600 text-white px-10 py-5 rounded-3xl font-bold text-lg hover:bg-orange-700 transition-all shadow-xl shadow-orange-900/20 hover:-translate-y-1 active:scale-95 flex items-center justify-center group"
                 >
                   Get started
                   <ArrowRight className="ml-3 w-5 h-5 group-hover:translate-x-1.5 transition-transform" />
                 </button>
-                <button className="w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-100 px-10 py-5 rounded-3xl font-['Gilroy_Bold'] text-lg transition-all active:scale-95">
+                <button className="w-full sm:w-auto bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-100 px-10 py-5 rounded-3xl font-bold text-lg transition-all active:scale-95">
                   Explore Menus
                 </button>
               </div>
@@ -120,7 +120,7 @@ const HomePage = () => {
                   <CheckCircle2 size={24} />
                 </div>
                 <div>
-                  <p className="text-sm font-['Gilroy_Bold'] text-gray-900 leading-tight">Instant Verification</p>
+                  <p className="text-sm font-bold text-gray-900 leading-tight">Instant Verification</p>
                   <p className="text-xs text-gray-500 mt-0.5">Your order is ready in minutes.</p>
                 </div>
               </motion.div>
@@ -162,9 +162,9 @@ const HomePage = () => {
                           animate={{ opacity: 1, y: 0 }}
                           className="space-y-1"
                         >
-                          <p className="text-[10px] font-['Gilroy_Bold'] uppercase tracking-[0.2em] text-orange-400">Featured</p>
-                          <h4 className="text-2xl font-['Gilroy_Heavy'] tracking-tight">{HERO_IMAGES[idx].title}</h4>
-                          <p className="text-sm font-['Gilroy_Medium'] text-white/70">{HERO_IMAGES[idx].desc}</p>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-orange-400">Featured</p>
+                          <h4 className="text-2xl font-extrabold tracking-tight">{HERO_IMAGES[idx].title}</h4>
+                          <p className="text-sm font-medium text-white/70">{HERO_IMAGES[idx].desc}</p>
                         </motion.div>
                       </div>
                     </motion.div>
@@ -200,7 +200,7 @@ const HomePage = () => {
                     <ShoppingBag size={20} />
                   </div>
                   <div>
-                    <p className="text-xs font-['Gilroy_Bold'] text-gray-900 leading-none">Fast Checkout</p>
+                    <p className="text-xs font-bold text-gray-900 leading-none">Fast Checkout</p>
                     <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest leading-none">99% Success Rate</p>
                   </div>
                 </div>
@@ -232,12 +232,12 @@ const HomePage = () => {
               className="inline-flex items-center space-x-2 bg-orange-50 text-orange-600 px-6 py-2 rounded-full mb-6 border border-orange-100"
             >
               <div className="w-2 h-2 bg-orange-600 rounded-full animate-pulse"></div>
-              <span className="text-sm font-['Gilroy_Bold'] uppercase tracking-widest">Platform Highlights</span>
+              <span className="text-sm font-bold uppercase tracking-widest">Platform Highlights</span>
             </motion.div>
-            <h2 className="text-5xl md:text-7xl font-['Gilroy_Heavy'] text-gray-900 mb-8 tracking-tight">
+            <h2 className="text-5xl md:text-7xl font-extrabold text-gray-900 mb-8 tracking-tight">
               Beyond Just <span className="text-orange-600">Ordering</span>
             </h2>
-            <p className="text-2xl text-gray-400 max-w-3xl mx-auto font-['Gilroy_Medium']">
+            <p className="text-2xl text-gray-400 max-w-3xl mx-auto font-medium">
               A complete ecosystem designed to modernize your entire campus dining journey.
             </p>
           </div>
@@ -252,8 +252,8 @@ const HomePage = () => {
                 <div className="w-20 h-20 bg-orange-50 rounded-[30px] flex items-center justify-center mb-10 group-hover:bg-orange-600 transition-colors">
                   <ShoppingBag className="w-10 h-10 text-orange-600 group-hover:text-white transition-colors" />
                 </div>
-                <h3 className="text-3xl font-['Gilroy_Heavy'] text-gray-900 mb-6">Smart Food Ordering</h3>
-                <p className="text-xl text-gray-500 font-['Gilroy_Medium'] leading-relaxed max-w-sm">
+                <h3 className="text-3xl font-extrabold text-gray-900 mb-6">Smart Food Ordering</h3>
+                <p className="text-xl text-gray-500 font-medium leading-relaxed max-w-sm">
                   Skip the long campus queues. Browse menus, pre-order, and pay—all before you even arrive at the canteen.
                 </p>
               </div>
@@ -281,16 +281,16 @@ const HomePage = () => {
                 <div className="w-20 h-20 bg-white/10 rounded-[30px] flex items-center justify-center mb-10 group-hover:bg-orange-600 transition-colors">
                   <MessageSquare className="w-10 h-10 text-orange-500 group-hover:text-white transition-colors" />
                 </div>
-                <h3 className="text-3xl font-['Gilroy_Heavy'] text-white mb-6">AI Chatbot Assistant</h3>
-                <p className="text-xl text-white/50 font-['Gilroy_Medium'] leading-relaxed max-w-sm">
+                <h3 className="text-3xl font-extrabold text-white mb-6">AI Chatbot Assistant</h3>
+                <p className="text-xl text-white/50 font-medium leading-relaxed max-w-sm">
                   Instant answers to your queries. Ask about today's special, item prices, or live crowd status in any canteen.
                 </p>
               </div>
               <div className="absolute -right-10 bottom-10 space-y-4 max-w-[280px]">
-                <div className="bg-white/10 backdrop-blur-md p-5 rounded-3xl rounded-br-none border border-white/10 text-white/70 text-sm font-['Gilroy_Bold'] self-end translate-x-10 group-hover:translate-x-0 transition-transform delay-75">
+                <div className="bg-white/10 backdrop-blur-md p-5 rounded-3xl rounded-br-none border border-white/10 text-white/70 text-sm font-bold self-end translate-x-10 group-hover:translate-x-0 transition-transform delay-75">
                   "Is the Main Canteen crowded right now?"
                 </div>
-                <div className="bg-orange-600 p-5 rounded-3xl rounded-bl-none text-white text-sm font-['Gilroy_Bold'] group-hover:-translate-x-4 transition-transform">
+                <div className="bg-orange-600 p-5 rounded-3xl rounded-bl-none text-white text-sm font-bold group-hover:-translate-x-4 transition-transform">
                   "It's quite clear! Current Wait: 5 mins."
                 </div>
               </div>
@@ -305,16 +305,16 @@ const HomePage = () => {
                 <div className="w-20 h-20 bg-blue-50 rounded-[30px] flex items-center justify-center mb-10 group-hover:bg-blue-600 transition-colors">
                   <CreditCard className="w-10 h-10 text-blue-600 group-hover:text-white transition-colors" />
                 </div>
-                <h3 className="text-3xl font-['Gilroy_Heavy'] text-gray-900 mb-6">Budget Tracker</h3>
-                <p className="text-xl text-gray-500 font-['Gilroy_Medium'] leading-relaxed max-w-sm">
+                <h3 className="text-3xl font-extrabold text-gray-900 mb-6">Budget Tracker</h3>
+                <p className="text-xl text-gray-500 font-medium leading-relaxed max-w-sm">
                   Take control of your spending. Monitor daily expenses and set smart limits to ensure you stay within your monthly budget.
                 </p>
               </div>
               <div className="absolute -right-10 -bottom-10 w-80 h-64 bg-blue-50/50 rounded-full blur-[60px]"></div>
               <div className="relative z-10 bg-white border border-gray-100 p-8 rounded-[40px] shadow-xl max-w-[320px] self-end mt-4 group-hover:scale-105 transition-transform">
                 <div className="flex justify-between items-center mb-6">
-                  <span className="text-gray-400 font-['Gilroy_Bold'] text-xs uppercase">Monthly Budget</span>
-                  <span className="text-blue-600 font-['Gilroy_Heavy'] text-sm">75% Used</span>
+                  <span className="text-gray-400 font-bold text-xs uppercase">Monthly Budget</span>
+                  <span className="text-blue-600 font-extrabold text-sm">75% Used</span>
                 </div>
                 <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
                   <motion.div
@@ -324,8 +324,8 @@ const HomePage = () => {
                   ></motion.div>
                 </div>
                 <div className="mt-6 flex justify-between">
-                  <div className="text-2xl font-['Gilroy_Heavy'] text-gray-900">₹4,250</div>
-                  <div className="text-sm text-gray-400 font-['Gilroy_Bold']">/ ₹6,000</div>
+                  <div className="text-2xl font-extrabold text-gray-900">₹4,250</div>
+                  <div className="text-sm text-gray-400 font-bold">/ ₹6,000</div>
                 </div>
               </div>
             </motion.div>
@@ -340,10 +340,10 @@ const HomePage = () => {
                   <Users className="w-10 h-10 text-emerald-600 group-hover:text-white transition-colors" />
                 </div>
                 <div className="flex items-center space-x-3 mb-6">
-                  <h3 className="text-3xl font-['Gilroy_Heavy'] text-gray-900">Live Crowd Indicator</h3>
-                  <span className="flex items-center px-3 py-1 bg-emerald-500 text-white text-[10px] font-['Gilroy_Bold'] rounded-full animate-pulse uppercase tracking-widest">Live</span>
+                  <h3 className="text-3xl font-extrabold text-gray-900">Live Crowd Indicator</h3>
+                  <span className="flex items-center px-3 py-1 bg-emerald-500 text-white text-[10px] font-bold rounded-full animate-pulse uppercase tracking-widest">Live</span>
                 </div>
-                <p className="text-xl text-gray-500 font-['Gilroy_Medium'] leading-relaxed max-w-sm">
+                <p className="text-xl text-gray-500 font-medium leading-relaxed max-w-sm">
                   Real-time status of every dining hall. Know exactly how busy a canteen is before you step out.
                 </p>
               </div>
@@ -355,8 +355,8 @@ const HomePage = () => {
                 ].map((c, idx) => (
                   <div key={idx} className="bg-white p-5 rounded-3xl shadow-sm border border-gray-50 flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-['Gilroy_Bold'] text-gray-800">{c.name}</p>
-                      <p className={`text-[10px] font-['Gilroy_Bold'] uppercase ${c.color.replace('bg-', 'text-')}`}>{c.status}</p>
+                      <p className="text-sm font-bold text-gray-800">{c.name}</p>
+                      <p className={`text-[10px] font-bold uppercase ${c.color.replace('bg-', 'text-')}`}>{c.status}</p>
                     </div>
                     <div className="w-24 h-2 bg-gray-50 rounded-full overflow-hidden">
                       <motion.div
@@ -392,7 +392,7 @@ const HomePage = () => {
             </div>
 
             <div>
-              <h2 className="text-4xl md:text-6xl font-['Gilroy_Heavy'] text-gray-900 mb-10 leading-tight">
+              <h2 className="text-4xl md:text-6xl font-extrabold text-gray-900 mb-10 leading-tight">
                 Why QuickEats is <span className="text-orange-600 block">Different</span>
               </h2>
               <div className="space-y-6">
@@ -413,7 +413,7 @@ const HomePage = () => {
                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center grow-0 shrink-0 ${item.color}`}>
                       <CheckCircle2 className="w-6 h-6" />
                     </div>
-                    <span className="text-xl text-gray-800 font-['Gilroy_Bold']">{item.text}</span>
+                    <span className="text-xl text-gray-800 font-bold">{item.text}</span>
                   </motion.div>
                 ))}
               </div>
@@ -433,18 +433,18 @@ const HomePage = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-5xl md:text-7xl font-['Gilroy_Heavy'] text-white mb-12 leading-tight">
+            <h2 className="text-5xl md:text-7xl font-extrabold text-white mb-12 leading-tight">
               Ready to Upgrade <br /> Your Campus Life?
             </h2>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
               <button
                 onClick={() => navigate('/login')}
-                className="w-full sm:w-auto bg-orange-600 text-white px-14 py-7 rounded-full font-['Gilroy_Bold'] text-2xl hover:bg-orange-700 transition-all shadow-2xl hover:shadow-orange-500/30 flex items-center justify-center group"
+                className="w-full sm:w-auto bg-orange-600 text-white px-14 py-7 rounded-full font-bold text-2xl hover:bg-orange-700 transition-all shadow-2xl hover:shadow-orange-500/30 flex items-center justify-center group"
               >
                 Join Now
                 <ArrowRight className="ml-3 w-7 h-7 group-hover:translate-x-2 transition-transform" />
               </button>
-              <button className="w-full sm:w-auto bg-transparent text-white border-2 border-white/20 px-14 py-7 rounded-full font-['Gilroy_Bold'] text-2xl hover:bg-white hover:text-gray-900 transition-all">
+              <button className="w-full sm:w-auto bg-transparent text-white border-2 border-white/20 px-14 py-7 rounded-full font-bold text-2xl hover:bg-white hover:text-gray-900 transition-all">
                 Learn More
               </button>
             </div>
@@ -454,10 +454,10 @@ const HomePage = () => {
 
       <footer className="bg-black py-24 text-center text-white/40 text-sm border-t border-white/5">
         <div className="max-w-7xl mx-auto px-4">
-          <div className="text-4xl font-['Gilroy_Heavy'] text-white mb-10">
+          <div className="text-4xl font-extrabold text-white mb-10">
             Quick<span className="text-orange-600">Eats</span>
           </div>
-          <div className="flex flex-wrap justify-center gap-8 mb-12 font-['Gilroy_Bold'] text-white/60">
+          <div className="flex flex-wrap justify-center gap-8 mb-12 font-bold text-white/60">
             <Link to="#" className="hover:text-orange-600 transition-colors">About</Link>
             <Link to="#" className="hover:text-orange-600 transition-colors">Features</Link>
             <Link to="#" className="hover:text-orange-600 transition-colors">Pricing</Link>
@@ -466,7 +466,7 @@ const HomePage = () => {
           <p className="mb-12 max-w-lg mx-auto leading-relaxed text-base">
             The ultimate smart dining platform for campuses worldwide. Efficiency, transparency, and delicious food.
           </p>
-          <div className="pt-12 border-t border-white/10 font-['Gilroy_Bold'] tracking-widest uppercase text-xs">
+          <div className="pt-12 border-t border-white/10 font-bold tracking-widest uppercase text-xs">
             © 2026 QuickEats Global. Designed for Excellence.
           </div>
         </div>

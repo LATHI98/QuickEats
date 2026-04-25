@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Store,
@@ -13,36 +14,65 @@ import {
   ChevronRight,
   Shield,
   ChefHat,
+  LayoutGrid,
+  Clock,
   Ticket,
-  Box,
+  Grid3x3,
+  Calendar,
+  BriefcaseBusiness,
+  LifeBuoy,
+  Star,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  Info
 } from 'lucide-react';
+
 import { useAuth } from '../../contexts/AuthContext';
+import { useNotifications } from '../../contexts/NotificationContext';
 
 const superAdminNav = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'Canteens', path: '/admin/canteens', icon: Store },
+  { label: 'Tables', path: '/admin/tables', icon: Grid3x3 },
+  { label: 'Reservations', path: '/admin/reservations', icon: Calendar },
   { label: 'Menu Items', path: '/admin/menu', icon: UtensilsCrossed },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
   { label: 'Users', path: '/admin/users', icon: Users },
+  { label: 'Meal Pass', path: '/admin/meal-pass', icon: Ticket },
+  { label: 'Meal Pass Records', path: '/admin/approvals', icon: Clock },
+  { label: 'Ratings & Reviews', path: '/admin/reviews', icon: Star },
   { label: 'Settings', path: '/admin/settings', icon: Settings },
 ];
 
 const managerNav = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'My Canteen', path: '/admin/canteens', icon: Store },
+  { label: 'Tables', path: '/admin/tables', icon: Grid3x3 },
+  { label: 'Reservations', path: '/admin/reservations', icon: Calendar },
   { label: 'Menu', path: '/admin/menu', icon: UtensilsCrossed },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
+  { label: 'Meal Pass', path: '/admin/meal-pass', icon: Ticket },
+  { label: 'Meal Pass Records', path: '/admin/approvals', icon: Clock },
+  { label: 'Ratings & Reviews', path: '/admin/reviews', icon: Star },
 ];
 
 const canteenStaffNav = [
   { label: 'Dashboard', path: '/admin/dashboard', icon: LayoutDashboard },
+  { label: 'Tables', path: '/admin/tables', icon: Grid3x3 },
+  { label: 'Reservations', path: '/admin/reservations', icon: Calendar },
   { label: 'Orders', path: '/admin/orders', icon: ShoppingBag },
   { label: 'Meal Pass', path: '/admin/meal-pass', icon: Ticket },
-  { label: 'Stock Management', path: '/admin/stock', icon: Box },
   { label: 'Menu Management', path: '/admin/menu', icon: UtensilsCrossed },
+  { label: 'Ratings & Reviews', path: '/admin/reviews', icon: Star },
 ];
 
 const roleConfig = {
+  admin: {
+    label: 'Admin',
+    icon: Shield,
+    nav: superAdminNav,
+  },
   superAdmin: {
     label: 'Super Admin',
     icon: Shield,
@@ -69,12 +99,45 @@ const getInitials = (name) =>
     .slice(0, 2) || '??';
 
 const AdminLayout = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, selectedCanteenName } = useAuth();
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
+  const notificationRef = useRef(null);
+  const profileRef = useRef(null);
 
-  const config = roleConfig[user?.role] || roleConfig.canteenManager;
+  const showCanteenSelector = ['canteenStaff', 'canteenManager'].includes(user?.role);
+
+  const config = roleConfig[user?.role] || roleConfig.admin;
   const navItems = config.nav;
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
+      }
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setIsProfileOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const getNotificationIcon = (type) => {
+    switch (type) {
+      case 'budget_exceeded':
+        return <AlertCircle size={16} className="text-red-500" />;
+      case 'pass_verified':
+        return <CheckCircle2 size={16} className="text-green-500" />;
+      case 'pass_rejected':
+        return <X size={16} className="text-red-500" />;
+      default:
+        return <Info size={16} className="text-blue-500" />;
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#FDFDFD] flex font-['Gilroy_Medium']">
@@ -127,6 +190,13 @@ const AdminLayout = () => {
                   label="Orders"
                   active={location.pathname === '/admin/orders'}
                 />
+                <MenuLink
+                  to="/admin/event-catering"
+                  icon={BriefcaseBusiness}
+                  label="Event Catering"
+                  active={location.pathname === '/admin/event-catering'}
+                  badge="New"
+                />
                 {user?.role === 'canteenStaff' && (
                   <MenuLink
                     to="/admin/meal-pass"
@@ -161,22 +231,62 @@ const AdminLayout = () => {
                     active={location.pathname === '/admin/canteens'}
                   />
                 )}
+                {['superAdmin', 'admin', 'canteenManager', 'canteenStaff'].includes(user?.role) && (
+                  <>
+                    <MenuLink
+                      to="/admin/tables"
+                      icon={Grid3x3}
+                      label="Tables Manager"
+                      active={location.pathname === '/admin/tables'}
+                    />
+                    <MenuLink
+                      to="/admin/reservations"
+                      icon={Calendar}
+                      label="Reservations"
+                      active={location.pathname === '/admin/reservations'}
+                    />
+                  </>
+                )}
                 <MenuLink
                   to="/admin/menu"
                   icon={UtensilsCrossed}
                   label="Menu Manager"
                   active={location.pathname === '/admin/menu'}
                 />
-                {user?.role === 'canteenStaff' && (
-                  <MenuLink
-                    to="/admin/stock"
-                    icon={Box}
-                    label="Stock Manager"
-                    active={location.pathname === '/admin/stock'}
-                  />
-                )}
+                <MenuLink
+                  to="/admin/staff"
+                  icon={LayoutGrid}
+                  label="Staff Dashboard"
+                  active={location.pathname === '/admin/staff'}
+                  badge={user?.role === 'canteenStaff' ? 'You' : undefined}
+                />
+                <MenuLink
+                  to="/admin/event-catering"
+                  icon={BriefcaseBusiness}
+                  label="Event Catering"
+                  active={location.pathname === '/admin/event-catering'}
+                />
+                <MenuLink
+                  to="/admin/meal-pass"
+                  icon={Ticket}
+                  label="Meal Pass"
+                  active={location.pathname === '/admin/meal-pass'}
+                />
+                <MenuLink
+                  to="/admin/approvals"
+                  icon={Clock}
+                  label="Meal Pass Records"
+                  active={location.pathname === '/admin/approvals'}
+                />
+                <MenuLink
+                  to="/admin/reviews"
+                  icon={Star}
+                  label="Ratings & Reviews"
+                  active={location.pathname === '/admin/reviews'}
+                />
               </nav>
             </div>
+
 
             {/* Section: ACCOUNT */}
             <div>
@@ -187,6 +297,12 @@ const AdminLayout = () => {
                   icon={Settings}
                   label="Settings"
                   active={location.pathname === '/admin/settings'}
+                />
+                <MenuLink
+                  to="/admin/help"
+                  icon={LifeBuoy}
+                  label="Help Center"
+                  active={location.pathname === '/admin/help'}
                 />
               </nav>
             </div>
@@ -227,20 +343,144 @@ const AdminLayout = () => {
           </div>
 
           <div className="flex items-center space-x-6">
-            {/* Minimal Actions */}
-            <div className="flex items-center space-x-1">
-              <HeaderIconButton icon={Bell} dot color="text-gray-400" />
+            {/* Notifications */}
+            <div className="relative" ref={notificationRef}>
+              <button
+                onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
+                className="relative p-2.5 text-gray-400 hover:text-orange-600 hover:bg-orange-50 rounded-xl transition-all"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <AnimatePresence>
+                {isNotificationsOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 mt-4 w-80 sm:w-96 bg-white rounded-[24px] shadow-2xl border border-gray-100 overflow-hidden z-50"
+                  >
+                    <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center bg-gray-50/50">
+                      <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Notifications</h3>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markAllAsRead}
+                          className="text-[10px] text-orange-600 font-bold hover:text-orange-700 transition-colors uppercase tracking-widest"
+                        >
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+                      {notifications.length > 0 ? (
+                        notifications.map((notif) => (
+                          <div
+                            key={notif._id}
+                            className={`px-6 py-4 border-b border-gray-50 flex space-x-4 transition-colors relative group ${notif.isRead ? 'bg-white' : 'bg-orange-50/30'}`}
+                          >
+                            <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${notif.isRead ? 'bg-gray-100' : 'bg-orange-100'}`}>
+                              {getNotificationIcon(notif.type)}
+                            </div>
+                            <div className="flex-1 min-w-0" onClick={() => !notif.isRead && markAsRead(notif._id)}>
+                              <p className={`text-sm font-bold ${notif.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{notif.title}</p>
+                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{notif.message}</p>
+                              <p className="text-[10px] text-gray-400 mt-2 font-medium">
+                                {new Date(notif.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                              </p>
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notif._id);
+                              }}
+                              className="absolute right-4 top-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="px-6 py-12 text-center">
+                          <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Bell size={24} className="text-gray-300" />
+                          </div>
+                          <p className="text-sm font-bold text-gray-500">No notifications yet</p>
+                          <p className="text-xs text-gray-400 mt-1">We'll notify you when things happen</p>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Profile Pic */}
-            <div className="w-11 h-11 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:border-orange-200 transition-all">
-              <UserIcon className="text-gray-400 w-6 h-6" />
+            {showCanteenSelector && (
+              <Link
+                to="/admin/select-canteen"
+                className="hidden md:inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-orange-50 text-orange-700 text-xs font-['Gilroy_Heavy'] hover:bg-orange-100 transition-colors"
+              >
+                <Store size={14} />
+                {selectedCanteenName ? `Switch: ${selectedCanteenName}` : 'Select Canteen'}
+              </Link>
+            )}
+
+            {/* Profile Pic with Dropdown */}
+            <div className="relative" ref={profileRef}>
+              <button
+                onClick={() => setIsProfileOpen(!isProfileOpen)}
+                className="w-11 h-11 bg-gray-50 rounded-2xl flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm cursor-pointer hover:border-orange-600/30 transition-all focus:outline-none"
+              >
+                <UserIcon className="text-gray-400 w-6 h-6" />
+              </button>
+
+              <AnimatePresence>
+                {isProfileOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-2xl border border-gray-100 py-3 z-50 overflow-hidden"
+                  >
+                    <div className="px-5 py-3 border-b border-gray-50 mb-2">
+                      <p className="text-sm font-['Gilroy_Heavy'] text-gray-900 truncate">{user?.name || 'Admin'}</p>
+                      <p className="text-[10px] text-gray-400 font-['Gilroy_Bold'] uppercase tracking-widest mt-0.5">{config.label}</p>
+                    </div>
+
+                    <div className="px-2 space-y-1">
+                      <Link
+                        to="/admin/settings"
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:text-orange-600 hover:bg-orange-50 transition-all rounded-xl font-['Gilroy_Bold'] text-sm"
+                      >
+                        <Settings className="w-4.5 h-4.5" />
+                        <span>Settings</span>
+                      </Link>
+                      <button
+                        onClick={() => {
+                          setIsProfileOpen(false);
+                          logout();
+                        }}
+                        className="w-full flex items-center space-x-3 px-4 py-2.5 text-gray-600 hover:text-red-600 hover:bg-red-50 transition-all rounded-xl font-['Gilroy_Bold'] text-sm"
+                      >
+                        <LogOut className="w-4.5 h-4.5" />
+                        <span>Logout</span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         </header>
 
         {/* Page Content Area */}
-        <div className="flex-1 overflow-y-auto p-10 bg-[#FDFDFD] scroll-smooth">
+        <div className="flex-1 overflow-y-auto px-10 pb-10 bg-[#FDFDFD] scroll-smooth">
           <Outlet />
         </div>
       </main>
@@ -252,6 +492,7 @@ const AdminLayout = () => {
 const MenuLink = ({ to, icon: Icon, label, active, badge }) => (
   <Link
     to={to}
+    state={to === '/admin/menu' ? { from: '/admin/menu' } : undefined}
     className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-200 group relative ${active
       ? 'bg-orange-50/70 text-gray-900'
       : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
@@ -273,20 +514,6 @@ const MenuLink = ({ to, icon: Icon, label, active, badge }) => (
       </span>
     )}
   </Link>
-);
-
-const HeaderIconButton = ({ icon: Icon, badge, dot, color }) => (
-  <button className={`relative p-2.5 rounded-xl transition-all hover:bg-orange-50 hover:text-orange-600 ${color}`}>
-    <Icon className="w-5 h-5" />
-    {badge && (
-      <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[9px] font-['Gilroy_Heavy'] rounded-full flex items-center justify-center border-2 border-white">
-        {badge}
-      </span>
-    )}
-    {dot && (
-      <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
-    )}
-  </button>
 );
 
 // Alias User to UserIcon because User is a popular name and sometimes conflicts with roles

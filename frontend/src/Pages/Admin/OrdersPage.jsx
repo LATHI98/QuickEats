@@ -1,19 +1,2585 @@
-import React from 'react';
-import { ShoppingBag } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
+import { AnimatePresence, motion } from 'framer-motion';
+import { ShoppingBag, LayoutList, BarChart2, RefreshCw, CheckCircle, ChefHat, Package, XCircle, Banknote, QrCode, ChevronDown, Wallet, TrendingUp, Clock, AlertCircle, ChevronRight, Users, CreditCard, X, Trash2, AlertTriangle, Calendar } from 'lucide-react';
+import { orderAPI, paymentAPI, queueAPI, canteenAPI } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { toast } from 'react-toastify';
 
-const AdminOrdersPage = () => (
-  <div className="bg-white rounded-2xl border border-gray-100 p-10 text-center">
-    <div className="w-16 h-16 bg-primaryBlue/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-      <ShoppingBag size={30} className="text-primaryBlue" />
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const ORDER_STATUSES = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
+const PICKUP_CODE_REGEX = /^[A-Z2-9]{6}$/;
+
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+const ONE_WEEK_MS = 7 * ONE_DAY_MS;
+
+const CANCEL_REASONS = [
+  { id: 'expired_payment',    label: 'Order expired — payment not completed within time limit', group: 'stale' },
+  { id: 'expired_no_collect', label: 'Order expired — customer did not collect in time',        group: 'stale' },
+  { id: 'expired_weekly',     label: 'Inactive for over 1 week — system cleanup',               group: 'stale' },
+  { id: 'customer_requested', label: 'Customer requested cancellation',                         group: 'general' },
+  { id: 'item_unavailable',   label: 'Item temporarily unavailable',                            group: 'general' },
+  { id: 'kitchen_capacity',   label: 'Kitchen at capacity — unable to fulfill',                 group: 'general' },
+  { id: 'no_show',            label: 'Customer no-show',                                        group: 'general' },
+  { id: 'duplicate',          label: 'Duplicate order',                                         group: 'general' },
+  { id: 'other',              label: 'Other (specify below)',                                   group: 'general' },
+];
+
+const formatAge = (dateStr) => {
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const hours = Math.floor(ms / 3600000);
+  const days = Math.floor(ms / ONE_DAY_MS);
+  const weeks = Math.floor(ms / ONE_WEEK_MS);
+  if (weeks >= 1) return `${weeks}w ${days % 7}d ago`;
+  if (days >= 1) return `${days}d ${hours % 24}h ago`;
+  return `${hours}h ago`;
+};
+const VERIFICATION_CODE_REGEX = /^\d{6}$/;
+const CURRENCY_INPUT_REGEX = /^\d+(\.\d{1,2})?$/;
+const MAX_CASH_RECEIVED = 5000;
+const ORDER_POLL_INTERVAL_MS = 5000;
+
+const STATUS_CONFIG = {
+  pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700', next: ['preparing', 'cancelled'] },
+  preparing: { label: 'Preparing', color: 'bg-blue-100 text-blue-700', next: ['ready', 'cancelled'] },
+  ready: { label: 'Ready', color: 'bg-green-100 text-green-700', next: ['completed'] },
+  completed: { label: 'Completed', color: 'bg-gray-100 text-gray-600', next: [] },
+  cancelled: { label: 'Cancelled', color: 'bg-red-100 text-red-500', next: [] },
+};
+
+const PAYMENT_STATUS = {
+  unpaid: { label: 'Unpaid', color: 'text-gray-400', bg: 'bg-gray-100' },
+  pending_verification: { label: 'Verify Cash', color: 'text-yellow-600', bg: 'bg-yellow-100' },
+  verified: { label: 'Paid', color: 'text-green-600', bg: 'bg-green-100' },
+  rejected: { label: 'Rejected', color: 'text-red-500', bg: 'bg-red-100' },
+};
+
+const StatusBadge = ({ status }) => {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  return (
+    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${cfg.color}`}>{cfg.label}</span>
+  );
+};
+
+// ─── Order Detail Modal (Admin) ──────────────────────────────────────────────
+
+const OrderDetailModal = ({ order, onClose, onStatusChange, onVerifyCash, onRejectCash, onVerifyPickup, canManagePayments, userRole }) => {
+  if (!order) return null;
+
+  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+  const paymentCfg = PAYMENT_STATUS[order.payment?.status] || PAYMENT_STATUS.unpaid;
+  const isStaff = ['canteenStaff', 'canteenManager'].includes(userRole);
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-10 flex items-center justify-between p-6 border-b border-gray-100">
+          <div>
+            <h2 className="text-xl font-extrabold text-gray-900">Queue #{order.queueNumber}</h2>
+            <p className="text-xs text-gray-400 mt-1 font-medium">
+              {new Date(order.createdAt).toLocaleString()}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-xl hover:bg-gray-100 text-gray-400 transition-colors"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 space-y-6">
+          {/* Status Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl">
+              <span className="text-sm font-extrabold text-gray-600">Order Status</span>
+              <StatusBadge status={order.status} />
+            </div>
+            <div className="flex items-center justify-between bg-gray-50 p-4 rounded-2xl">
+              <span className="text-sm font-extrabold text-gray-600">Payment Status</span>
+              <span className={`px-2.5 py-1 rounded-full text-xs font-extrabold ${paymentCfg.bg} ${paymentCfg.color}`}>
+                {paymentCfg.label}
+              </span>
+            </div>
+          </div>
+
+          {/* Student Info */}
+          <div className="space-y-2">
+            <p className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Student</p>
+            <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4">
+              <p className="font-extrabold text-gray-900">{order.student?.name || 'Unknown'}</p>
+              <p className="text-xs text-gray-500 mt-1">{order.student?.email || order.student?.studentId || '—'}</p>
+            </div>
+          </div>
+
+          {/* Pickup Code (if ready) */}
+          {order.status === 'ready' && order.pickupCode && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-2xl p-4 text-center">
+              <p className="text-[10px] text-indigo-400 font-extrabold uppercase tracking-wider mb-2">Pickup Code</p>
+              <p className="text-4xl tracking-[0.25em] font-extrabold text-indigo-700">{order.pickupCode}</p>
+            </div>
+          )}
+
+          {/* Order Items */}
+          <div className="space-y-2">
+            <p className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Items ({order.items?.length})</p>
+            <div className="space-y-2 bg-gray-50 rounded-2xl p-4">
+              {order.items?.map((item, i) => (
+                <div key={i} className="flex justify-between text-xs">
+                  <span className="text-gray-600">{item.name} × {item.quantity}</span>
+                  <span className="font-extrabold text-gray-900">
+                    LKR {(item.unitPrice * item.quantity).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+              <div className="border-t border-gray-200 pt-2 mt-2 flex justify-between font-extrabold">
+                <span className="text-gray-600">Total</span>
+                <span className="text-orange-600">LKR {order.totalPrice?.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Activity Timeline */}
+          {order.activityLogs?.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs font-extrabold text-gray-500 uppercase tracking-widest">Activity History</p>
+              <div className="space-y-2 bg-gray-50 rounded-2xl p-4 max-h-40 overflow-y-auto">
+                {[...order.activityLogs].reverse().map((log, idx) => (
+                  <div key={idx} className="text-xs border-b border-gray-200 last:border-0 pb-2 last:pb-0">
+                    <p className="text-gray-700 font-medium">{log.note || log.action}</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {log.actor?.name || (log.actorRole === 'system' ? 'System' : 'Unknown')} · {log.actorRole || 'unknown'}
+                    </p>
+                    <p className="text-[10px] text-gray-400">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="space-y-2 pt-4 border-t border-gray-100">
+            {/* Status change buttons */}
+            {cfg.next.length > 0 && (
+              <div className="space-y-2">
+                {cfg.next
+                  .filter(next => {
+                    if (order.status === 'ready' && next === 'completed' && canManagePayments) {
+                      return false;
+                    }
+                    return next !== 'cancelled';
+                  })
+                  .map(next => (
+                    <button
+                      key={next}
+                      onClick={() => {
+                        onStatusChange(order._id, next);
+                        onClose();
+                      }}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl text-sm font-extrabold transition-colors"
+                    >
+                      {next === 'preparing' && <ChefHat size={16} />}
+                      {next === 'ready' && <Package size={16} />}
+                      {next === 'completed' && <CheckCircle size={16} />}
+                      Mark {STATUS_CONFIG[next]?.label}
+                    </button>
+                  ))}
+              </div>
+            )}
+
+            {/* Cancel button */}
+            {cfg.next.includes('cancelled') && (
+              <button
+                onClick={() => {
+                  onStatusChange(order._id, 'cancelled');
+                  onClose();
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-red-200 text-red-500 hover:bg-red-50 rounded-2xl text-sm font-extrabold transition-colors"
+              >
+                <XCircle size={16} /> Cancel Order
+              </button>
+            )}
+
+            {/* Verify Cash (staff only) */}
+            {canManagePayments && order.payment?.status === 'pending_verification' && (
+              <div className="space-y-2">
+                <button
+                  onClick={() => {
+                    onVerifyCash(order);
+                    onClose();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-sm font-extrabold transition-colors"
+                >
+                  <Banknote size={16} /> Verify Cash Payment
+                </button>
+                <button
+                  onClick={() => {
+                    onRejectCash(order);
+                    onClose();
+                  }}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-red-200 text-red-500 hover:bg-red-50 rounded-2xl text-sm font-extrabold transition-colors"
+                >
+                  <XCircle size={16} /> Reject Payment
+                </button>
+              </div>
+            )}
+
+            {/* Mark Delivered (canteen staff / manager only, when order is ready) */}
+            {canManagePayments && order.status === 'ready' && (
+              <button
+                onClick={() => {
+                  onVerifyPickup(order);
+                  onClose();
+                }}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-2xl text-sm font-extrabold transition-colors"
+              >
+                <CheckCircle size={16} /> Mark Delivered
+              </button>
+            )}
+
+            <button
+              onClick={onClose}
+              className="w-full px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-2xl text-sm font-extrabold transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
-    <h2 className="text-xl font-gilroyBold text-gray-700 mb-2">Orders</h2>
-    <p className="text-sm text-gray-400 font-gilroyRegular max-w-sm mx-auto">
-      View and manage all incoming orders, track their status and history.
-    </p>
-    <div className="mt-6 inline-block bg-primaryBlue/10 text-primaryBlue text-xs font-gilroyMedium px-4 py-1.5 rounded-full">
-      Coming soon
+  );
+};
+
+const CashVerificationModal = ({ order, form, errors, submitting, onChange, onClose, onSubmit, latestCode, latestCodeIssuedAt, refreshingCode, onRefreshCode }) => {
+  if (!order) return null;
+
+  const amountRaw = String(form.amountReceived || '').trim();
+  const amount = Number(amountRaw);
+  const orderTotal = order.totalPrice || 0;
+  const isAmountFormatValid = amountRaw === '' ? false : CURRENCY_INPUT_REGEX.test(amountRaw);
+  const isAmountNumeric = Number.isFinite(amount) && amount > 0;
+  const isAmountSufficient = isAmountNumeric && amount >= orderTotal;
+  const isAmountExceeded = isAmountNumeric && amount > MAX_CASH_RECEIVED;
+  const change = isAmountSufficient && !isAmountExceeded ? Math.round((amount - orderTotal) * 100) / 100 : 0;
+  const codeStr = String(form.verificationCode || '');
+  const isVerificationCodeValid = VERIFICATION_CODE_REGEX.test(codeStr.trim());
+  const canSubmit = !submitting && isAmountSufficient && !isAmountExceeded && isVerificationCodeValid;
+
+  // Live inline messages (not form-submit errors)
+  const amountLiveWarning =
+    amountRaw !== '' && isAmountFormatValid && isAmountNumeric && !isAmountSufficient
+      ? `Amount must be at least LKR ${orderTotal.toLocaleString()}`
+      : amountRaw !== '' && isAmountFormatValid && isAmountNumeric && isAmountExceeded
+      ? `Maximum cash received allowed is LKR ${MAX_CASH_RECEIVED.toLocaleString()}`
+      : amountRaw !== '' && !isAmountFormatValid
+      ? 'Enter a valid number (e.g. 500 or 1250.50)'
+      : '';
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-gray-400 font-extrabold">Cash Verification</p>
+            <h3 className="text-xl font-extrabold text-gray-900 mt-1">Queue #{order.queueNumber}</h3>
+            <p className="text-xs text-gray-500 mt-1">Confirm received amount and enter the student's 6-digit verification code.</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
+            <X size={16} className="text-gray-400" />
+          </button>
+        </div>
+
+        {/* Order total */}
+        <div className="rounded-2xl border border-orange-100 bg-orange-50 px-4 py-3 mb-5 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-gray-400">Student</p>
+            <p className="text-sm font-extrabold text-gray-700">{order.student?.name || 'Unknown'}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-400">Order Total</p>
+            <p className="text-xl font-extrabold text-orange-600">LKR {orderTotal.toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2.5 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-indigo-500 font-extrabold">Latest active code</p>
+              <p className="text-base font-extrabold text-indigo-700 tracking-[0.2em]">{latestCode || '------'}</p>
+              <p className="text-[10px] text-indigo-400 mt-0.5">
+                {latestCodeIssuedAt
+                  ? `Updated ${new Date(latestCodeIssuedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`
+                  : 'Waiting for student cash code'}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onRefreshCode}
+              disabled={refreshingCode}
+              className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-extrabold"
+            >
+              {refreshingCode ? 'Syncing...' : 'Sync Latest'}
+            </button>
+          </div>
+
+          {/* Amount field */}
+          <div>
+            <label className="block text-xs uppercase tracking-widest text-gray-500 font-extrabold mb-2">Amount Received (LKR)</label>
+            <input
+              value={form.amountReceived}
+              onChange={(e) => onChange('amountReceived', e.target.value)}
+              type="text"
+              inputMode="decimal"
+              autoComplete="off"
+              placeholder={`Min. ${orderTotal.toLocaleString()}`}
+              className={`w-full rounded-xl border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 transition-colors ${
+                errors.amountReceived || amountLiveWarning
+                  ? 'border-red-300 focus:ring-red-200 bg-red-50/30'
+                  : isAmountSufficient
+                  ? 'border-green-300 focus:ring-green-200 bg-green-50/30'
+                  : 'border-gray-200 focus:ring-orange-200'
+              }`}
+            />
+            {/* Live warning takes priority over form error */}
+            {(amountLiveWarning || errors.amountReceived) && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle size={11} /> {amountLiveWarning || errors.amountReceived}
+              </p>
+            )}
+            {isAmountSufficient && (
+              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                <CheckCircle size={11} /> Amount is sufficient
+              </p>
+            )}
+          </div>
+
+          {/* Verification code field */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs uppercase tracking-widest text-gray-500 font-extrabold">Verification Code</label>
+              <span className={`text-xs font-extrabold ${codeStr.length === 6 ? 'text-green-600' : 'text-gray-400'}`}>
+                {codeStr.length}/6 digits
+              </span>
+            </div>
+            <input
+              value={form.verificationCode}
+              onChange={(e) => onChange('verificationCode', e.target.value.replace(/\D/g, ''))}
+              placeholder="e.g. 482913"
+              inputMode="numeric"
+              autoComplete="off"
+              maxLength={6}
+              className={`w-full rounded-xl border px-3 py-2.5 text-sm tracking-[0.3em] focus:outline-none focus:ring-2 transition-colors ${
+                errors.verificationCode
+                  ? 'border-red-300 focus:ring-red-200'
+                  : isVerificationCodeValid
+                  ? 'border-green-300 focus:ring-green-200 bg-green-50/30'
+                  : 'border-gray-200 focus:ring-orange-200'
+              }`}
+            />
+            {errors.verificationCode && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle size={11} /> {errors.verificationCode}
+              </p>
+            )}
+            {isVerificationCodeValid && !errors.verificationCode && (
+              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                <CheckCircle size={11} /> Code is complete
+              </p>
+            )}
+          </div>
+
+          {/* Change calculator */}
+          <div className={`rounded-xl border px-3 py-2.5 flex items-center justify-between ${
+            isAmountSufficient ? 'bg-emerald-50 border-emerald-100' : 'bg-gray-50 border-gray-100'
+          }`}>
+            <p className="text-xs text-gray-500">Change to Return</p>
+            <p className={`text-base font-extrabold ${isAmountSufficient ? 'text-emerald-700' : 'text-gray-400'}`}>
+              {isAmountSufficient ? `LKR ${change.toLocaleString()}` : '—'}
+            </p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="mt-6 flex gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-extrabold text-gray-600 hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={onSubmit}
+            className="flex-1 rounded-xl bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm font-extrabold text-white transition-colors"
+          >
+            {submitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Verifying...
+              </span>
+            ) : 'Confirm Cash Payment'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PickupVerificationModal = ({ order, form, onChange, submitting, onClose, onSubmit, onOpenScanner }) => {
+  if (!order) return null;
+  const expectedCode = String(order.pickupCode || '').trim().toUpperCase();
+  const inputCode = String(form.pickupCode || '').trim().toUpperCase();
+  const hasExpectedCode = !!expectedCode;
+  const isCodeFormatValid = PICKUP_CODE_REGEX.test(inputCode);
+  const isCodeMatch = hasExpectedCode && inputCode === expectedCode;
+  const isCodeMismatch = isCodeFormatValid && hasExpectedCode && inputCode !== expectedCode;
+  const canSubmit = !submitting && isCodeFormatValid && isCodeMatch;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-gray-400 font-extrabold">Pickup Verification</p>
+            <h3 className="text-xl font-extrabold text-gray-900 mt-1">Queue #{order.queueNumber}</h3>
+            <p className="text-xs text-gray-500 mt-1">Match the student's code and QR before marking as delivered.</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
+            <X size={16} className="text-gray-400" />
+          </button>
+        </div>
+
+        {/* No pickup code guard */}
+        {!hasExpectedCode ? (
+          <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 mb-4 flex items-start gap-2">
+            <AlertCircle size={15} className="text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-extrabold text-amber-700">No Pickup Code Generated</p>
+              <p className="text-xs text-amber-600 mt-0.5">This order doesn't have a pickup code yet. Payment must be verified before delivery can proceed.</p>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-2xl bg-indigo-50 border border-indigo-100 px-4 py-3 mb-4 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest text-indigo-400 font-extrabold">Expected Pickup Code</p>
+              <p className="text-2xl tracking-[0.2em] font-extrabold text-indigo-700 mt-0.5">{order.pickupCode}</p>
+            </div>
+            <p className="text-[10px] text-indigo-300 italic text-right max-w-[80px] leading-tight">Match with student's code</p>
+          </div>
+        )}
+
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Enter 6-Digit Pickup Code</label>
+            <button 
+              onClick={onOpenScanner}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-extrabold hover:bg-indigo-100 transition-colors"
+            >
+              <QrCode size={14} /> Scan Instead
+            </button>
+          </div>
+
+          <div className="relative">
+            <input
+              type="text"
+              value={form.pickupCode}
+              onChange={(e) => onChange({ pickupCode: e.target.value.toUpperCase() })}
+              placeholder="E.G. A1B2C3"
+              maxLength={6}
+              className={`w-full text-3xl font-mono tracking-[0.5em] text-center rounded-2xl border-2 px-4 py-4 focus:outline-none transition-all ${
+                isCodeMatch ? 'border-green-400 bg-green-50 text-green-700' : 
+                isCodeMismatch ? 'border-red-400 bg-red-50 text-red-700' : 
+                'border-gray-100 bg-gray-50 focus:border-indigo-300'
+              }`}
+            />
+            {isCodeMatch && <div className="absolute top-1/2 -translate-y-1/2 right-4 text-green-500"><CheckCircle size={24} /></div>}
+            {isCodeMismatch && <div className="absolute top-1/2 -translate-y-1/2 right-4 text-red-500"><XCircle size={24} /></div>}
+          </div>
+
+          {/* Indicators */}
+          <div className="mt-3 flex items-center justify-between">
+            <p className={`text-xs ${isCodeMatch ? 'text-green-600' : isCodeMismatch ? 'text-red-500' : 'text-gray-400'}`}>
+              {isCodeMatch ? 'Code match confirmed!' : isCodeMismatch ? 'Code does not match' : 'Expected: ' + expectedCode}
+            </p>
+            <span className="text-[10px] font-extrabold text-gray-400 uppercase tracking-wider">{inputCode.length}/6 digits</span>
+          </div>
+        </div>
+
+        <div className="p-6 pt-0">
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={onSubmit}
+            className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed py-4 text-sm font-extrabold text-white shadow-lg shadow-indigo-200 transition-all flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              <span className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Completing...
+              </span>
+            ) : (
+              <>
+                <CheckCircle size={18} /> Confirm Order Delivery
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Cancel Order Modal (dropdown reasons) ────────────────────────────────────
+
+const CancelWithReasonModal = ({ order, submitting, onClose, onSubmit }) => {
+  const [selectedId, setSelectedId] = useState('');
+  const [customText, setCustomText] = useState('');
+  if (!order) return null;
+
+  const ageMs = Date.now() - new Date(order.createdAt).getTime();
+  const isStale = ageMs > ONE_DAY_MS;
+  const isVeryStale = ageMs > ONE_WEEK_MS;
+
+  const staleReasons = CANCEL_REASONS.filter(r => r.group === 'stale');
+  const generalReasons = CANCEL_REASONS.filter(r => r.group === 'general');
+
+  const finalReason = selectedId === 'other'
+    ? customText.trim()
+    : CANCEL_REASONS.find(r => r.id === selectedId)?.label || '';
+
+  const canSubmit = !submitting && finalReason.length >= 5;
+
+  const RadioRow = ({ reason }) => (
+    <label key={reason.id} className={`flex items-start gap-3 p-2.5 rounded-xl cursor-pointer transition-colors ${selectedId === reason.id ? 'bg-red-50 border border-red-200' : 'border border-transparent hover:bg-gray-50'}`}>
+      <input type="radio" name="cancelReason" value={reason.id} checked={selectedId === reason.id} onChange={() => setSelectedId(reason.id)} className="mt-0.5 accent-red-500 shrink-0" />
+      <span className="text-sm text-gray-700 leading-snug">{reason.label}</span>
+    </label>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-red-400 font-extrabold">Cancel Order</p>
+            <h3 className="text-xl font-extrabold text-gray-900 mt-1">Queue #{order.queueNumber}</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
+            <X size={16} className="text-gray-400" />
+          </button>
+        </div>
+
+        <div className={`rounded-2xl px-4 py-3 mb-5 flex items-start gap-2 ${isVeryStale ? 'bg-red-50 border border-red-200' : isStale ? 'bg-amber-50 border border-amber-200' : 'bg-red-50 border border-red-100'}`}>
+          <AlertCircle size={15} className={`shrink-0 mt-0.5 ${isVeryStale ? 'text-red-500' : isStale ? 'text-amber-500' : 'text-red-500'}`} />
+          <p className={`text-xs leading-relaxed ${isVeryStale ? 'text-red-700' : isStale ? 'text-amber-700' : 'text-red-600'}`}>
+            {isVeryStale
+              ? <><strong>Very old order ({formatAge(order.createdAt)}).</strong> This order has been inactive for over a week.</>
+              : isStale
+              ? <><strong>Stale order ({formatAge(order.createdAt)}).</strong> This order exceeded the expected completion time.</>
+              : <>Cancelling will notify the student. <strong>This action is permanent.</strong></>}
+          </p>
+        </div>
+
+        <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold mb-3 block">Select reason for cancellation</label>
+
+        {isStale && (
+          <div className="mb-3">
+            <p className="text-[10px] uppercase tracking-widest text-amber-600 font-extrabold mb-1.5 px-1">Suggested for expired orders</p>
+            <div className="flex flex-col gap-1">
+              {staleReasons.map(r => <RadioRow key={r.id} reason={r} />)}
+            </div>
+          </div>
+        )}
+
+        <div className={isStale ? 'border-t border-gray-100 pt-3' : ''}>
+          {isStale && <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold mb-1.5 px-1">Other reasons</p>}
+          <div className="flex flex-col gap-1">
+            {generalReasons.map(r => <RadioRow key={r.id} reason={r} />)}
+          </div>
+        </div>
+
+        {selectedId === 'other' && (
+          <textarea
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            placeholder="Describe the reason (min. 5 characters)…"
+            maxLength={200}
+            rows={3}
+            autoFocus
+            className="mt-3 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200 transition-colors"
+          />
+        )}
+
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-extrabold text-gray-600 hover:bg-gray-50 transition-colors">
+            Back
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() => onSubmit(finalReason)}
+            className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm font-extrabold text-white transition-colors"
+          >
+            {submitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Cancelling...
+              </span>
+            ) : 'Confirm Cancellation'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Bulk Cancel Modal ────────────────────────────────────────────────────────
+
+const BulkCancelModal = ({ count, submitting, onClose, onSubmit }) => {
+  const [selectedId, setSelectedId] = useState('expired_payment');
+  const [customText, setCustomText] = useState('');
+  if (!count) return null;
+
+  const finalReason = selectedId === 'other'
+    ? customText.trim()
+    : CANCEL_REASONS.find(r => r.id === selectedId)?.label || '';
+
+  const canSubmit = !submitting && finalReason.length >= 5;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-red-400 font-extrabold">Bulk Cancellation</p>
+            <h3 className="text-xl font-extrabold text-gray-900 mt-1">Cancel {count} expired order{count !== 1 ? 's' : ''}</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
+            <X size={16} className="text-gray-400" />
+          </button>
+        </div>
+
+        <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-3 mb-5 flex items-start gap-2">
+          <AlertTriangle size={15} className="text-red-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-700 leading-relaxed">
+            This will cancel <strong>{count} order{count !== 1 ? 's' : ''}</strong> and notify all affected students by email. This cannot be undone.
+          </p>
+        </div>
+
+        <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold mb-2 block">Reason for cancellation</label>
+        <select
+          value={selectedId}
+          onChange={(e) => setSelectedId(e.target.value)}
+          className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 bg-white mb-3"
+        >
+          <optgroup label="Suggested for expired orders">
+            {CANCEL_REASONS.filter(r => r.group === 'stale').map(r => (
+              <option key={r.id} value={r.id}>{r.label}</option>
+            ))}
+          </optgroup>
+          <optgroup label="Other reasons">
+            {CANCEL_REASONS.filter(r => r.group === 'general').map(r => (
+              <option key={r.id} value={r.id}>{r.label}</option>
+            ))}
+          </optgroup>
+        </select>
+
+        {selectedId === 'other' && (
+          <textarea
+            value={customText}
+            onChange={(e) => setCustomText(e.target.value)}
+            placeholder="Describe the reason (min. 5 characters)…"
+            maxLength={200}
+            rows={3}
+            autoFocus
+            className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-red-200 transition-colors"
+          />
+        )}
+
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-extrabold text-gray-600 hover:bg-gray-50 transition-colors">
+            Back
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() => onSubmit(finalReason)}
+            className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm font-extrabold text-white transition-colors"
+          >
+            {submitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Cancelling...
+              </span>
+            ) : `Cancel ${count} Order${count !== 1 ? 's' : ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Reject Payment Modal ─────────────────────────────────────────────────────
+
+const RejectPaymentModal = ({ order, reason, onChange, submitting, onClose, onSubmit }) => {
+  if (!order) return null;
+  const MIN_REASON_LEN = 5;
+  const MAX_REASON_LEN = 200;
+  const trimmed = (reason || '').trim();
+  const isReasonValid = trimmed.length >= MIN_REASON_LEN;
+  const canSubmit = !submitting && isReasonValid;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-red-400 font-extrabold">Reject Payment</p>
+            <h3 className="text-xl font-extrabold text-gray-900 mt-1">Queue #{order.queueNumber}</h3>
+          </div>
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
+            <X size={16} className="text-gray-400" />
+          </button>
+        </div>
+
+        <div className="rounded-2xl bg-red-50 border border-red-100 px-4 py-3 mb-5 flex items-start gap-2">
+          <AlertCircle size={15} className="text-red-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-red-600 leading-relaxed">
+            Rejecting will mark the payment as <strong>Rejected</strong> and notify the student to resubmit. The order will NOT be cancelled.
+          </p>
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs uppercase tracking-widest text-gray-500 font-extrabold">Rejection Reason</label>
+            <span className={`text-xs ${
+              trimmed.length > MAX_REASON_LEN ? 'text-red-500' : trimmed.length >= MIN_REASON_LEN ? 'text-green-600' : 'text-gray-400'
+            } font-extrabold`}>
+              {reason.length}/{MAX_REASON_LEN}
+            </span>
+          </div>
+          <textarea
+            value={reason}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="e.g. Verification code provided was incorrect. Please resubmit with the correct code shown in the app."
+            maxLength={MAX_REASON_LEN}
+            rows={3}
+            className={`w-full rounded-xl border px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 transition-colors ${
+              !isReasonValid && trimmed.length > 0 ? 'border-red-300 focus:ring-red-200' : 'border-gray-200 focus:ring-red-200'
+            }`}
+          />
+          {!isReasonValid && trimmed.length > 0 && (
+            <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+              <AlertCircle size={11} /> Reason must be at least {MIN_REASON_LEN} characters
+            </p>
+          )}
+          {!isReasonValid && trimmed.length === 0 && (
+            <p className="text-xs text-gray-400 mt-1">Please provide a brief reason for rejection.</p>
+          )}
+        </div>
+
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-extrabold text-gray-600 hover:bg-gray-50 transition-colors">
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={onSubmit}
+            className="flex-1 rounded-xl bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm font-extrabold text-white transition-colors"
+          >
+            {submitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Rejecting...
+              </span>
+            ) : 'Reject Payment'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// ─── QR Scanner Modal ─────────────────────────────────────────────────────────
+
+const QRScannerModal = ({ onClose, onScanSuccess }) => {
+  useEffect(() => {
+    const scanner = new Html5QrcodeScanner("reader", { 
+      fps: 10, 
+      qrbox: { width: 250, height: 250 },
+      aspectRatio: 1.0
+    });
+
+    scanner.render((decodedText) => {
+      // Assuming QR contains exactly the 6-char pickup code
+      onScanSuccess(decodedText.trim().toUpperCase());
+      scanner.clear();
+      onClose();
+    }, (error) => {
+      // Handle scanning errors silently
+    });
+
+    return () => {
+      scanner.clear().catch(err => console.warn("Failed to clear scanner", err));
+    };
+  }, [onClose, onScanSuccess]);
+
+  return (
+    <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="w-full max-w-sm bg-white rounded-3xl overflow-hidden shadow-2xl">
+        <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+          <h3 className="font-extrabold text-gray-900">Scan Order QR</h3>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+            <X size={18} className="text-gray-400" />
+          </button>
+        </div>
+        <div className="p-6">
+          <div id="reader" className="overflow-hidden rounded-2xl border-2 border-dashed border-gray-200" />
+          <p className="text-center text-xs text-gray-400 mt-4 leading-relaxed">
+            Align the student's <strong>Order QR Code</strong> within the frame to automatically verify their pickup.
+          </p>
+        </div>
+        <div className="p-4 bg-gray-50 flex justify-center">
+          <button 
+            onClick={onClose}
+            className="px-6 py-2 text-sm font-extrabold text-gray-600 hover:text-gray-900"
+          >
+            Cancel Scanning
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+// ─── Order Card ───────────────────────────────────────────────────────────────
+
+const OrderCard = ({ order, onStatusChange, onVerifyCash, onRejectCash, onVerifyPickup, canManagePayments, userRole, onViewDetails }) => {
+  const [expanded, setExpanded] = useState(false);
+  const cfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+  const paymentCfg = PAYMENT_STATUS[order.payment?.status] || PAYMENT_STATUS.unpaid;
+
+  return (
+    <div
+      onClick={() => onViewDetails(order)}
+      className="bg-white border border-gray-100 rounded-2xl p-4 shadow-sm cursor-pointer hover:shadow-lg hover:border-orange-200 transition-all"
+    >
+      <div className="h-1.5 rounded-full bg-gradient-to-r from-orange-400 via-amber-400 to-orange-500 mb-3" />
+      {/* Top row */}
+      <div className="flex items-start justify-between mb-2">
+        <div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-extrabold text-gray-900">Queue #{order.queueNumber}</span>
+            <StatusBadge status={order.status} />
+            {/* Payment status badge */}
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${paymentCfg.bg} ${paymentCfg.color}`}>
+              {paymentCfg.label}
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {order.student?.name || 'Student'} · {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </p>
+          {/* Canteen name (for admin seeing all canteens) */}
+          {order.canteen?.name && (
+            <p className="text-xs text-gray-400">{order.canteen.name}</p>
+          )}
+        </div>
+        <div className="text-right">
+          <p className="font-extrabold text-orange-600">LKR {order.totalPrice?.toLocaleString()}</p>
+          {/* Group vs Individual badge */}
+          {order.groupSession ? (
+            <span className="flex items-center justify-end gap-1 text-[10px] font-extrabold text-blue-600 mt-0.5">
+              <Users size={10} />
+              Group · {order.groupSession.paymentMode === 'pay_together' ? 'Creator Pays' : 'Split'}
+            </span>
+          ) : (
+            <span className="flex items-center justify-end gap-1 text-[10px] font-extrabold text-gray-400 mt-0.5">
+              <CreditCard size={10} /> Individual
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Items toggle */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 mb-3"
+      >
+        {order.items?.length} item{order.items?.length !== 1 ? 's' : ''}
+        <ChevronDown size={12} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+      {expanded && (
+        <div className="space-y-1 mb-3 pl-2 border-l-2 border-orange-100">
+          {order.items?.map((item, i) => (
+            <p key={i} className="text-xs text-gray-600">{item.name} × {item.quantity} — LKR {(item.unitPrice * item.quantity).toLocaleString()}</p>
+          ))}
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-2">
+        {/* Status advance buttons */}
+        {cfg.next
+          .filter(next => {
+            // For staff: Force them to use the "Mark Delivered" modal for ready→completed
+            // For admin: Allow direct completion
+            if (order.status === 'ready' && next === 'completed' && canManagePayments) {
+              return false; // Staff must use Mark Delivered button
+            }
+            return next !== 'cancelled';
+          })
+          .map(next => (
+            <button
+              key={next}
+              onClick={() => onStatusChange(order._id, next)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-medium transition-colors"
+            >
+              {next === 'preparing' && <ChefHat size={12} />}
+              {next === 'ready' && <Package size={12} />}
+              {next === 'completed' && <CheckCircle size={12} />}
+              Mark {STATUS_CONFIG[next]?.label}
+            </button>
+          ))}
+        {/* Cancel */}
+        {cfg.next.includes('cancelled') && (
+          <button
+            onClick={() => onStatusChange(order._id, 'cancelled')}
+            className="flex items-center gap-1 px-3 py-1.5 border border-red-200 text-red-500 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors"
+          >
+            <XCircle size={12} /> Cancel
+          </button>
+        )}
+        {/* Verify Cash (staff/manager only) */}
+        {canManagePayments && order.payment?.status === 'pending_verification' && (
+          <>
+            <button
+              onClick={() => onVerifyCash(order)}
+              className="flex items-center gap-1 px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-medium transition-colors"
+            >
+              <Banknote size={12} /> Verify Cash
+            </button>
+            <button
+              onClick={() => onRejectCash(order)}
+              className="flex items-center gap-1 px-3 py-1.5 border border-red-200 text-red-500 hover:bg-red-50 rounded-lg text-xs font-medium transition-colors"
+            >
+              <XCircle size={12} /> Reject
+            </button>
+          </>
+        )}
+        {/* QR Pickup verify (staff/manager only) */}
+        {canManagePayments && order.status === 'ready' && (
+          <button
+            onClick={() => onVerifyPickup(order)}
+            className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-extrabold transition-colors"
+          >
+            <CheckCircle size={12} /> Mark Delivered
+          </button>
+        )}
+      </div>
+
+      {/* Pickup Code — shown when order is ready */}
+      {order.status === 'ready' && order.pickupCode && (
+        <div className="mt-3 flex items-center gap-3 bg-indigo-50 border border-indigo-100 rounded-xl px-4 py-2.5">
+          <QrCode size={16} className="text-indigo-400 shrink-0" />
+          <div>
+            <p className="text-[10px] text-indigo-400 font-extrabold uppercase tracking-wide">Student Pickup Code</p>
+            <p className="text-2xl font-extrabold text-indigo-700 tracking-widest">{order.pickupCode}</p>
+          </div>
+          <p className="ml-auto text-[10px] text-indigo-300 italic">Match with student's code to confirm</p>
+        </div>
+      )}
+
+      {/* Activity timeline (admin visibility requirement) */}
+      {!!order.activityLogs?.length && (
+        <div className="mt-3 pt-3 border-t border-gray-100">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-extrabold mb-2">Activity</p>
+          <div className="space-y-1.5 max-h-32 overflow-auto pr-1">
+            {[...order.activityLogs].slice(-6).reverse().map((log, idx) => (
+              <div key={`${log.createdAt || idx}-${idx}`} className="text-xs text-gray-500 flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-gray-600 truncate">
+                    {log.note || log.action}
+                  </p>
+                  <p className="text-[10px] text-gray-400 truncate">
+                    {log.actor?.name || (log.actorRole === 'system' ? 'System' : 'Unknown')} · {log.actorRole || 'unknown'}
+                  </p>
+                </div>
+                <span className="text-[10px] text-gray-400 whitespace-nowrap">
+                  {new Date(log.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+// ─── Queue Board Tab ──────────────────────────────────────────────────────────
+
+const REFRESH_INTERVAL = 30; // seconds
+
+const QueueBoard = ({ canteenIdProp, isAdmin }) => {
+  const [canteenId, setCanteenId] = useState(canteenIdProp || '');
+  const [canteens, setCanteens] = useState([]);
+  const [slots, setSlots] = useState([]);
+  const [nowServingInput, setNowServingInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [calling, setCalling] = useState(false);
+  const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
+  const [queueData, setQueueData] = useState(null);
+
+  // For admin: load canteen list so they can pick one
+  useEffect(() => {
+    if (isAdmin) {
+      canteenAPI.getAll().then(r => {
+        const list = r.data.data || [];
+        setCanteens(list);
+        if (!canteenId && list.length > 0) setCanteenId(list[0]._id);
+      }).catch(() => { });
+    }
+  }, [isAdmin]);
+
+  const fetchQueue = useCallback(async (showLoader = false) => {
+    if (!canteenId) return;
+    if (showLoader) setLoading(true);
+    try {
+      const [statusRes, slotsRes] = await Promise.all([
+        queueAPI.getStatus(canteenId),
+        queueAPI.getSlots(canteenId),
+      ]);
+      setQueueData(statusRes.data.data);
+      setSlots(slotsRes.data.data || []);
+      setCountdown(REFRESH_INTERVAL);
+    } catch {
+      toast.error('Failed to load queue data');
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  }, [canteenId]);
+
+  useEffect(() => { fetchQueue(true); }, [fetchQueue]);
+
+  // Auto-refresh with countdown
+  useEffect(() => {
+    const tick = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) { fetchQueue(false); return REFRESH_INTERVAL; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [fetchQueue]);
+
+  const handleSetNowServing = async (e) => {
+    e.preventDefault();
+    if (!nowServingInput) return;
+    try {
+      await queueAPI.setNowServing(canteenId, Number(nowServingInput));
+      toast.success(`Now serving #${nowServingInput}`);
+      setNowServingInput('');
+      fetchQueue(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update');
+    }
+  };
+
+  const handleCallNext = async () => {
+    setCalling(true);
+    try {
+      const res = await queueAPI.callNext(canteenId);
+      toast.success(`Calling Queue #${res.data.data.nowServing}!`);
+      fetchQueue(false);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'No pending orders to call');
+    } finally {
+      setCalling(false);
+    }
+  };
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-40">
+      <div className="w-6 h-6 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  const grouped = queueData?.grouped || {};
+  const activeStatuses = ['pending', 'preparing', 'ready'];
+  const totalActive = queueData?.totalActive || 0;
+
+  return (
+    <div className="space-y-6">
+
+      {/* Admin-only: Canteen Picker */}
+      {isAdmin && (
+        <div className="flex items-center gap-3 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 to-white px-4 py-3 shadow-sm">
+          <BarChart2 size={16} className="text-orange-500" />
+          <label className="text-sm font-extrabold text-gray-700 whitespace-nowrap">Viewing Canteen:</label>
+          <select
+            value={canteenId}
+            onChange={e => setCanteenId(e.target.value)}
+            className="flex-1 border-0 bg-transparent text-sm text-gray-700 focus:outline-none focus:ring-0 font-extrabold cursor-pointer"
+          >
+            {canteens.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+          </select>
+        </div>
+      )}
+
+      {!canteenId ? (
+        <div className="text-center py-16 text-gray-400 text-sm">Select a canteen to view the queue board.</div>
+      ) : loading ? (
+        <div className="flex items-center justify-center h-40">
+          <div className="w-6 h-6 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          {/* Now Serving Hero Card */}
+          <div className="relative overflow-hidden rounded-3xl border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 p-5 shadow-sm">
+            <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-orange-100/70 blur-3xl" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              {/* Now serving display */}
+              <div className="flex items-center gap-6">
+                <div>
+                  <p className="text-[10px] font-extrabold text-orange-500 uppercase tracking-widest mb-1">Now Serving</p>
+                  <p className="text-6xl font-extrabold text-orange-600 leading-none drop-shadow-sm">
+                    {queueData?.nowServing ? `#${queueData.nowServing}` : '—'}
+                  </p>
+                </div>
+                {queueData?.nextQueueNumber && (
+                  <div className="border-l border-orange-100 pl-6">
+                    <p className="text-[10px] font-extrabold text-gray-400 uppercase tracking-widest mb-1">Up Next</p>
+                    <p className="text-3xl font-extrabold text-gray-600">#{queueData.nextQueueNumber}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Controls */}
+              <div className="flex flex-col gap-3 w-full sm:w-auto">
+                <button
+                  onClick={handleCallNext}
+                  disabled={calling || totalActive === 0}
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl font-extrabold text-sm transition-colors shadow-lg shadow-orange-200"
+                >
+                  {calling ? (
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <ChevronRight size={16} />
+                  )}
+                  Call Next
+                </button>
+                <form onSubmit={handleSetNowServing} className="flex gap-2">
+                  <input
+                    type="number" min={1}
+                    value={nowServingInput}
+                    onChange={e => setNowServingInput(e.target.value)}
+                    placeholder="Set # manually"
+                    className="flex-1 w-32 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                  />
+                  <button type="submit" className="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-extrabold transition-colors">Set</button>
+                </form>
+              </div>
+            </div>
+
+            {/* Auto-refresh indicator */}
+            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-orange-100/70">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <p className="text-xs text-gray-400">Auto-refreshing in <span className="font-extrabold text-gray-600">{countdown}s</span></p>
+              <button onClick={() => fetchQueue(false)} className="ml-auto text-xs text-orange-500 hover:underline font-extrabold">Refresh now</button>
+            </div>
+          </div>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {activeStatuses.map(s => {
+              const cfg = STATUS_CONFIG[s];
+              const count = (grouped[s] || []).length;
+              return (
+                <div key={s} className="rounded-2xl border border-gray-100 bg-white p-4 text-center shadow-sm">
+                  <p className="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">{cfg.label}</p>
+                  <p className="mt-1 text-3xl font-extrabold text-gray-900">{count}</p>
+                  <p className="text-xs text-gray-500 mt-1">orders in this stage</p>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Active Orders Board */}
+          {activeStatuses.map(status => {
+            const list = grouped[status] || [];
+            if (list.length === 0) return null;
+            const cfg = STATUS_CONFIG[status];
+            return (
+              <div key={status}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`px-3 py-1 rounded-full text-xs font-extrabold ${cfg.color}`}>{cfg.label}</span>
+                  <span className="text-xs text-gray-400">{list.length} order{list.length !== 1 ? 's' : ''}</span>
+                </div>
+                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {list.map((o, index) => (
+                    <motion.div
+                      key={o._id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.22, delay: Math.min(index * 0.04, 0.2) }}
+                      className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-lg font-extrabold text-gray-900">#{o.queueNumber}</p>
+                          <p className="text-xs text-gray-400">{new Date(o.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                        </div>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${cfg.color}`}>{cfg.label}</span>
+                      </div>
+                      <div className="mt-3 min-w-0">
+                        <p className="text-sm font-extrabold text-gray-900 truncate">{o.student?.name || 'Student'}</p>
+                        <p className="text-xs text-gray-500 mt-1">{(o.items?.length || 0)} item(s)</p>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+
+          {totalActive === 0 && (
+            <div className="text-center py-12 text-gray-400 text-sm">
+              <div className="w-12 h-12 bg-green-50 rounded-2xl flex items-center justify-center mx-auto mb-3">
+                <CheckCircle size={24} className="text-green-400" />
+              </div>
+              All caught up! No active orders in the queue.
+            </div>
+          )}
+
+          {/* Time Slots Capacity */}
+          {slots.length > 0 && (
+            <div className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm">
+              <p className="text-sm font-extrabold text-gray-700 mb-3">Upcoming Pickup Slots</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                {slots.slice(0, 12).map((slot, i) => {
+                  const pct = Math.round((slot.orderCount / slot.maxCapacity) * 100);
+                  return (
+                    <div key={i} className={`rounded-xl p-2.5 text-center border ${slot.isFull ? 'border-red-200 bg-red-50' : pct >= 70 ? 'border-yellow-200 bg-yellow-50' : 'border-gray-100 bg-white'}`}>
+                      <p className="font-extrabold text-gray-700 text-xs">
+                        {new Date(slot.slotTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                      <p className={`text-[10px] mt-0.5 font-extrabold ${slot.isFull ? 'text-red-500' : pct >= 70 ? 'text-yellow-600' : 'text-gray-400'}`}>
+                        {slot.orderCount}/{slot.maxCapacity}
+                        {slot.isFull && ' FULL'}
+                      </p>
+                      <div className="w-full h-1 bg-gray-100 rounded-full mt-1.5 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${slot.isFull ? 'bg-red-400' : pct >= 70 ? 'bg-yellow-400' : 'bg-green-400'}`}
+                          style={{ width: `${Math.min(pct, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+
+
+
+// ─── Billing Board Tab ────────────────────────────────────────────────────────
+
+const BillingBoard = ({ canteenId }) => {
+  const [allOrders, setAllOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [payFilter, setPayFilter] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchBilling = useCallback(async (silent = false) => {
+    if (!canteenId) {
+      setAllOrders([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    if (!silent) setLoading(true); else setRefreshing(true);
+    try {
+      const params = {};
+      if (date) params.date = date;
+      params.canteen = canteenId;
+      const res = await orderAPI.getCanteenOrders(params);
+      setAllOrders(res.data.data || []);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load billing data');
+    } finally {
+      setLoading(false); setRefreshing(false);
+    }
+  }, [date, canteenId]);
+
+  useEffect(() => { fetchBilling(); }, [fetchBilling]);
+  useEffect(() => {
+    if (!canteenId) return;
+
+    const handleWindowFocus = () => fetchBilling(true);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) fetchBilling(true);
+    };
+
+    const interval = setInterval(() => fetchBilling(true), ORDER_POLL_INTERVAL_MS);
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [canteenId, fetchBilling]);
+
+  // Derived stats
+  const stats = allOrders.reduce((acc, o) => {
+    const ps = o.payment?.status || 'unpaid';
+    const amt = o.totalPrice || 0;
+    if (ps === 'verified') { acc.collected += amt; acc.collectedCount += 1; }
+    else if (ps === 'pending_verification') { acc.awaitingVerification += amt; acc.awaitingCount += 1; }
+    else if (ps === 'unpaid') { acc.unpaid += amt; acc.unpaidCount += 1; }
+    else if (ps === 'rejected') { acc.rejected += amt; acc.rejectedCount += 1; }
+    return acc;
+  }, { collected: 0, collectedCount: 0, awaitingVerification: 0, awaitingCount: 0, unpaid: 0, unpaidCount: 0, rejected: 0, rejectedCount: 0 });
+
+  const filtered = payFilter ? allOrders.filter(o => (o.payment?.status || 'unpaid') === payFilter) : allOrders;
+
+  const PAY_FILTERS = [
+    { value: '', label: 'All' },
+    { value: 'verified', label: 'Paid' },
+    { value: 'pending_verification', label: 'Awaiting' },
+    { value: 'unpaid', label: 'Unpaid' },
+    { value: 'rejected', label: 'Rejected' },
+  ];
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-40">
+      <div className="w-6 h-6 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+
+      {/* Controls: Date Picker + Refresh */}
+      <div className="flex flex-wrap items-end gap-4 rounded-2xl border border-orange-100 bg-gradient-to-r from-orange-50 via-white to-amber-50 px-4 py-3">
+        <div>
+          <label className="block text-xs text-gray-400 mb-1">Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={e => setDate(e.target.value)}
+            className="border border-orange-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 bg-white"
+          />
+        </div>
+        <button
+          onClick={() => fetchBilling(true)}
+          className={`p-2.5 rounded-xl bg-white border border-orange-100 hover:bg-orange-50 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+        >
+          <RefreshCw size={16} className="text-gray-500" />
+        </button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <StatCard
+          icon={<TrendingUp size={20} className="text-green-600" />}
+          label="Collected"
+          amount={stats.collected}
+          count={stats.collectedCount}
+          color="bg-green-50 border-green-100"
+          amtColor="text-green-700"
+        />
+        <StatCard
+          icon={<Clock size={20} className="text-yellow-600" />}
+          label="Awaiting Verification"
+          amount={stats.awaitingVerification}
+          count={stats.awaitingCount}
+          color="bg-yellow-50 border-yellow-100"
+          amtColor="text-yellow-700"
+        />
+        <StatCard
+          icon={<Wallet size={20} className="text-gray-500" />}
+          label="Unpaid"
+          amount={stats.unpaid}
+          count={stats.unpaidCount}
+          color="bg-gray-50 border-gray-100"
+          amtColor="text-gray-600"
+        />
+        <StatCard
+          icon={<AlertCircle size={20} className="text-red-500" />}
+          label="Rejected"
+          amount={stats.rejected}
+          count={stats.rejectedCount}
+          color="bg-red-50 border-red-100"
+          amtColor="text-red-600"
+        />
+      </div>
+
+      {/* Payment Status Filter */}
+      <div className="flex gap-2 flex-wrap rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+        {PAY_FILTERS.map(f => (
+          <button
+            key={f.value}
+            onClick={() => setPayFilter(f.value)}
+            className={`px-4 py-1.5 rounded-full text-sm font-extrabold transition-colors ${payFilter === f.value ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Billing Table */}
+      {filtered.length === 0 ? (
+        <div className="text-center py-16 text-gray-400 text-sm">No orders matching this filter.</div>
+      ) : (
+        <div className="bg-white border border-gray-100 rounded-2xl overflow-auto shadow-sm">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-left text-xs font-extrabold text-gray-400 uppercase tracking-wider">
+                <th className="px-4 py-3">#</th>
+                <th className="px-4 py-3">Student</th>
+                <th className="px-4 py-3">Items</th>
+                <th className="px-4 py-3">Order Status</th>
+                <th className="px-4 py-3">Payment</th>
+                <th className="px-4 py-3">Payment Verified By</th>
+                <th className="px-4 py-3">Pickup</th>
+                <th className="px-4 py-3">Latest Activity</th>
+                <th className="px-4 py-3 text-right">Amount</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map(order => {
+                const ps = order.payment?.status || 'unpaid';
+                const pCfg = PAYMENT_STATUS[ps] || PAYMENT_STATUS.unpaid;
+                const sCfg = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+                const verifier = order.payment?.verifiedBy;
+                const pickupLabel = order.pickupVerified
+                  ? `Verified ${order.pickupVerifiedAt ? new Date(order.pickupVerifiedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}`.trim()
+                  : 'Pending';
+                const latestActivity = Array.isArray(order.activityLogs) && order.activityLogs.length > 0
+                  ? [...order.activityLogs].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0]
+                  : null;
+                return (
+                  <tr key={order._id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="px-4 py-3 font-extrabold text-gray-700">#{order.queueNumber}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-extrabold text-gray-800 leading-tight">{order.student?.name || '—'}</p>
+                      <p className="text-xs text-gray-400">{order.student?.studentId || order.student?.email || ''}</p>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{order.items?.length} item{order.items?.length !== 1 ? 's' : ''}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${sCfg.color}`}>{sCfg.label}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <PayBadge ps={ps} label={pCfg.label} />
+                    </td>
+                    <td className="px-4 py-3">
+                      {verifier ? (
+                        <div>
+                          <p className="font-extrabold text-gray-800 leading-tight">{verifier.name || verifier.email || 'Staff'}</p>
+                          <p className="text-xs text-gray-400">{order.payment?.verifiedAt ? new Date(order.payment.verifiedAt).toLocaleString() : ''}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-gray-400">Not verified</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${order.pickupVerified ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                        {pickupLabel}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      {latestActivity ? (
+                        <div>
+                          <p className="text-xs font-extrabold uppercase tracking-wide text-gray-600">{String(latestActivity.action || 'updated').replaceAll('_', ' ')}</p>
+                          <p className="text-xs text-gray-400">{latestActivity.createdAt ? new Date(latestActivity.createdAt).toLocaleString() : ''}</p>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-gray-400">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-right font-extrabold text-orange-600">LKR {order.totalPrice?.toLocaleString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-gray-50 border-t border-gray-100">
+                <td colSpan={8} className="px-4 py-3 text-xs font-extrabold text-gray-500 uppercase">Total Shown</td>
+                <td className="px-4 py-3 text-right font-extrabold text-gray-900">
+                  LKR {filtered.reduce((s, o) => s + (o.totalPrice || 0), 0).toLocaleString()}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StatCard = ({ icon, label, amount, count, color, amtColor }) => (
+  <div className={`rounded-2xl border p-4 ${color}`}>
+    <div className="flex items-center gap-2 mb-2">{icon}<span className="text-xs font-extrabold text-gray-500 uppercase tracking-wide">{label}</span></div>
+    <p className={`text-xl font-extrabold ${amtColor}`}>LKR {amount.toLocaleString()}</p>
+    <p className="text-xs text-gray-400 mt-0.5">{count} order{count !== 1 ? 's' : ''}</p>
+  </div>
+);
+
+const PAY_BADGE_STYLES = {
+  verified: 'bg-green-100 text-green-700',
+  pending_verification: 'bg-yellow-100 text-yellow-700',
+  unpaid: 'bg-gray-100 text-gray-500',
+  rejected: 'bg-red-100 text-red-600',
+};
+
+const PayBadge = ({ ps, label }) => (
+  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${PAY_BADGE_STYLES[ps] || 'bg-gray-100 text-gray-500'}`}>{label}</span>
+);
+
+const resolveCanteenId = (canteen) => {
+  if (!canteen) return '';
+  if (typeof canteen === 'string') return canteen;
+  return canteen._id || canteen.id || '';
+};
+
+// ─── Delete Cancelled Orders Modal (admin only) ───────────────────────────────
+
+const DeleteCancelledModal = ({ count, canteenName, onClose, onConfirm, submitting }) => (
+  <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="w-full max-w-md rounded-3xl bg-white border border-gray-100 shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-red-500 font-extrabold">Irreversible Action</p>
+          <h3 className="text-xl font-extrabold text-gray-900 mt-1">Delete Cancelled Orders</h3>
+        </div>
+        <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-xl transition-colors">
+          <X size={16} className="text-gray-400" />
+        </button>
+      </div>
+
+      <div className="rounded-2xl bg-red-50 border border-red-200 px-4 py-4 mb-5 flex items-start gap-3">
+        <AlertTriangle size={18} className="text-red-500 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-extrabold text-red-800 mb-1">
+            {count} cancelled order{count !== 1 ? 's' : ''} will be permanently deleted
+            {canteenName ? ` from ${canteenName}` : ' across all canteens'}.
+          </p>
+          <p className="text-xs text-red-600 leading-relaxed">
+            This removes all order history, activity logs, and payment records for these orders. <strong>This cannot be undone.</strong>
+          </p>
+        </div>
+      </div>
+
+      <div className="flex gap-2">
+        <button type="button" onClick={onClose} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-extrabold text-gray-600 hover:bg-gray-50 transition-colors">
+          Cancel
+        </button>
+        <button
+          type="button"
+          disabled={submitting || count === 0}
+          onClick={onConfirm}
+          className="flex-1 rounded-xl bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed py-2.5 text-sm font-extrabold text-white transition-colors"
+        >
+          {submitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              Deleting…
+            </span>
+          ) : `Delete ${count} Order${count !== 1 ? 's' : ''}`}
+        </button>
+      </div>
     </div>
   </div>
 );
+
+// ─── Stale Orders Tab ─────────────────────────────────────────────────────────
+
+const StaleOrdersTab = ({ staleOrders, onCancelOrder, onBulkCancel, bulkSubmitting, loading }) => {
+  const [cancelTarget, setCancelTarget] = useState(null);
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
+  const [bulkModalOpen, setBulkModalOpen] = useState(false);
+
+  const now = Date.now();
+  const veryStale = staleOrders.filter(o => now - new Date(o.createdAt).getTime() > ONE_WEEK_MS);
+  const mildStale  = staleOrders.filter(o => {
+    const age = now - new Date(o.createdAt).getTime();
+    return age > ONE_DAY_MS && age <= ONE_WEEK_MS;
+  });
+
+  const handleSingleCancel = async (reason) => {
+    if (!cancelTarget) return;
+    setCancelSubmitting(true);
+    try {
+      await onCancelOrder(cancelTarget._id, reason);
+      setCancelTarget(null);
+    } finally {
+      setCancelSubmitting(false);
+    }
+  };
+
+  const handleBulkCancel = async (reason) => {
+    const ids = staleOrders.map(o => o._id);
+    await onBulkCancel(ids, reason);
+    setBulkModalOpen(false);
+  };
+
+  const StaleCard = ({ order }) => {
+    const payStatus = order.payment?.status || 'unpaid';
+    const payLabel = PAYMENT_STATUS[payStatus]?.label || payStatus;
+    const payBg    = PAYMENT_STATUS[payStatus]?.bg || 'bg-gray-100';
+    const payColor = PAYMENT_STATUS[payStatus]?.color || 'text-gray-500';
+    const ageMs = now - new Date(order.createdAt).getTime();
+    const isVery = ageMs > ONE_WEEK_MS;
+
+    return (
+      <div className={`rounded-2xl border bg-white p-4 flex flex-col gap-2 shadow-sm ${isVery ? 'border-red-200' : 'border-amber-200'}`}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-extrabold text-gray-900">#{order.queueNumber}</span>
+            <StatusBadge status={order.status} />
+            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${payBg} ${payColor}`}>{payLabel}</span>
+            {isVery
+              ? <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-600">7+ days</span>
+              : <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-700">Stale</span>
+            }
+          </div>
+          <button
+            onClick={() => setCancelTarget(order)}
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-extrabold text-red-600 border border-red-200 hover:bg-red-50 transition-colors shrink-0"
+          >
+            <Trash2 size={12} /> Cancel
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span className="font-semibold text-gray-700">{order.student?.name || 'Unknown'}</span>
+          {order.student?.studentId && <span>{order.student.studentId}</span>}
+          <span className="flex items-center gap-1"><Clock size={11} /> {formatAge(order.createdAt)}</span>
+        </div>
+
+        <div className="text-xs text-gray-500">
+          {(order.items || []).slice(0, 3).map((item, i) => (
+            <span key={i}>{i > 0 ? ', ' : ''}{item.name} ×{item.quantity}</span>
+          ))}
+          {(order.items || []).length > 3 && <span> +{order.items.length - 3} more</span>}
+        </div>
+
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-gray-400">{order.canteen?.name || ''}</span>
+          <span className="font-extrabold text-gray-800">LKR {(order.totalPrice || 0).toLocaleString()}</span>
+        </div>
+      </div>
+    );
+  };
+
+  const GroupSection = ({ title, icon: Icon, iconColor, orders: list }) => {
+    if (!list.length) return null;
+    return (
+      <div className="mb-6">
+        <div className={`flex items-center gap-2 mb-3 px-1`}>
+          <Icon size={14} className={iconColor} />
+          <span className={`text-xs font-extrabold uppercase tracking-wider ${iconColor}`}>{title}</span>
+          <span className="ml-auto text-xs font-extrabold text-gray-400">{list.length} order{list.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div className="flex flex-col gap-3">
+          {list.map(o => <StaleCard key={o._id} order={o} />)}
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20 text-gray-400 text-sm gap-2">
+        <span className="w-4 h-4 border-2 border-gray-300 border-t-orange-400 rounded-full animate-spin" />
+        Loading stale orders…
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* Header bar */}
+      <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 mb-5 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <AlertTriangle size={16} className="text-red-500 shrink-0" />
+          <div>
+            <p className="text-sm font-extrabold text-red-800">
+              {staleOrders.length === 0 ? 'No stale orders' : `${staleOrders.length} order${staleOrders.length !== 1 ? 's' : ''} need attention`}
+            </p>
+            {staleOrders.length > 0 && (
+              <p className="text-xs text-red-600 mt-0.5">Orders inactive for 24h+, payment not verified, not delivered</p>
+            )}
+          </div>
+        </div>
+        {staleOrders.length > 0 && (
+          <button
+            onClick={() => setBulkModalOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 text-white text-xs font-extrabold transition-colors shrink-0"
+          >
+            <Trash2 size={13} /> Cancel All Expired ({staleOrders.length})
+          </button>
+        )}
+      </div>
+
+      {staleOrders.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <CheckCircle size={40} className="text-green-400 mb-3" />
+          <p className="text-gray-500 font-extrabold">All clear!</p>
+          <p className="text-sm text-gray-400 mt-1">No orders have been inactive for more than 24 hours.</p>
+        </div>
+      ) : (
+        <>
+          <GroupSection title="Very old — 7+ days" icon={AlertTriangle} iconColor="text-red-500" orders={veryStale} />
+          <GroupSection title="Stale — 1 to 7 days" icon={Calendar} iconColor="text-amber-500" orders={mildStale} />
+        </>
+      )}
+
+      {cancelTarget && (
+        <CancelWithReasonModal
+          order={cancelTarget}
+          submitting={cancelSubmitting}
+          onClose={() => setCancelTarget(null)}
+          onSubmit={handleSingleCancel}
+        />
+      )}
+
+      {bulkModalOpen && (
+        <BulkCancelModal
+          count={staleOrders.length}
+          submitting={bulkSubmitting}
+          onClose={() => setBulkModalOpen(false)}
+          onSubmit={handleBulkCancel}
+        />
+      )}
+    </div>
+  );
+};
+
+const AdminOrdersPage = () => {
+  const { user, selectedCanteenId, selectedCanteenName } = useAuth();
+  const assignedCanteenId = resolveCanteenId(user?.canteen);
+  const isAdmin = ['admin', 'superAdmin'].includes(user?.role);
+  const [localCanteenId, setLocalCanteenId] = useState(selectedCanteenId || assignedCanteenId || '');
+  const [canteens, setCanteens] = useState([]);
+  const canteenId = localCanteenId;
+  const canManagePayments = ['canteenStaff', 'canteenManager'].includes(user?.role);
+
+  const [tab, setTab] = useState('orders'); // 'orders' | 'queue' | 'billing'
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [canteenLoading, setCanteenLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState('');
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [codeInput, setCodeInput] = useState('');
+  const [codeVerifying, setCodeVerifying] = useState(false);
+  const [verificationOrder, setVerificationOrder] = useState(null);
+  const [verificationForm, setVerificationForm] = useState({ amountReceived: '', verificationCode: '' });
+  const [verificationErrors, setVerificationErrors] = useState({});
+  const [verificationSubmitting, setVerificationSubmitting] = useState(false);
+  const [latestVerificationCode, setLatestVerificationCode] = useState('');
+  const [latestVerificationCodeIssuedAt, setLatestVerificationCodeIssuedAt] = useState(null);
+  const [verificationCodeRefreshing, setVerificationCodeRefreshing] = useState(false);
+  const [pickupOrder, setPickupOrder] = useState(null);
+  const [pickupForm, setPickupForm] = useState({ pickupCode: '' });
+  const [pickupErrors, setPickupErrors] = useState({});
+  const [pickupSubmitting, setPickupSubmitting] = useState(false);
+  const [rejectOrder, setRejectOrder] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [rejectSubmitting, setRejectSubmitting] = useState(false);
+  const [adminCancelOrder, setAdminCancelOrder] = useState(null);
+  const [adminCancelSubmitting, setAdminCancelSubmitting] = useState(false);
+  const [codeInputTouched, setCodeInputTouched] = useState(false);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [staleOrders, setStaleOrders] = useState([]);
+  const [staleLoading, setStaleLoading] = useState(false);
+  const [bulkCancelSubmitting, setBulkCancelSubmitting] = useState(false);
+  const [deleteCancelledOpen, setDeleteCancelledOpen] = useState(false);
+  const [deleteCancelledBusy, setDeleteCancelledBusy] = useState(false);
+
+  // Keep canteen context in sync after auth/session restore to avoid empty staff fetches.
+  useEffect(() => {
+    const nextCanteenId = isAdmin
+      ? (selectedCanteenId || localCanteenId || '')
+      : (assignedCanteenId || selectedCanteenId || '');
+
+    if (nextCanteenId !== localCanteenId) {
+      setLocalCanteenId(nextCanteenId);
+    }
+  }, [isAdmin, assignedCanteenId, selectedCanteenId, localCanteenId]);
+
+  // Load canteens for admin only - trigger on mount
+  useEffect(() => {
+    if (isAdmin) {
+      setCanteenLoading(true);
+      const loadCanteens = async () => {
+        try {
+          const response = await canteenAPI.getAll();
+          const list = response?.data?.data || response?.data || [];
+          const canteenList = Array.isArray(list) ? list : [];
+          setCanteens(canteenList);
+        } catch (err) {
+          console.error('Failed to load canteens:', err);
+          setCanteens([]);
+          toast.error('Failed to load canteens');
+        } finally {
+          setCanteenLoading(false);
+        }
+      };
+      loadCanteens();
+    } else {
+      setCanteenLoading(false);
+    }
+  }, [isAdmin]);
+
+  // Fetch orders for admin even without canteen filter (all-canteen mode).
+  useEffect(() => {
+    if (isAdmin) {
+      fetchOrders();
+    }
+  }, [canteenId, isAdmin]);
+
+  const fetchOrders = useCallback(async (silent = false) => {
+    if (!canteenId && !isAdmin) {
+      setOrders([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    if (!silent) setLoading(true);
+    else setRefreshing(true);
+    try {
+      const params = {};
+      if (canteenId) params.canteen = canteenId;
+      if (statusFilter) params.status = statusFilter;
+      const res = await orderAPI.getCanteenOrders(params);
+      setOrders(res.data.data || []);
+    } catch (err) {
+      const code = err?.response?.data?.code;
+
+      // Auto-recover from stale/invalid canteen context for staff sessions.
+      if (!isAdmin && (code === 'STAFF_CANTEEN_MISMATCH' || code === 'STAFF_CANTEEN_NOT_ASSIGNED')) {
+        const fallbackAssigned = resolveCanteenId(user?.canteen);
+        if (fallbackAssigned && fallbackAssigned !== canteenId) {
+          setLocalCanteenId(fallbackAssigned);
+          return;
+        }
+      }
+
+      if (!silent) toast.error(err.response?.data?.message || 'Failed to load orders');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [statusFilter, canteenId, isAdmin, user?.canteen]);
+
+  const fetchStaleOrders = useCallback(async () => {
+    if (!canteenId && !isAdmin) { setStaleOrders([]); return; }
+    setStaleLoading(true);
+    try {
+      const params = {};
+      if (canteenId) params.canteen = canteenId;
+      const res = await orderAPI.getStaleOrders(params);
+      setStaleOrders(res.data.data || []);
+    } catch {
+      setStaleOrders([]);
+    } finally {
+      setStaleLoading(false);
+    }
+  }, [canteenId, isAdmin]);
+
+  useEffect(() => { if (tab === 'orders') fetchOrders(); }, [fetchOrders, tab]);
+  useEffect(() => { if (tab === 'stale') fetchStaleOrders(); }, [fetchStaleOrders, tab]);
+  useEffect(() => {
+    if (tab !== 'orders') return;
+
+    const handleWindowFocus = () => fetchOrders(true);
+    const handleVisibilityChange = () => {
+      if (!document.hidden) fetchOrders(true);
+    };
+
+    const interval = setInterval(() => fetchOrders(true), ORDER_POLL_INTERVAL_MS);
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [fetchOrders, tab]);
+
+  const handleStatusChange = async (orderId, status) => {
+    if (status === 'cancelled') {
+      const orderToCancel = orders.find(o => o._id === orderId);
+      setAdminCancelOrder(orderToCancel);
+      return;
+    }
+    try {
+      await orderAPI.updateOrderStatus(orderId, status, '', canteenId);
+      toast.success(`Order marked as ${status}`);
+      fetchOrders(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Status update failed');
+    }
+  };
+
+  const handleConfirmAdminCancel = async (reason) => {
+    if (!adminCancelOrder) return;
+    setAdminCancelSubmitting(true);
+    try {
+      await orderAPI.updateOrderStatus(adminCancelOrder._id, 'cancelled', reason, canteenId);
+      toast.success('Order cancelled and student notified.');
+      setAdminCancelOrder(null);
+      fetchOrders(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Cancellation failed');
+    } finally {
+      setAdminCancelSubmitting(false);
+    }
+  };
+
+  const handleSingleStaleCancel = async (orderId, reason) => {
+    await orderAPI.updateOrderStatus(orderId, 'cancelled', reason, canteenId);
+    toast.success('Order cancelled and student notified.');
+    fetchOrders(true);
+    fetchStaleOrders();
+  };
+
+  const handleBulkCancel = async (orderIds, reason) => {
+    setBulkCancelSubmitting(true);
+    try {
+      const res = await orderAPI.bulkCancelOrders(orderIds, reason);
+      toast.success(res.data.message || 'Orders cancelled.');
+      fetchOrders(true);
+      fetchStaleOrders();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Bulk cancellation failed');
+    } finally {
+      setBulkCancelSubmitting(false);
+    }
+  };
+
+  const handleDeleteCancelled = async () => {
+    setDeleteCancelledBusy(true);
+    try {
+      const res = await orderAPI.deleteCancelledOrders(canteenId);
+      toast.success(res.data.message || 'Cancelled orders deleted.');
+      setDeleteCancelledOpen(false);
+      fetchOrders(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Deletion failed');
+    } finally {
+      setDeleteCancelledBusy(false);
+    }
+  };
+
+  const syncLatestCashCode = async (orderId) => {
+    if (!orderId) return;
+    setVerificationCodeRefreshing(true);
+    try {
+      const statusRes = await paymentAPI.getPaymentStatus(orderId);
+      const payment = statusRes.data?.data || {};
+      setLatestVerificationCode(payment?.cashVerificationCode || '');
+      setLatestVerificationCodeIssuedAt(payment?.cashVerificationCodeIssuedAt || null);
+    } catch {
+      setLatestVerificationCode('');
+      setLatestVerificationCodeIssuedAt(null);
+    } finally {
+      setVerificationCodeRefreshing(false);
+    }
+  };
+
+  const handleOpenVerifyCash = (order) => {
+    setVerificationOrder(order);
+    setVerificationForm({
+      amountReceived: String(order.totalPrice || ''),
+      verificationCode: '',
+    });
+    setVerificationErrors({});
+    setLatestVerificationCode('');
+    setLatestVerificationCodeIssuedAt(null);
+    syncLatestCashCode(order?._id);
+  };
+
+  const handleVerificationInputChange = (field, value) => {
+    if (field === 'amountReceived') {
+      const normalized = value.replace(/,/g, '').trim();
+      if (normalized === '') {
+        setVerificationForm((prev) => ({ ...prev, amountReceived: '' }));
+        setVerificationErrors((prev) => ({ ...prev, amountReceived: '' }));
+        return;
+      }
+      if (!/^\d*(\.\d{0,2})?$/.test(normalized)) return;
+      setVerificationForm((prev) => ({ ...prev, amountReceived: normalized }));
+      setVerificationErrors((prev) => ({ ...prev, amountReceived: '' }));
+      return;
+    }
+
+    if (field === 'verificationCode') {
+      const sanitizedCode = String(value || '').replace(/\D/g, '').slice(0, 6);
+      setVerificationForm((prev) => ({ ...prev, verificationCode: sanitizedCode }));
+      setVerificationErrors((prev) => ({ ...prev, verificationCode: '' }));
+      return;
+    }
+
+    setVerificationForm((prev) => ({ ...prev, [field]: value }));
+    setVerificationErrors((prev) => ({ ...prev, [field]: '' }));
+  };
+
+  const handleConfirmVerifyCash = async () => {
+    if (!verificationOrder) return;
+
+    const nextErrors = {};
+    const amountRaw = String(verificationForm.amountReceived || '').trim();
+    const amountReceived = Number(amountRaw);
+    const verificationCode = String(verificationForm.verificationCode || '').trim();
+    const minAmount = Number(verificationOrder.totalPrice || 0);
+    const maxReasonableAmount = Math.max(minAmount + 5000, minAmount * 5);
+
+    if (!CURRENCY_INPUT_REGEX.test(amountRaw) || !Number.isFinite(amountReceived) || amountReceived <= 0) {
+      nextErrors.amountReceived = 'Enter a valid amount with up to 2 decimals';
+    } else if (amountReceived < minAmount) {
+      nextErrors.amountReceived = `Amount must be at least LKR ${minAmount.toLocaleString()}`;
+    } else if (amountReceived > maxReasonableAmount) {
+      nextErrors.amountReceived = 'Amount looks too high. Please re-check before confirming';
+    }
+
+    if (!VERIFICATION_CODE_REGEX.test(verificationCode)) {
+      nextErrors.verificationCode = 'Enter the 6-digit verification code';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setVerificationErrors(nextErrors);
+      return;
+    }
+
+    setVerificationSubmitting(true);
+    try {
+      await paymentAPI.verifyPayment(verificationOrder._id, { amountReceived, verificationCode });
+      const change = Math.max(0, amountReceived - (verificationOrder.totalPrice || 0));
+      toast.success(`Cash payment verified${change > 0 ? ` · Change LKR ${change.toLocaleString()}` : ''}`);
+      setVerificationOrder(null);
+      setLatestVerificationCode('');
+      setLatestVerificationCodeIssuedAt(null);
+      fetchOrders(true);
+    } catch (err) {
+      if (err?.response?.data?.code === 'PAYMENT_VERIFICATION_CODE_MISMATCH') {
+        setVerificationErrors((prev) => ({
+          ...prev,
+          verificationCode: 'Code mismatch. Ask the student for the latest regenerated code.',
+        }));
+        await syncLatestCashCode(verificationOrder._id);
+      }
+      toast.error(err.response?.data?.message || 'Verification failed');
+    } finally {
+      setVerificationSubmitting(false);
+    }
+  };
+
+  const handleRejectCash = (order) => {
+    setRejectOrder(order);
+    setRejectReason('');
+  };
+
+  const handleConfirmReject = async () => {
+    if (!rejectOrder) return;
+    const trimmed = rejectReason.trim();
+    if (trimmed.length < 5) {
+      toast.error('Please provide a rejection reason (at least 5 characters)');
+      return;
+    }
+    setRejectSubmitting(true);
+    try {
+      await paymentAPI.rejectPayment(rejectOrder._id, trimmed);
+      toast.success('Payment rejected — student will be notified to resubmit.');
+      setRejectOrder(null);
+      fetchOrders(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Rejection failed');
+    } finally {
+      setRejectSubmitting(false);
+    }
+  };
+
+  const handleOpenPickupVerify = (order) => {
+    setPickupOrder(order);
+    setPickupForm({ pickupCode: '' });
+    setPickupErrors({});
+  };
+
+  const handleConfirmPickup = async () => {
+    if (!pickupOrder) return;
+    setPickupSubmitting(true);
+    try {
+      await orderAPI.verifyPickup(pickupOrder._id, { 
+        pickupCode: pickupForm.pickupCode,
+        canteenId,
+        qrValidated: true // Backend still logs it for activity, but doesn't require it as a hurdle
+      });
+      toast.success('Order delivered!');
+      setPickupOrder(null);
+      fetchOrders(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Verification failed');
+    } finally {
+      setPickupSubmitting(false);
+    }
+  };
+
+  const handlePickupByCode = async (codeToSubmit = null) => {
+    const code = (codeToSubmit || codeInput).trim().toUpperCase();
+    if (!PICKUP_CODE_REGEX.test(code)) {
+        if (!codeToSubmit) toast.warn('Please enter a valid 6-character code');
+        return;
+    }
+    setCodeVerifying(true);
+    try {
+      await orderAPI.pickupByCode(code, true, canteenId);
+      toast.success('Transfer complete! Order marked as delivered.');
+      setCodeInput('');
+      fetchOrders(true);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Pickup verification failed');
+    } finally {
+      setCodeVerifying(false);
+    }
+  };
+
+  const pendingCount = orders.filter((order) => order.status === 'pending').length;
+  const preparingCount = orders.filter((order) => order.status === 'preparing').length;
+  const readyCount = orders.filter((order) => order.status === 'ready').length;
+  const pendingVerificationCount = orders.filter((order) => order.payment?.status === 'pending_verification').length;
+  const verifiedPaymentsCount = orders.filter((order) => order.payment?.status === 'verified').length;
+  const visibleRevenue = orders.reduce((sum, order) => sum + Number(order.totalPrice || 0), 0);
+  const staleCount = staleOrders.length || orders.filter(o =>
+    ['pending', 'preparing'].includes(o.status) &&
+    o.payment?.status !== 'verified' &&
+    (Date.now() - new Date(o.createdAt).getTime()) > ONE_DAY_MS
+  ).length;
+  const cancelledCount = orders.filter(o => o.status === 'cancelled').length;
+
+  return (
+    <div className="max-w-6xl mx-auto py-8 px-4">
+      <div className="relative overflow-hidden rounded-[28px] border border-orange-100 bg-gradient-to-br from-orange-50 via-white to-amber-50 px-6 py-6 mb-6 shadow-sm">
+        <div className="absolute -top-20 -right-16 w-56 h-56 rounded-full bg-orange-100/70 blur-3xl" />
+        <div className="absolute -bottom-20 -left-16 w-56 h-56 rounded-full bg-amber-100/70 blur-3xl" />
+
+        <div className="relative flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-extrabold text-gray-900">Orders Management</h1>
+            <p className="text-gray-500 text-sm mt-1">
+              {isAdmin ? 'Track all confirmed orders, or filter by a specific canteen' : 'Track, verify, and deliver orders in real time'}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Visible</p>
+              <p className="text-lg font-extrabold text-gray-900">{orders.length}</p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Pending</p>
+              <p className="text-lg font-extrabold text-amber-600">{pendingCount}</p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Preparing</p>
+              <p className="text-lg font-extrabold text-blue-600">{preparingCount}</p>
+            </div>
+            <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Ready</p>
+              <p className="text-lg font-extrabold text-green-600">{readyCount}</p>
+            </div>
+            {isAdmin && (
+              <>
+                <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Awaiting Pay</p>
+                  <p className="text-lg font-extrabold text-yellow-600">{pendingVerificationCount}</p>
+                </div>
+                <div className="rounded-xl border border-orange-100 bg-white px-3 py-2 text-center min-w-[88px]">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Paid</p>
+                  <p className="text-lg font-extrabold text-emerald-700">{verifiedPaymentsCount}</p>
+                </div>
+              </>
+            )}
+            {tab === 'orders' && (
+              <button
+                onClick={() => fetchOrders(true)}
+                className={`p-2.5 rounded-xl border border-orange-100 bg-white hover:bg-orange-50 transition-colors ${refreshing ? 'animate-spin' : ''}`}
+              >
+                <RefreshCw size={18} className="text-gray-500" />
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Canteen Selector - Show prominently for Admin */}
+      {isAdmin && (
+        <div className="mb-8">
+          {canteenLoading ? (
+            <div className="bg-gradient-to-r from-orange-50 to-white border-2 border-orange-100 rounded-2xl px-6 py-6 shadow-sm">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin" />
+                <div>
+                  <p className="font-extrabold text-gray-900">Loading canteens...</p>
+                  <p className="text-sm text-gray-400">Fetching available canteens</p>
+                </div>
+              </div>
+            </div>
+          ) : canteens.length === 0 ? (
+            <div className="bg-red-50 border-2 border-red-200 rounded-2xl px-6 py-6">
+              <div className="flex items-start gap-3">
+                <AlertCircle size={20} className="text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-extrabold text-red-900">No Canteens Found</p>
+                  <p className="text-sm text-red-700 mt-0.5">You don't have access to any canteens. Please contact an administrator.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-gradient-to-r from-orange-50 to-white border-2 border-orange-200 rounded-2xl px-6 py-5 shadow-sm hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-lg bg-orange-100">
+                  <BarChart2 size={20} className="text-orange-600" />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-extrabold text-orange-700 uppercase tracking-wider mb-2">📍 Select Canteen</label>
+                  <select
+                    value={localCanteenId}
+                    onChange={(e) => setLocalCanteenId(e.target.value)}
+                    className="w-full bg-white border-2 border-orange-300 px-4 py-3 rounded-xl text-base text-gray-900 font-extrabold focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent cursor-pointer hover:border-orange-400 transition-colors"
+                  >
+                    <option value="">All canteens</option>
+                    {canteens.map(c => (
+                      <option key={c._id} value={c._id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {!!localCanteenId && (
+                  <div className="hidden lg:block rounded-xl border border-orange-100 bg-white px-4 py-3 min-w-[170px] text-right">
+                    <p className="text-[10px] uppercase tracking-wider text-gray-400 font-extrabold">Visible Revenue</p>
+                    <p className="text-base font-extrabold text-orange-700">LKR {visibleRevenue.toLocaleString()}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Show tabs/content for all users; admin can use all-canteen mode for order flow. */}
+      {(
+        <>
+          {isAdmin && (
+            <div className="mb-4 rounded-2xl border border-orange-100 bg-white px-4 py-3 shadow-sm flex flex-wrap items-center gap-2">
+              <span className="text-[11px] uppercase tracking-wider text-gray-400 font-extrabold">Admin order tools</span>
+              <button onClick={() => setTab('orders')} className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-orange-50 text-orange-700 hover:bg-orange-100">Order Flow</button>
+              <button onClick={() => setTab('billing')} className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-emerald-50 text-emerald-700 hover:bg-emerald-100">Billing View</button>
+              <button onClick={() => setTab('queue')} className="px-3 py-1.5 rounded-full text-xs font-extrabold bg-indigo-50 text-indigo-700 hover:bg-indigo-100">Queue Board</button>
+              <div className="ml-auto flex items-center gap-2">
+                <button
+                  onClick={() => setDeleteCancelledOpen(true)}
+                  disabled={cancelledCount === 0}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-extrabold bg-red-50 text-red-600 hover:bg-red-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors border border-red-200"
+                >
+                  <Trash2 size={12} />
+                  Delete Cancelled
+                  {cancelledCount > 0 && <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-500 text-white leading-none">{cancelledCount}</span>}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div className="flex gap-1 bg-gray-100 p-1 rounded-xl mb-6 w-fit border border-gray-200 shadow-sm flex-wrap">
+            <button
+              onClick={() => setTab('orders')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'orders' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <LayoutList size={14} /> Orders
+            </button>
+            <button
+              onClick={() => setTab('billing')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'billing' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <Wallet size={14} /> Billing
+            </button>
+            <button
+              onClick={() => setTab('queue')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'queue' ? 'bg-white shadow-sm text-orange-700' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <BarChart2 size={14} /> Queue Board
+            </button>
+            <button
+              onClick={() => setTab('stale')}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-extrabold transition-colors ${tab === 'stale' ? 'bg-white shadow-sm text-red-600' : 'text-gray-500 hover:text-gray-700'}`}
+            >
+              <Trash2 size={14} /> Expired
+              {staleCount > 0 && (
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-500 text-white leading-none">
+                  {staleCount}
+                </span>
+              )}
+            </button>
+          </div>
+
+      <AnimatePresence mode="wait" initial={false}>
+        {tab === 'queue' ? (
+          <motion.div
+            key="queue-tab"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
+            <QueueBoard canteenIdProp={canteenId} isAdmin={false} />
+          </motion.div>
+        ) : tab === 'billing' ? (
+          <motion.div
+            key="billing-tab"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
+            <BillingBoard canteenId={canteenId} />
+          </motion.div>
+        ) : tab === 'stale' ? (
+          <motion.div
+            key="stale-tab"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
+            <StaleOrdersTab
+              staleOrders={staleOrders}
+              loading={staleLoading}
+              onCancelOrder={handleSingleStaleCancel}
+              onBulkCancel={handleBulkCancel}
+              bulkSubmitting={bulkCancelSubmitting}
+            />
+          </motion.div>
+        ) : (
+          <motion.div
+            key="orders-tab"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.22 }}
+          >
+          {!canteenId && !isAdmin && (
+            <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Select a canteen to enable order management
+            </div>
+          )}
+
+          {/* Pickup Code Entry Bar */}
+          <div className="relative overflow-hidden rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-sky-50 px-4 py-3 mb-5 shadow-sm">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-indigo-100/70 blur-2xl" />
+            <form onSubmit={(e) => { e.preventDefault(); handlePickupByCode(); }} className="flex items-center gap-3">
+              <QrCode size={18} className="text-indigo-400 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <input
+                  value={codeInput}
+                  onChange={e => {
+                    setCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6));
+                    setCodeInputTouched(true);
+                  }}
+                  placeholder="Enter pickup code (e.g. QK82F1)"
+                  maxLength={6}
+                  autoComplete="off"
+                  className="w-full bg-transparent text-sm font-extrabold text-indigo-700 placeholder-indigo-300 focus:outline-none tracking-widest uppercase"
+                />
+              </div>
+              <span className={`text-[11px] font-extrabold whitespace-nowrap ${
+                codeInput.length === 6 ? 'text-indigo-600' : 'text-indigo-300'
+              }`}>
+                {codeInput.length}/6
+              </span>
+              <button
+                type="button"
+                onClick={() => setQrScannerOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 rounded-xl text-xs font-extrabold transition-colors whitespace-nowrap border border-indigo-200"
+              >
+                <QrCode size={13} /> Scan QR
+              </button>
+              <button
+                type="submit"
+                disabled={codeVerifying || !PICKUP_CODE_REGEX.test(codeInput.trim().toUpperCase())}
+                className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-xs font-extrabold transition-colors whitespace-nowrap"
+              >
+                {codeVerifying ? <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <CheckCircle size={13} />}
+                Confirm Delivery
+              </button>
+            </form>
+            {/* Inline validation hints */}
+            {codeInputTouched && codeInput.length > 0 && codeInput.length < 6 && (
+              <p className="text-[11px] text-indigo-400 mt-1.5 pl-7">Enter all 6 characters of the pickup code</p>
+            )}
+          </div>
+
+          {/* Status filters */}
+          <div className="flex gap-2 mb-5 flex-wrap rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+            {[{ value: '', label: 'All' }, ...ORDER_STATUSES.map(s => ({ value: s, label: STATUS_CONFIG[s].label }))].map(f => (
+              <button
+                key={f.value}
+                onClick={() => setStatusFilter(f.value)}
+                className={`px-4 py-1.5 rounded-full text-sm font-extrabold transition-colors ${statusFilter === f.value
+                  ? 'bg-orange-500 text-white'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {loading ? (
+            <div className="flex items-center justify-center h-40">
+              <div className="w-6 h-6 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="text-center py-20">
+              <div className="w-16 h-16 bg-orange-50 rounded-[24px] flex items-center justify-center mx-auto mb-4 text-orange-400">
+                <ShoppingBag size={32} />
+              </div>
+              <p className="text-gray-400 font-medium">No orders found</p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {orders.map((order, index) => (
+                <motion.div
+                  key={order._id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.24, delay: Math.min(index * 0.04, 0.24) }}
+                >
+                  <OrderCard
+                    order={order}
+                    onStatusChange={handleStatusChange}
+                    onVerifyCash={handleOpenVerifyCash}
+                    onRejectCash={handleRejectCash}
+                    onVerifyPickup={handleOpenPickupVerify}
+                    canManagePayments={canManagePayments}
+                    userRole={user?.role}
+                    onViewDetails={setSelectedOrder}
+                  />
+                </motion.div>
+              ))}
+            </div>
+          )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {qrScannerOpen && (
+        <QRScannerModal
+          onClose={() => setQrScannerOpen(false)}
+          onScanSuccess={(code) => handlePickupByCode(code)}
+        />
+      )}
+
+      {selectedOrder && (
+        <OrderDetailModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onStatusChange={handleStatusChange}
+          onVerifyCash={handleOpenVerifyCash}
+          onRejectCash={handleRejectCash}
+          onVerifyPickup={handleOpenPickupVerify}
+          canManagePayments={canManagePayments}
+          userRole={user?.role}
+        />
+      )}
+
+      <CashVerificationModal
+        order={verificationOrder}
+        form={verificationForm}
+        errors={verificationErrors}
+        submitting={verificationSubmitting}
+        latestCode={latestVerificationCode}
+        latestCodeIssuedAt={latestVerificationCodeIssuedAt}
+        refreshingCode={verificationCodeRefreshing}
+        onRefreshCode={() => syncLatestCashCode(verificationOrder?._id)}
+        onChange={handleVerificationInputChange}
+        onClose={() => {
+          setVerificationOrder(null);
+          setLatestVerificationCode('');
+          setLatestVerificationCodeIssuedAt(null);
+        }}
+        onSubmit={handleConfirmVerifyCash}
+      />
+
+      <PickupVerificationModal
+        order={pickupOrder}
+        form={pickupForm}
+        onChange={(updates) => setPickupForm({ ...pickupForm, ...updates })}
+        submitting={pickupSubmitting}
+        onClose={() => setPickupOrder(null)}
+        onSubmit={handleConfirmPickup}
+        onOpenScanner={() => setQrScannerOpen(true)}
+      />
+
+      <RejectPaymentModal
+        order={rejectOrder}
+        reason={rejectReason}
+        onChange={setRejectReason}
+        submitting={rejectSubmitting}
+        onClose={() => setRejectOrder(null)}
+        onSubmit={handleConfirmReject}
+      />
+
+      <CancelWithReasonModal
+        order={adminCancelOrder}
+        submitting={adminCancelSubmitting}
+        onClose={() => setAdminCancelOrder(null)}
+        onSubmit={handleConfirmAdminCancel}
+      />
+
+      {isAdmin && deleteCancelledOpen && (
+        <DeleteCancelledModal
+          count={cancelledCount}
+          canteenName={canteens.find(c => c._id === canteenId)?.name || (canteenId ? '' : null)}
+          submitting={deleteCancelledBusy}
+          onClose={() => setDeleteCancelledOpen(false)}
+          onConfirm={handleDeleteCancelled}
+        />
+      )}
+        </>
+      )}
+    </div>
+  );
+};
 
 export default AdminOrdersPage;

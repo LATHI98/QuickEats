@@ -20,20 +20,40 @@ import AdminMenu from './Pages/Admin/MenuPage';
 import AdminOrders from './Pages/Admin/OrdersPage';
 import AdminUsers from './Pages/Admin/UsersPage';
 import AdminSettings from './Pages/Admin/SettingsPage';
+import StaffDashboardPage from './Pages/Admin/StaffDashboardPage';
+import AdminReservations from './Pages/Admin/ReservationsPage';
+import TablesManagement from './Pages/Admin/TablesPage';
+import SelectCanteenPage from './Pages/Admin/SelectCanteenPage';
+import AdminMealPassPage from './Pages/Admin/MealPassManagementPage';
+import MealPassRecordsPage from './Pages/Admin/MealPassApprovalsPage';
+import SupportCenterPage from './Pages/SupportCenterPage';
+import RatingsReviewsManagementPage from './Pages/Admin/RatingsReviewsManagementPage';
 
 // Canteen Staff pages
 import CanteenStaffDashboard from './Pages/CanteenStaff/DashboardPage';
-import StockPage from './Pages/CanteenStaff/StockPage';
 import MealPassStaffPage from './Pages/CanteenStaff/MealPassPage';
 
 // Student pages
 import StudentDashboard from './Pages/Student/DashboardPage';
 import StudentCanteens from './Pages/Student/CanteensPage';
 import StudentOrders from './Pages/Student/OrdersPage';
+import OrderTrackingPage from './Pages/Student/OrderTrackingPage';
+import PaymentPage from './Pages/Student/PaymentPage';
+import CartPage from './Pages/Student/CartPage';
+import CanteenMenuPage from './Pages/Student/CanteenMenuPage';
 import ProfilePage from './Pages/Student/ProfilePage';
+import StudentSettings from './Pages/Student/SettingsPage';
 import ReservationsPage from './Pages/Student/ReservationsPage';
 import MealPassPage from './Pages/Student/MealPassPage';
 import MealBudgetPage from './Pages/Student/MealBudgetPage';
+import HealthMealPlanPage from './Pages/Student/HealthMealPlanPage';
+import GroupOrderHub from './Pages/Student/GroupOrderHub';
+import CrowdMonitorPage from './Pages/Student/CrowdMonitorPage';
+import EventCateringRequestPage from './Pages/Student/EventCateringRequestPage';
+import EventCateringTrackingPage from './Pages/Student/EventCateringTrackingPage';
+import EventCateringPaymentPage from './Pages/Student/EventCateringPaymentPage';
+import MyMealPassesPage from './Pages/Student/MyMealPassesPage';
+import EventCateringDashboardPage from './Pages/Admin/EventCateringDashboardPage';
 
 const AdminDashboardSelector = () => {
   const { user } = useAuth();
@@ -57,11 +77,24 @@ function App() {
           <Route path="/dashboard" element={<StudentLayout />}>
             <Route index element={<StudentDashboard />} />
             <Route path="canteens" element={<StudentCanteens />} />
+            <Route path="canteens/:canteenId/menu" element={<CanteenMenuPage />} />
+            <Route path="cart" element={<CartPage />} />
             <Route path="orders" element={<StudentOrders />} />
+            <Route path="payment/:orderId" element={<PaymentPage />} />
             <Route path="reservations" element={<ReservationsPage />} />
             <Route path="meal-pass" element={<MealPassPage />} />
+            <Route path="my-passes" element={<MyMealPassesPage />} />
+            <Route path="order-tracking" element={<OrderTrackingPage />} />
             <Route path="budget" element={<MealBudgetPage />} />
+            <Route path="meal-plan" element={<HealthMealPlanPage />} />
             <Route path="profile" element={<ProfilePage />} />
+            <Route path="settings" element={<StudentSettings />} />
+            <Route path="group-order" element={<GroupOrderHub />} />
+            <Route path="crowd" element={<CrowdMonitorPage />} />
+            <Route path="event-catering" element={<EventCateringRequestPage />} />
+            <Route path="event-catering/tracking" element={<EventCateringTrackingPage />} />
+            <Route path="event-catering/payment/:requestId" element={<EventCateringPaymentPage />} />
+            <Route path="help" element={<SupportCenterPage />} />
           </Route>
         </Route>
 
@@ -71,13 +104,23 @@ function App() {
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboardSelector />} />
             <Route path="canteens" element={<AdminCanteens />} />
+            <Route path="tables" element={<TablesManagement />} />
             <Route path="menu" element={<AdminMenu />} />
             <Route path="orders" element={<AdminOrders />} />
+            <Route path="reservations" element={<AdminReservations />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="settings" element={<AdminSettings />} />
-            <Route path="stock" element={<StockPage />} />
-            <Route path="meal-pass" element={<MealPassStaffPage />} />
+            <Route path="staff" element={<StaffDashboardPage />} />
+            <Route path="meal-pass" element={<AdminMealPassPage />} />
+            <Route path="approvals" element={<MealPassRecordsPage />} />
+            <Route path="event-catering" element={<EventCateringDashboardPage />} />
+            <Route path="reviews" element={<RatingsReviewsManagementPage />} />
+            <Route path="help" element={<SupportCenterPage />} />
           </Route>
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['canteenStaff', 'canteenManager']} />}>
+          <Route path="/admin/select-canteen" element={<SelectCanteenPage />} />
         </Route>
 
         {/* Catch-all */}

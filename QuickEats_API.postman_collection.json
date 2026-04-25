@@ -28,7 +28,7 @@
       "name": "Auth",
       "item": [
         {
-          "name": "Login — Super Admin",
+          "name": "Login — Admin",
           "event": [
             {
               "listen": "test",
@@ -49,7 +49,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@quickeats.com\",\n  \"password\": \"admin123\"\n}"
+              "raw": "{\n  \"email\": \"admin@quickeats.com\",\n  \"password\": \"admin123\",\n  \"role\": \"admin\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
           }
@@ -76,7 +76,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"student@quickeats.com\",\n  \"password\": \"student123\"\n}"
+              "raw": "{\n  \"email\": \"student@quickeats.com\",\n  \"password\": \"student123\",\n  \"role\": \"student\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
           }
@@ -88,7 +88,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@quickeats.com\",\n  \"password\": \"wrongpassword\"\n}"
+              "raw": "{\n  \"email\": \"admin@quickeats.com\",\n  \"password\": \"wrongpassword\",\n  \"role\": \"admin\"\n}"
             },
             "url": { "raw": "{{baseUrl}}/api/auth/login", "host": ["{{baseUrl}}"], "path": ["api", "auth", "login"] }
           }

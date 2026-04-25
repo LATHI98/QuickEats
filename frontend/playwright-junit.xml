@@ -1,0 +1,37 @@
+<testsuites id="" name="" tests="3" failures="0" skipped="0" errors="0" time="7.369029">
+<testsuite name="order-management.spec.js" timestamp="2026-04-25T03:47:25.425Z" hostname="chromium" tests="3" failures="0" skipped="0" time="15.729" errors="0">
+<testcase name="Order management journeys › admin can filter orders by status" classname="order-management.spec.js" time="5.201">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\order-management-Order-man-62355-can-filter-orders-by-status-chromium\test-finished-1.png]]
+
+[[ATTACHMENT|test-results\order-management-Order-man-62355-can-filter-orders-by-status-chromium\video.webm]]
+
+[[ATTACHMENT|test-results\order-management-Order-man-62355-can-filter-orders-by-status-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Order management journeys › expired tab supports bulk cancel flow" classname="order-management.spec.js" time="5.544">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\order-management-Order-man-73418-b-supports-bulk-cancel-flow-chromium\test-finished-1.png]]
+
+[[ATTACHMENT|test-results\order-management-Order-man-73418-b-supports-bulk-cancel-flow-chromium\video.webm]]
+
+[[ATTACHMENT|test-results\order-management-Order-man-73418-b-supports-bulk-cancel-flow-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+<testcase name="Order management journeys › pickup code confirmation marks ready order delivered" classname="order-management.spec.js" time="4.984">
+<system-out>
+<![CDATA[
+[[ATTACHMENT|test-results\order-management-Order-man-b14ec-marks-ready-order-delivered-chromium\test-finished-1.png]]
+
+[[ATTACHMENT|test-results\order-management-Order-man-b14ec-marks-ready-order-delivered-chromium\video.webm]]
+
+[[ATTACHMENT|test-results\order-management-Order-man-b14ec-marks-ready-order-delivered-chromium\trace.zip]]
+]]>
+</system-out>
+</testcase>
+</testsuite>
+</testsuites>
